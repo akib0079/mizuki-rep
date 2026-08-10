@@ -1,0 +1,280 @@
+import { Types } from 'mongoose'
+import {
+  formatDuration,
+  formatSessionDateTime,
+  formatTimeRange,
+  rescheduleDeadline,
+  seatsLeft,
+  sessionsRemaining,
+  type EmailTemplateKey,
+} from '@mizuki/shared'
+import { OutboxModel, type BookingDoc, type CourseTypeDoc, type PackageDoc, type SessionDoc, type StudentDoc } from '../models/index.js'
+import { renderTemplate } from './emailTemplates.js'
+import { config } from '../config.js'
+import { logger } from '../logger.js'
+import { isDuplicateKeyError } from './transaction.js'
+
+/**
+ * Everything the system sends goes through here, and everything here goes into the Outbox first.
+ *
+ * Queueing rather than sending inline means a booking never fails because Resend had a bad
+ * minute, and the unique `dedupeKey` means a retried job cannot send a student the same
+ * reminder twice. The sender drains the queue on the cron tick.
+ */
+
+export interface QueueOptions {
+  dedupeKey: string
+  channel?: 'email' | 'telegram' | 'webpush'
+  to?: string
+  subject?: string
+  bodyHtml?: string
+  bodyText?: string
+  payload?: Record<string, unknown>
+  relatedBookingId?: Types.ObjectId | null
+  relatedSessionId?: Types.ObjectId | null
+}
+
+/**
+ * Add a message to the queue. A duplicate key means this exact message is already queued or
+ * sent, which is success, not failure — that is the whole point of the key.
+ */
+export async function queueMessage(type: string, opts: QueueOptions): Promise<boolean> {
+  try {
+    await OutboxModel.create({
+      type,
+      channel: opts.channel ?? 'email',
+      dedupeKey: opts.dedupeKey,
+      to: opts.to ?? '',
+      subject: opts.subject ?? '',
+      bodyHtml: opts.bodyHtml ?? '',
+      bodyText: opts.bodyText ?? '',
+      payload: opts.payload ?? {},
+      relatedBookingId: opts.relatedBookingId ?? null,
+      relatedSessionId: opts.relatedSessionId ?? null,
+      status: 'pending',
+    })
+    return true
+  } catch (err) {
+    if (isDuplicateKeyError(err)) {
+      logger.debug({ type, dedupeKey: opts.dedupeKey }, 'Message already queued — skipping duplicate')
+      return false
+    }
+    throw err
+  }
+}
+
+/** The variables every student-facing template can use. */
+export function sessionVars(session: SessionDoc, courseType: CourseTypeDoc) {
+  const durationMins = Math.round((session.endAt.getTime() - session.startAt.getTime()) / 60_000)
+  return {
+    sessionTitle: session.title || courseType.name,
+    courseName: courseType.name,
+    sessionDate: formatSessionDateTime(session.startAt).split(',')[0] ?? '',
+    sessionTimeRange: formatTimeRange(session.startAt, session.endAt),
+    sessionDuration: formatDuration(durationMins),
+    rescheduleDeadline: formatSessionDateTime(rescheduleDeadline(session.startAt, courseType.rescheduleCutoffHours)),
+  }
+}
+
+function studentVars(student: StudentDoc) {
+  return {
+    studentName: student.name,
+    studentEmail: student.email,
+    studentPhone: student.phone || '—',
+    siteUrl: config.PUBLIC_SITE_URL,
+    studioPhone: '+65 8821 9386',
+    bookingUrl: `${config.PUBLIC_SITE_URL}/book`,
+    myBookingsUrl: `${config.PUBLIC_SITE_URL}/my-bookings`,
+  }
+}
+
+/** "You have 6 of 8 sessions left" — omitted entirely for one-off paid workshops. */
+function packageLine(pkg: PackageDoc | null, courseName: string): string {
+  if (!pkg) return ''
+  const left = sessionsRemaining(pkg)
+  return `You have ${left} of ${pkg.totalSessions} ${courseName} sessions remaining in your course package.`
+}
+
+interface BookingContext {
+  booking: BookingDoc
+  session: SessionDoc
+  courseType: CourseTypeDoc
+  student: StudentDoc
+  pkg?: PackageDoc | null
+}
+
+async function queueStudentEmail(
+  key: EmailTemplateKey,
+  ctx: BookingContext,
+  extraVars: Record<string, string | number> = {},
+  dedupeSuffix = '',
+): Promise<void> {
+  const vars = {
+    ...studentVars(ctx.student),
+    ...sessionVars(ctx.session, ctx.courseType),
+    packageLine: packageLine(ctx.pkg ?? null, ctx.courseType.name),
+    ...extraVars,
+  }
+
+  const rendered = await renderTemplate(key, vars)
+
+  await queueMessage(key, {
+    dedupeKey: `${key}:${ctx.booking._id}${dedupeSuffix}`,
+    to: ctx.student.email,
+    subject: rendered.subject,
+    bodyHtml: rendered.html,
+    bodyText: rendered.text,
+    relatedBookingId: ctx.booking._id,
+    relatedSessionId: ctx.session._id,
+    payload: { attachIcs: key === 'booking_confirmation' || key === 'reschedule_confirmed' },
+  })
+}
+
+export async function queueBookingConfirmation(ctx: BookingContext): Promise<void> {
+  await queueStudentEmail('booking_confirmation', ctx)
+}
+
+export async function queueRescheduleConfirmation(
+  ctx: BookingContext,
+  previous: { startAt: Date; endAt: Date },
+): Promise<void> {
+  await queueStudentEmail('reschedule_confirmed', ctx, {
+    previousSessionDate: formatSessionDateTime(previous.startAt).split(',')[0] ?? '',
+    previousSessionTimeRange: formatTimeRange(previous.startAt, previous.endAt),
+  })
+}
+
+export async function queueBookingCancelled(ctx: BookingContext): Promise<void> {
+  await queueStudentEmail('booking_cancelled', ctx)
+}
+
+export async function queueSessionCancelled(ctx: BookingContext, reason: string): Promise<void> {
+  await queueStudentEmail('session_cancelled', ctx, {
+    cancelReasonLine: reason ? `Reason: ${reason}` : '',
+  })
+}
+
+export async function queueSessionMoved(
+  ctx: BookingContext,
+  previous: { startAt: Date; endAt: Date },
+): Promise<void> {
+  // Suffixed with the new start time so a class moved twice notifies twice, while a
+  // retried job for the same move stays deduplicated.
+  await queueStudentEmail(
+    'session_moved',
+    ctx,
+    {
+      previousSessionDate: formatSessionDateTime(previous.startAt).split(',')[0] ?? '',
+      previousSessionTimeRange: formatTimeRange(previous.startAt, previous.endAt),
+    },
+    `:${ctx.session.startAt.getTime()}`,
+  )
+}
+
+export async function queueReminder(ctx: BookingContext): Promise<void> {
+  await queueStudentEmail('reminder_2day', ctx)
+}
+
+/**
+ * "An automatic notification for me whenever someone signs up for a session."
+ *
+ * Fans out across every channel the studio has configured — email always, plus Telegram and
+ * web push for an actual phone alert. Each channel gets its own dedupe key so one failing
+ * does not suppress the others.
+ */
+export async function queueAdminNewBooking(ctx: BookingContext): Promise<void> {
+  const left = seatsLeft(ctx.session)
+  const vars = {
+    ...studentVars(ctx.student),
+    ...sessionVars(ctx.session, ctx.courseType),
+    bookingSource:
+      ctx.booking.source === 'admin_manual'
+        ? 'added by the studio'
+        : ctx.booking.source === 'woo_order'
+          ? 'shop checkout'
+          : 'website',
+    seatsTaken: ctx.session.seatsTaken,
+    seatsLeft: left,
+    capacity: ctx.session.capacity,
+    packageLine: packageLine(ctx.pkg ?? null, ctx.courseType.name),
+    adminSessionUrl: `${config.PUBLIC_API_URL}/admin/calendar?session=${ctx.session._id}`,
+  }
+
+  const rendered = await renderTemplate('admin_new_booking', vars)
+
+  if (config.ADMIN_ALERT_EMAIL) {
+    await queueMessage('admin_new_booking', {
+      dedupeKey: `admin_new_booking:email:${ctx.booking._id}`,
+      to: config.ADMIN_ALERT_EMAIL,
+      subject: rendered.subject,
+      bodyHtml: rendered.html,
+      bodyText: rendered.text,
+      relatedBookingId: ctx.booking._id,
+      relatedSessionId: ctx.session._id,
+    })
+  }
+
+  const shortLine = `📅 ${ctx.student.name} booked ${vars.sessionTitle}\n${vars.sessionDate} · ${vars.sessionTimeRange}\n${left} of ${ctx.session.capacity} places left`
+
+  if (config.TELEGRAM_BOT_TOKEN && config.TELEGRAM_CHAT_ID) {
+    await queueMessage('admin_new_booking', {
+      dedupeKey: `admin_new_booking:telegram:${ctx.booking._id}`,
+      channel: 'telegram',
+      bodyText: shortLine,
+      relatedBookingId: ctx.booking._id,
+    })
+  }
+
+  if (config.VAPID_PUBLIC_KEY && config.VAPID_PRIVATE_KEY) {
+    await queueMessage('admin_new_booking', {
+      dedupeKey: `admin_new_booking:webpush:${ctx.booking._id}`,
+      channel: 'webpush',
+      subject: `New booking — ${ctx.student.name}`,
+      bodyText: `${vars.sessionTitle} · ${vars.sessionDate} ${vars.sessionTimeRange}`,
+      payload: { url: vars.adminSessionUrl },
+      relatedBookingId: ctx.booking._id,
+    })
+  }
+}
+
+/** Cancellations and reschedules matter to the studio too — same fan-out, lighter wording. */
+export async function queueAdminBookingChange(
+  ctx: BookingContext,
+  kind: 'cancelled' | 'rescheduled',
+): Promise<void> {
+  const vars = sessionVars(ctx.session, ctx.courseType)
+  const verb = kind === 'cancelled' ? 'cancelled' : 'moved to'
+  const line = `⚠️ ${ctx.student.name} ${verb} ${vars.sessionTitle}\n${vars.sessionDate} · ${vars.sessionTimeRange}`
+
+  if (config.ADMIN_ALERT_EMAIL) {
+    await queueMessage(`admin_booking_${kind}`, {
+      dedupeKey: `admin_booking_${kind}:email:${ctx.booking._id}`,
+      to: config.ADMIN_ALERT_EMAIL,
+      subject: `Booking ${kind}: ${ctx.student.name} — ${vars.sessionTitle}, ${vars.sessionDate}`,
+      bodyText: line,
+      bodyHtml: `<p>${line.replace(/\n/g, '<br />')}</p>`,
+      relatedBookingId: ctx.booking._id,
+    })
+  }
+
+  if (config.TELEGRAM_BOT_TOKEN && config.TELEGRAM_CHAT_ID) {
+    await queueMessage(`admin_booking_${kind}`, {
+      dedupeKey: `admin_booking_${kind}:telegram:${ctx.booking._id}`,
+      channel: 'telegram',
+      bodyText: line,
+      relatedBookingId: ctx.booking._id,
+    })
+  }
+}
+
+export async function queueMagicLink(student: StudentDoc, url: string, tokenId: string): Promise<void> {
+  const rendered = await renderTemplate('magic_link', { ...studentVars(student), magicLinkUrl: url })
+  await queueMessage('magic_link', {
+    // Keyed on the token, so every fresh request sends, but a retry of the same one does not.
+    dedupeKey: `magic_link:${tokenId}`,
+    to: student.email,
+    subject: rendered.subject,
+    bodyHtml: rendered.html,
+    bodyText: rendered.text,
+  })
+}

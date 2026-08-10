@@ -1,0 +1,147 @@
+/** Thin fetch wrapper. Every call carries the admin session cookie and surfaces the API's own message. */
+
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: string,
+    message: string,
+    readonly details?: { path: string; message: string }[],
+  ) {
+    super(message)
+  }
+}
+
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const response = await fetch(path, {
+    ...init,
+    credentials: 'include',
+    headers: {
+      ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+      ...init.headers,
+    },
+  })
+
+  if (response.status === 204) return undefined as T
+
+  const body = await response.json().catch(() => null)
+
+  if (!response.ok) {
+    const error = body?.error
+    throw new ApiError(
+      response.status,
+      error?.code ?? 'unknown',
+      error?.message ?? 'Something went wrong. Please try again.',
+      error?.details,
+    )
+  }
+
+  return body as T
+}
+
+export const api = {
+  get: <T>(path: string) => request<T>(path),
+  post: <T>(path: string, body?: unknown) =>
+    request<T>(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined }),
+  patch: <T>(path: string, body: unknown) =>
+    request<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
+  put: <T>(path: string, body: unknown) => request<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
+  delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+}
+
+// --- Shapes the console works with ------------------------------------------
+
+export interface AdminSession {
+  id: string
+  courseTypeId: string
+  courseName: string
+  colour: string
+  title: string
+  startAt: string
+  endAt: string
+  dateKey: string
+  capacity: number
+  heldBack: number
+  seatsTaken: number
+  seatsLeft: number
+  overCapacity: boolean
+  status: 'scheduled' | 'cancelled'
+  isRecurring: boolean
+  breaks: { start: string; end: string; label: string }[]
+  notes: string
+}
+
+export interface RosterEntry {
+  bookingId: string
+  studentId: string
+  name: string
+  email: string
+  phone: string
+  status: string
+  source: string
+  usedPackage: boolean
+  capacityOverridden: boolean
+  notes: string
+  bookedAt: string
+}
+
+export interface Course {
+  id: string
+  name: string
+  slug: string
+  colour: string
+  bookingMode: 'package' | 'paid' | 'free'
+  rescheduleCutoffHours: number
+  defaultCapacity: number
+  defaultDurationMins: number
+}
+
+export interface ClosedDate {
+  id: string
+  startDate: string
+  endDate: string
+  reason: string
+}
+
+export interface AwayPreview {
+  days: number
+  sessionCount: number
+  affectedStudentCount: number
+  sessions: {
+    id: string
+    dateKey: string
+    title: string
+    startAt: string
+    bookedCount: number
+    students: { name: string; email: string }[]
+  }[]
+}
+
+export interface StudentSummary {
+  id: string
+  name: string
+  email: string
+  phone: string
+  sessionsRemaining: number
+}
+
+export interface PackageSummary {
+  id: string
+  courseTypeId: string
+  courseName: string
+  totalSessions: number
+  usedSessions: number
+  remaining: number
+  expiresAt: string | null
+  status: string
+}
+
+export interface EmailTemplate {
+  key: string
+  label: string
+  description: string
+  variables: string[]
+  subject: string
+  bodyHtml: string
+  bodyText: string
+  isCustomised: boolean
+}

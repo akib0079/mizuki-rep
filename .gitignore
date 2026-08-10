@@ -1,0 +1,15 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+.env
+.env.local
+.env.*.local
+
+wp-plugin/mizuki-booking-bridge/assets/
+wp-plugin/*.zip
+
+.DS_Store
+*.log
+.vscode/
+.idea/

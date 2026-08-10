@@ -1,0 +1,255 @@
+import { Router } from 'express'
+import rateLimit from 'express-rate-limit'
+import {
+  cancelBookingSchema,
+  evaluateReschedule,
+  rescheduleBookingSchema,
+  startBookingSchema,
+} from '@mizuki/shared'
+import {
+  BookingModel,
+  CourseTypeModel,
+  SessionModel,
+  StudentModel,
+  type CourseTypeDoc,
+} from '../models/index.js'
+import { cancelBooking, createBooking, listStudentBookings, rescheduleBooking } from '../services/bookingService.js'
+import { findUsablePackage, summarisePackages } from '../services/packageService.js'
+import { queueMagicLink } from '../services/notificationService.js'
+import { toPublicSession } from '../services/calendarService.js'
+import { optionalStudent, requireStudent } from '../middleware/auth.js'
+import { asyncRoute } from '../middleware/errorHandler.js'
+import { AppError, ForbiddenError, NotFoundError } from '../errors.js'
+import { LoginTokenModel } from '../models/index.js'
+import { generateMagicToken } from '../auth/tokens.js'
+import { config } from '../config.js'
+
+/**
+ * What a student can do with their own bookings.
+ *
+ * The booking entry point is email-first rather than sign-in-first: a visitor should not have to
+ * make an account to find out whether they can book. Where a course credit is about to be spent,
+ * a magic link is required first — otherwise knowing someone's address would be enough to burn
+ * through the sessions they paid for.
+ */
+export const bookingRouter: Router = Router()
+
+const bookingLimiter = rateLimit({
+  windowMs: 10 * 60_000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { code: 'rate_limited', message: 'Too many attempts. Please try again shortly.' } },
+})
+
+/**
+ * Step one of booking: identify the student and decide the route.
+ *
+ * Returns one of three outcomes — booked outright (free class, already signed in), a magic link
+ * sent (course credit needs verifying), or a checkout handoff (paid workshop).
+ */
+bookingRouter.post(
+  '/start',
+  bookingLimiter,
+  optionalStudent,
+  asyncRoute(async (req, res) => {
+    const input = startBookingSchema.parse(req.body)
+
+    const session = await SessionModel.findById(input.sessionId)
+    if (!session) throw new NotFoundError('Class')
+
+    const courseType = await CourseTypeModel.findById(session.courseTypeId)
+    if (!courseType) throw new NotFoundError('Course')
+
+    // Find or create the student. Creating on first booking is what keeps the flow to one form.
+    let student = await StudentModel.findOne({ email: input.email })
+    if (!student) {
+      student = await StudentModel.create({
+        name: input.name,
+        email: input.email,
+        phone: input.phone,
+        marketingOptIn: input.marketingOptIn,
+      })
+    } else if (input.phone && !student.phone) {
+      student.phone = input.phone
+      await student.save()
+    }
+
+    const isSignedIn = req.student && String(req.student._id) === String(student._id)
+
+    if (courseType.bookingMode === 'package') {
+      const pkg = await findUsablePackage(student._id, courseType._id)
+      if (!pkg) {
+        throw new AppError(
+          422,
+          'no_package',
+          `We could not find an active ${courseType.name} course package for that email. Please get in touch and we will sort it out.`,
+        )
+      }
+
+      // Spending someone's course credits needs proof of the inbox, not just knowledge of it.
+      if (!isSignedIn) {
+        const { token, tokenHash } = generateMagicToken()
+        const record = await LoginTokenModel.create({
+          studentId: student._id,
+          tokenHash,
+          expiresAt: new Date(Date.now() + 30 * 60_000),
+          redirectTo: `${config.PUBLIC_SITE_URL}/book?confirm=${session._id}`,
+          requestedIp: req.ip ?? '',
+        })
+        await queueMagicLink(student, `${config.PUBLIC_API_URL}/api/auth/magic-link/verify?token=${token}`, String(record._id))
+
+        res.json({
+          outcome: 'verify_email',
+          message: `We have emailed ${student.email} a link to confirm this booking.`,
+        })
+        return
+      }
+
+      const result = await createBooking({
+        sessionId: session._id,
+        studentId: student._id,
+        source: 'student_web',
+        actor: `student:${student.email}`,
+        studentNotes: input.notes,
+      })
+
+      res.status(201).json({
+        outcome: 'booked',
+        booking: serialiseBooking(result.booking, result.session, result.courseType),
+        packageRemaining: result.pkg ? result.pkg.totalSessions - result.pkg.usedSessions : null,
+      })
+      return
+    }
+
+    if (courseType.bookingMode === 'free') {
+      const result = await createBooking({
+        sessionId: session._id,
+        studentId: student._id,
+        source: 'student_web',
+        usePackage: false,
+        actor: `student:${student.email}`,
+        studentNotes: input.notes,
+      })
+      res.status(201).json({
+        outcome: 'booked',
+        booking: serialiseBooking(result.booking, result.session, result.courseType),
+      })
+      return
+    }
+
+    // Paid workshops go through the existing WooCommerce shop. The hold that keeps the place
+    // during checkout arrives in Phase 2 along with the order webhook.
+    res.json({
+      outcome: 'checkout_required',
+      message: 'This workshop is paid for through our shop.',
+      studentId: String(student._id),
+      sessionId: String(session._id),
+      wooProductIds: courseType.wooProductIds,
+      shopUrl: `${config.PUBLIC_SITE_URL}/shop`,
+    })
+  }),
+)
+
+/** The "My bookings" list, with a live reschedule deadline on each row. */
+bookingRouter.get(
+  '/mine',
+  requireStudent,
+  asyncRoute(async (req, res) => {
+    const student = req.student!
+    const rows = await listStudentBookings(student._id, { includePast: req.query.includePast === 'true' })
+
+    const courseIds = [...new Set(rows.map((r) => String(r.session.courseTypeId)))]
+    const courses = await CourseTypeModel.find({ _id: { $in: courseIds } }).lean()
+    const courseById = new Map(courses.map((c) => [String(c._id), c]))
+    const now = new Date()
+
+    const bookings = rows.map((row) => {
+      const course = courseById.get(String(row.session.courseTypeId))
+      const verdict = course
+        ? evaluateReschedule(
+            {
+              booking: { status: row.booking.status },
+              session: { startAt: row.session.startAt, status: row.session.status },
+              courseType: { rescheduleCutoffHours: course.rescheduleCutoffHours, name: course.name },
+            },
+            now,
+          )
+        : null
+
+      return {
+        id: String(row.booking._id),
+        status: row.booking.status,
+        session: course
+          ? toPublicSession(row.session, course)
+          : { id: String(row.session._id), startAt: row.session.startAt.toISOString() },
+        canReschedule: verdict?.allowed ?? false,
+        rescheduleDeadline: verdict?.deadline?.toISOString() ?? null,
+        rescheduleBlockedReason: verdict?.allowed ? null : (verdict?.message ?? null),
+      }
+    })
+
+    res.json({ bookings, packages: await summarisePackages(student._id) })
+  }),
+)
+
+bookingRouter.post(
+  '/reschedule',
+  bookingLimiter,
+  requireStudent,
+  asyncRoute(async (req, res) => {
+    const input = rescheduleBookingSchema.parse(req.body)
+    await assertOwnBooking(req.student!._id, input.bookingId)
+
+    const result = await rescheduleBooking({
+      bookingId: input.bookingId,
+      toSessionId: input.toSessionId,
+      by: `student:${req.student!.email}`,
+      // Students are held to their course's notice period; the studio can override in the console.
+      enforceCutoff: true,
+    })
+
+    res.json({ booking: serialiseBooking(result.booking, result.session, result.courseType) })
+  }),
+)
+
+bookingRouter.post(
+  '/cancel',
+  bookingLimiter,
+  requireStudent,
+  asyncRoute(async (req, res) => {
+    const input = cancelBookingSchema.parse(req.body)
+    await assertOwnBooking(req.student!._id, input.bookingId)
+
+    await cancelBooking({
+      bookingId: input.bookingId,
+      reason: input.reason,
+      by: `student:${req.student!.email}`,
+      enforceCutoff: true,
+    })
+
+    res.json({ ok: true })
+  }),
+)
+
+async function assertOwnBooking(studentId: unknown, bookingId: string): Promise<void> {
+  const booking = await BookingModel.findById(bookingId).select('studentId')
+  if (!booking) throw new NotFoundError('Booking')
+  if (String(booking.studentId) !== String(studentId)) {
+    // Deliberately the same shape as a missing booking — do not confirm that someone
+    // else's booking id is real.
+    throw new ForbiddenError('That booking does not belong to this account.')
+  }
+}
+
+function serialiseBooking(
+  booking: { _id: unknown; status: string },
+  session: Parameters<typeof toPublicSession>[0],
+  courseType: CourseTypeDoc,
+) {
+  return {
+    id: String(booking._id),
+    status: booking.status,
+    session: toPublicSession(session, courseType),
+  }
+}

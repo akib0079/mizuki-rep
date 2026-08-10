@@ -1,0 +1,226 @@
+/*
+ * Scoped under .mzk so nothing here leaks into the WordPress theme and — just as important —
+ * the theme's own broad selectors do not reshape the calendar. Everything sets its own values
+ * rather than inheriting whatever the page happens to define.
+ */
+
+.mzk {
+  --mzk-plum: #6b5b73;
+  --mzk-plum-dark: #55475c;
+  --mzk-plum-light: #f1ecf2;
+  --mzk-ink: #2f292f;
+  --mzk-soft: #7b7178;
+  --mzk-line: #e7e0e4;
+  --mzk-bg: #ffffff;
+  --mzk-canvas: #faf7f8;
+  --mzk-danger: #b3382c;
+  --mzk-ok: #2f7d5f;
+
+  font-family: inherit;
+  color: var(--mzk-ink);
+  font-size: 16px;
+  line-height: 1.5;
+  max-width: 760px;
+  margin: 0 auto;
+  text-align: left;
+  box-sizing: border-box;
+}
+.mzk *, .mzk *::before, .mzk *::after { box-sizing: border-box; }
+.mzk p { margin: 0 0 10px; }
+
+.mzk-panel {
+  background: var(--mzk-bg);
+  border: 1px solid var(--mzk-line);
+  border-radius: 12px;
+  padding: 18px;
+}
+
+/* --- Month grid ----------------------------------------------------------- */
+
+.mzk-cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  gap: 10px;
+}
+.mzk-month { font-size: 17px; font-weight: 650; margin: 0; }
+.mzk-nav { display: flex; gap: 6px; }
+.mzk-nav button {
+  width: 34px; height: 34px;
+  border: 1px solid var(--mzk-line);
+  background: var(--mzk-bg);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--mzk-ink);
+}
+.mzk-nav button:hover:not(:disabled) { background: var(--mzk-canvas); }
+.mzk-nav button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.mzk-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.mzk-dow {
+  text-align: center;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--mzk-soft);
+  font-weight: 700;
+  padding-bottom: 6px;
+}
+
+.mzk-day {
+  aspect-ratio: 1 / 1;
+  min-height: 44px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 2px;
+  font: inherit;
+  color: var(--mzk-ink);
+}
+.mzk-day:hover:not(:disabled) { background: var(--mzk-canvas); }
+.mzk-day-num { font-size: 14px; font-variant-numeric: tabular-nums; }
+.mzk-day.has-classes { background: var(--mzk-plum-light); border-color: transparent; font-weight: 650; }
+.mzk-day.has-classes:hover { background: #e6dbe8; }
+.mzk-day.selected { background: var(--mzk-plum); color: #fff; }
+.mzk-day.selected .mzk-day-num { color: #fff; }
+.mzk-day.today { border-color: var(--mzk-plum); }
+.mzk-day:disabled { color: #c4bcc0; cursor: default; }
+.mzk-day.closed { background: repeating-linear-gradient(45deg, #f6f3f4, #f6f3f4 5px, #eee8ea 5px, #eee8ea 10px); }
+.mzk-day.outside { visibility: hidden; }
+
+.mzk-dots { display: flex; gap: 3px; height: 5px; }
+.mzk-dot { width: 5px; height: 5px; border-radius: 50%; }
+.mzk-day.selected .mzk-dot { background: rgba(255,255,255,0.85) !important; }
+
+/* --- Session list --------------------------------------------------------- */
+
+.mzk-day-title { font-size: 15px; font-weight: 650; margin: 22px 0 10px; }
+
+.mzk-session {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 13px 14px;
+  border: 1px solid var(--mzk-line);
+  border-radius: 10px;
+  background: var(--mzk-bg);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  margin-bottom: 8px;
+}
+.mzk-session:hover:not(:disabled) { border-color: var(--mzk-plum); background: var(--mzk-canvas); }
+.mzk-session:disabled { cursor: not-allowed; background: var(--mzk-canvas); opacity: 0.72; }
+.mzk-stripe { width: 4px; align-self: stretch; border-radius: 3px; flex-shrink: 0; }
+.mzk-session-main { flex: 1; min-width: 0; }
+.mzk-session-title { font-weight: 650; }
+.mzk-session-meta { font-size: 14px; color: var(--mzk-soft); margin-top: 2px; }
+.mzk-session-right { text-align: right; flex-shrink: 0; }
+
+.mzk-tag {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.mzk-tag-ok { background: #e8f5ef; color: var(--mzk-ok); }
+.mzk-tag-low { background: #fdf3e0; color: #92650a; }
+.mzk-tag-full { background: #f4eef0; color: var(--mzk-soft); }
+
+/* --- Forms and messages --------------------------------------------------- */
+
+.mzk-field { display: block; margin-bottom: 13px; }
+.mzk-field > span { display: block; font-size: 13px; font-weight: 650; margin-bottom: 5px; color: var(--mzk-soft); }
+.mzk-field input, .mzk-field textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--mzk-line);
+  border-radius: 8px;
+  font: inherit;
+  color: var(--mzk-ink);
+  background: var(--mzk-bg);
+}
+.mzk-field input:focus, .mzk-field textarea:focus { outline: 2px solid var(--mzk-plum-light); border-color: var(--mzk-plum); }
+
+.mzk-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 20px;
+  border-radius: 8px;
+  border: 1px solid var(--mzk-line);
+  background: var(--mzk-bg);
+  color: var(--mzk-ink);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+.mzk-btn:hover:not(:disabled) { background: var(--mzk-canvas); }
+.mzk-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.mzk-btn-primary { background: var(--mzk-plum); border-color: var(--mzk-plum); color: #fff; }
+.mzk-btn-primary:hover:not(:disabled) { background: var(--mzk-plum-dark); }
+.mzk-btn-block { width: 100%; }
+
+.mzk-note { padding: 12px 14px; border-radius: 8px; font-size: 14px; margin-bottom: 14px; }
+.mzk-note-info { background: var(--mzk-plum-light); color: var(--mzk-plum-dark); }
+.mzk-note-ok { background: #e8f5ef; color: var(--mzk-ok); }
+.mzk-note-error { background: #fbeceb; color: var(--mzk-danger); }
+
+.mzk-empty { padding: 26px 12px; text-align: center; color: var(--mzk-soft); font-size: 15px; }
+.mzk-muted { color: var(--mzk-soft); }
+.mzk-small { font-size: 14px; }
+.mzk-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.mzk-legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 14px; font-size: 13px; color: var(--mzk-soft); }
+.mzk-legend-item { display: flex; align-items: center; gap: 6px; }
+
+/* --- Modal ---------------------------------------------------------------- */
+
+.mzk-modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(47, 41, 47, 0.42);
+  z-index: 99998;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  overflow-y: auto;
+}
+.mzk-modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 22px;
+  width: min(440px, 100%);
+  max-height: 92vh;
+  overflow-y: auto;
+  box-shadow: 0 12px 40px rgba(47, 41, 47, 0.22);
+}
+.mzk-modal h3 { margin: 0 0 6px; font-size: 18px; font-weight: 650; }
+
+.mzk-spinner {
+  display: inline-block;
+  width: 15px; height: 15px;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: mzk-spin 0.7s linear infinite;
+  margin-right: 7px;
+}
+@keyframes mzk-spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 520px) {
+  .mzk-day { min-height: 40px; }
+  .mzk-day-num { font-size: 13px; }
+  .mzk-session { padding: 11px; gap: 10px; }
+}
