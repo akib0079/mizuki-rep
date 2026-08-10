@@ -16,6 +16,7 @@ import {
   ScheduleRuleModel,
 } from '../../models/index.js'
 import { getSeriesAvailability } from '../../services/seriesService.js'
+import { buildDashboard } from '../../services/dashboardService.js'
 import { DEFAULT_TEMPLATES, renderTemplate, resetTemplate } from '../../services/emailTemplates.js'
 import { sendDirectEmail } from '../../services/mailer.js'
 import { materializeSessions } from '../../services/scheduleService.js'
@@ -28,6 +29,16 @@ import { config } from '../../config.js'
 
 /** Courses, recurring timetable rules, message wording, and the maintenance levers. */
 export const adminSettingsRouter: Router = Router()
+
+// --- Dashboard --------------------------------------------------------------
+
+/** Everything the landing page shows, in one call. */
+adminSettingsRouter.get(
+  '/dashboard',
+  asyncRoute(async (_req, res) => {
+    res.json(await buildDashboard())
+  }),
+)
 
 // --- Courses ----------------------------------------------------------------
 

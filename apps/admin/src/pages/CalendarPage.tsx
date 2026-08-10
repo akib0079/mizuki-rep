@@ -150,6 +150,9 @@ export function CalendarPage() {
           firstDay={1}
           height="auto"
           nowIndicator
+          // Weekdays currently run three IFDA classes, which fits. This caps a day at three
+          // so adding a fourth collapses to "+N more" rather than shrinking every row.
+          dayMaxEvents={3}
           slotMinTime="08:00:00"
           slotMaxTime="22:30:00"
           events={events}
