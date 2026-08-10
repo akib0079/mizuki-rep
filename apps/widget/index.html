@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mizuki Flora — booking widget (development)</title>
+    <!--
+      A stand-in for the WordPress page. It mounts the widget through exactly the same
+      data attributes the [mizuki_booking] shortcode renders, so what you see here is what
+      a student sees on mizuki.com.sg. Development only — the production build is a library
+      bundle and never includes this file.
+    -->
+    <style>
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+        background: #faf7f8;
+        color: #2f292f;
+      }
+      .page { max-width: 860px; margin: 0 auto; padding: 32px 20px 80px; }
+      .site-head {
+        border-bottom: 1px solid #e7e0e4;
+        padding-bottom: 18px;
+        margin-bottom: 28px;
+      }
+      .site-head h1 {
+        margin: 0;
+        font-size: 15px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: #6b5b73;
+      }
+      .site-head p { margin: 6px 0 0; color: #7b7178; font-size: 14px; }
+      .tabs { display: flex; gap: 8px; margin-bottom: 24px; }
+      .tabs button {
+        padding: 8px 16px;
+        border: 1px solid #e7e0e4;
+        background: #fff;
+        border-radius: 8px;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 600;
+        color: #2f292f;
+      }
+      .tabs button[aria-selected='true'] { background: #6b5b73; border-color: #6b5b73; color: #fff; }
+      [hidden] { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="site-head">
+        <h1>Mizuki Flora</h1>
+        <p>Development preview — this stands in for the WordPress page.</p>
+      </div>
+
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected="true" data-target="calendar">Book a class</button>
+        <button role="tab" aria-selected="false" data-target="bookings">My bookings</button>
+      </div>
+
+      <!-- Identical to what the shortcode outputs. -->
+      <div id="calendar" data-mizuki-booking data-api-base="http://localhost:4000" data-view="calendar"></div>
+
+      <div id="bookings" hidden data-mizuki-booking data-api-base="http://localhost:4000" data-view="my-bookings"></div>
+    </div>
+
+    <script type="module" src="/src/embed.tsx"></script>
+    <script>
+      // Both views mount on load; the tabs just show one at a time.
+      document.querySelectorAll('[role="tab"]').forEach((tab) => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('[role="tab"]').forEach((t) => {
+            const on = t === tab
+            t.setAttribute('aria-selected', String(on))
+            document.getElementById(t.dataset.target).hidden = !on
+          })
+        })
+      })
+    </script>
+  </body>
+</html>

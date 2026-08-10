@@ -124,8 +124,10 @@
 .mzk-session:disabled { cursor: not-allowed; background: var(--mzk-canvas); opacity: 0.72; }
 .mzk-stripe { width: 4px; align-self: stretch; border-radius: 3px; flex-shrink: 0; }
 .mzk-session-main { flex: 1; min-width: 0; }
-.mzk-session-title { font-weight: 650; }
-.mzk-session-meta { font-size: 14px; color: var(--mzk-soft); margin-top: 2px; }
+/* Both are spans so the whole row can stay a single <button>. Forced to block, or the class
+   name and its time run together on one line. */
+.mzk-session-title { display: block; font-weight: 650; }
+.mzk-session-meta { display: block; font-size: 14px; color: var(--mzk-soft); margin-top: 2px; }
 .mzk-session-right { text-align: right; flex-shrink: 0; }
 
 .mzk-tag {
