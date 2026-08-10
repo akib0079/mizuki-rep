@@ -1,7 +1,8 @@
 import { Router } from 'express'
 import { calendarQuerySchema } from '@mizuki/shared'
 import { buildPublicCalendar, findAlternatives, getPublicSession } from '../services/calendarService.js'
-import { CourseTypeModel } from '../models/index.js'
+import { CourseSeriesModel, CourseTypeModel } from '../models/index.js'
+import { getSeriesAvailability } from '../services/seriesService.js'
 import { asyncRoute } from '../middleware/errorHandler.js'
 import { NotFoundError } from '../errors.js'
 
@@ -45,6 +46,26 @@ publicRouter.get(
     const session = await getPublicSession(req.params.id!)
     if (!session) throw new NotFoundError('Class')
     res.json({ session })
+  }),
+)
+
+/**
+ * Set courses sold as one purchase, like the Autumn Ikebana Course. Shown separately from the
+ * day-by-day calendar because you book the whole run, not a date.
+ */
+publicRouter.get(
+  '/series',
+  asyncRoute(async (_req, res) => {
+    const all = await CourseSeriesModel.find({ active: true }).lean()
+    const availability = await Promise.all(all.map((s) => getSeriesAvailability(s._id)))
+    res.json({ series: availability })
+  }),
+)
+
+publicRouter.get(
+  '/series/:id',
+  asyncRoute(async (req, res) => {
+    res.json({ series: await getSeriesAvailability(req.params.id!) })
   }),
 )
 

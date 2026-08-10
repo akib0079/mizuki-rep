@@ -221,11 +221,45 @@ function BookingOutcome({
     )
   }
 
-  // Paid workshop — the shop handles payment exactly as it does today.
-  const productId = result.wooProductIds[0]
-  const checkoutUrl = productId
-    ? `${result.shopUrl}/?add-to-cart=${productId}&mizuki_session=${result.sessionId}`
-    : result.shopUrl
+  // Paid workshop — the shop handles payment exactly as it does today, but the place is
+  // already reserved, so the countdown below is real rather than reassurance.
+  return <CheckoutHandoff result={result} session={session} start={start} onClose={onClose} />
+}
+
+function CheckoutHandoff({
+  result,
+  session,
+  start,
+  onClose,
+}: {
+  result: Extract<StartBookingResult, { outcome: 'checkout_required' }>
+  session: PublicSession
+  start: DateTime
+  onClose: () => void
+}) {
+  const [msLeft, setMsLeft] = useState(() => new Date(result.holdExpiresAt).getTime() - Date.now())
+  const [leaving, setLeaving] = useState(false)
+
+  useEffect(() => {
+    const id = setInterval(() => setMsLeft(new Date(result.holdExpiresAt).getTime() - Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [result.holdExpiresAt])
+
+  const expired = msLeft <= 0
+  const minutes = Math.max(0, Math.floor(msLeft / 60_000))
+  const seconds = Math.max(0, Math.floor((msLeft % 60_000) / 1000))
+
+  /** Closing without paying returns the place immediately instead of waiting for the sweeper. */
+  async function abandon() {
+    setLeaving(true)
+    try {
+      await widgetApi.releaseHold(result.holdToken)
+    } catch {
+      // The sweeper will get it either way — never block the student on this.
+    } finally {
+      onClose()
+    }
+  }
 
   return (
     <>
@@ -233,15 +267,34 @@ function BookingOutcome({
       <p className="mzk-small">
         <strong>{session.title}</strong> on {start.toFormat('ccc d LLL')} is paid for through our shop.
       </p>
-      <div className="mzk-note mzk-note-info">
-        Your place is held while you check out. If payment isn't completed it goes back on sale
-        automatically.
-      </div>
-      <a className="mzk-btn mzk-btn-primary mzk-btn-block" href={checkoutUrl} style={{ textDecoration: 'none' }}>
-        Continue to the shop
-      </a>
-      <button className="mzk-btn mzk-btn-block" style={{ marginTop: 8 }} onClick={onClose}>
-        Not now
+
+      {expired ? (
+        <div className="mzk-note mzk-note-error">
+          Your place was held for {result.holdMinutes} minutes and has now been released. Close this
+          and pick the class again if it still has places.
+        </div>
+      ) : (
+        <div className="mzk-note mzk-note-info">
+          Your place is held for{' '}
+          <strong>
+            {minutes}:{String(seconds).padStart(2, '0')}
+          </strong>
+          . If you don't finish paying, it goes back on sale automatically.
+        </div>
+      )}
+
+      {!expired && (
+        <a
+          className="mzk-btn mzk-btn-primary mzk-btn-block"
+          href={result.checkoutUrl}
+          style={{ textDecoration: 'none' }}
+        >
+          Continue to the shop
+        </a>
+      )}
+
+      <button className="mzk-btn mzk-btn-block" style={{ marginTop: 8 }} onClick={abandon} disabled={leaving}>
+        {expired ? 'Close' : leaving ? 'Releasing…' : "I'll book later"}
       </button>
     </>
   )

@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { DateTime } from 'luxon'
+import { STUDIO_TZ } from '@mizuki/shared'
 import { ApiError, api, type Course } from '../api.js'
 
 interface SeatDrift {
@@ -137,6 +139,8 @@ export function SettingsPage({ totpEnabled }: { totpEnabled: boolean }) {
         </div>
       </div>
 
+      <SetCoursesCard onMessage={setMessage} />
+
       <div className="card">
         <h2 className="card-title">Alerts on your phone</h2>
         <p className="card-sub">Get a notification the moment someone books.</p>
@@ -151,6 +155,8 @@ export function SettingsPage({ totpEnabled }: { totpEnabled: boolean }) {
         </p>
         {!totpEnabled && <TotpSetup onMessage={setMessage} />}
       </div>
+
+      <AuditCard />
 
       <div className="card">
         <h2 className="card-title">Maintenance</h2>
@@ -194,6 +200,193 @@ export function SettingsPage({ totpEnabled }: { totpEnabled: boolean }) {
       </div>
     </>
   )
+}
+
+interface SeriesRow {
+  seriesId: string
+  name: string
+  bookable: boolean
+  placesLeft: number
+  reason: string
+  wooProductId: number | null
+  active: boolean
+  sessions: { id: string; title: string; startAt: string; seatsLeft: number; isFull: boolean }[]
+}
+
+/**
+ * Set courses like the Autumn Ikebana Course, sold as one purchase covering several dates.
+ *
+ * The shop product id is the field that matters: until it is set, a course bought in the shop
+ * arrives with no way to tell what it was for, and books nothing.
+ */
+function SetCoursesCard({ onMessage }: { onMessage: (m: { kind: 'ok' | 'danger'; text: string }) => void }) {
+  const queryClient = useQueryClient()
+
+  const { data } = useQuery({
+    queryKey: ['admin-series'],
+    queryFn: () => api.get<{ series: SeriesRow[] }>('/api/admin/settings/series'),
+  })
+
+  const linkMutation = useMutation({
+    mutationFn: (input: { id: string; wooProductId: number | null }) =>
+      api.patch(`/api/admin/settings/series/${input.id}`, { wooProductId: input.wooProductId }),
+    onSuccess: () => {
+      onMessage({ kind: 'ok', text: 'Saved.' })
+      void queryClient.invalidateQueries({ queryKey: ['admin-series'] })
+    },
+    onError: (err) =>
+      onMessage({ kind: 'danger', text: err instanceof ApiError ? err.message : 'Could not save.' }),
+  })
+
+  const rows = data?.series ?? []
+  if (rows.length === 0) return null
+
+  return (
+    <div className="card">
+      <h2 className="card-title">Set courses</h2>
+      <p className="card-sub">
+        Courses booked as a whole run rather than one date at a time. One purchase books every date.
+      </p>
+
+      {rows.map((row) => (
+        <div key={row.seriesId} style={{ marginBottom: 18 }}>
+          <div className="row" style={{ justifyContent: 'space-between' }}>
+            <strong>{row.name}</strong>
+            {row.bookable ? (
+              <span className="pill pill-ok">{row.placesLeft} place(s) available</span>
+            ) : (
+              <span className="pill pill-danger">Not bookable</span>
+            )}
+          </div>
+
+          {!row.bookable && row.reason && <div className="banner banner-warn" style={{ marginTop: 8 }}>{row.reason}</div>}
+
+          <table className="table" style={{ marginTop: 8 }}>
+            <tbody>
+              {row.sessions.map((s) => (
+                <tr key={s.id}>
+                  <td className="small">
+                    {DateTime.fromISO(s.startAt).setZone(STUDIO_TZ).toFormat('ccc d LLL yyyy, h:mm a')}
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <span className={`pill ${s.isFull ? 'pill-danger' : 'pill-muted'}`}>
+                      {s.isFull ? 'Full' : `${s.seatsLeft} left`}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <label className="field" style={{ maxWidth: 320, marginTop: 10 }}>
+            <span>Shop product ID</span>
+            <input
+              type="number"
+              defaultValue={row.wooProductId ?? ''}
+              placeholder="e.g. 1234"
+              onBlur={(e) => {
+                const value = e.target.value.trim() ? Number(e.target.value) : null
+                if (value !== row.wooProductId) linkMutation.mutate({ id: row.seriesId, wooProductId: value })
+              }}
+            />
+            <div className="field-hint">
+              {row.wooProductId
+                ? 'Buying this product in the shop books all the dates above.'
+                : 'Until this is set, buying this course in the shop will not book anything. Find the ID in WooCommerce → Products.'}
+            </div>
+          </label>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+interface AuditEntry {
+  _id: string
+  actor: string
+  action: string
+  entity: string
+  reason: string
+  createdAt: string
+}
+
+/** A plain-English record of who changed what — the counterweight to letting the studio override its own rules. */
+function AuditCard() {
+  const [open, setOpen] = useState(false)
+
+  const { data } = useQuery({
+    queryKey: ['audit'],
+    queryFn: () => api.get<{ entries: AuditEntry[] }>('/api/admin/settings/audit?limit=60'),
+    enabled: open,
+  })
+
+  return (
+    <div className="card">
+      <div className="row" style={{ justifyContent: 'space-between' }}>
+        <div>
+          <h2 className="card-title">Recent changes</h2>
+          <p className="card-sub" style={{ marginBottom: 0 }}>
+            Every change to a class, a booking or a course package.
+          </p>
+        </div>
+        <button className="btn btn-sm" onClick={() => setOpen(!open)}>
+          {open ? 'Hide' : 'Show'}
+        </button>
+      </div>
+
+      {open && (
+        <table className="table" style={{ marginTop: 14 }}>
+          <thead>
+            <tr><th>When</th><th>What</th><th>Who</th></tr>
+          </thead>
+          <tbody>
+            {(data?.entries ?? []).map((entry) => (
+              <tr key={entry._id}>
+                <td className="small muted" style={{ whiteSpace: 'nowrap' }}>
+                  {DateTime.fromISO(entry.createdAt).setZone(STUDIO_TZ).toFormat('d LLL, h:mm a')}
+                </td>
+                <td>
+                  {describeAction(entry.action)}
+                  {entry.reason && <div className="muted small">{entry.reason}</div>}
+                </td>
+                <td className="small muted">{entry.actor.replace(/^(admin|student|woo):/, '')}</td>
+              </tr>
+            ))}
+            {data?.entries.length === 0 && (
+              <tr><td colSpan={3} className="empty">Nothing recorded yet.</td></tr>
+            )}
+          </tbody>
+        </table>
+      )}
+    </div>
+  )
+}
+
+/** Turn an action key into something readable. Overrides are called out, since that is the point. */
+function describeAction(action: string): string {
+  const labels: Record<string, string> = {
+    'booking.create': 'Booking added',
+    'booking.create.override': 'Booking added over the class size',
+    'booking.cancel': 'Booking cancelled',
+    'booking.reschedule': 'Booking moved',
+    'booking.reschedule.override': 'Booking moved past the notice period',
+    'session.create': 'Class added',
+    'session.update': 'Class changed',
+    'session.cancel': 'Class cancelled',
+    'session.restore': 'Class put back on',
+    'session.delete': 'Class deleted',
+    'closedDate.create': 'Days marked closed',
+    'closedDate.delete': 'Closed days reopened',
+    'package.grant': 'Course package created',
+    'package.adjust': 'Course package changed',
+    'course.rescheduleWindowChanged': 'Notice period changed',
+    'series.book': 'Set course booked',
+    'series.create': 'Set course created',
+    'series.update': 'Set course changed',
+    'scheduleRule.deactivate': 'Weekly slot stopped',
+    'maintenance.repairSeatDrift': 'Place counts corrected',
+  }
+  return labels[action] ?? action
 }
 
 function PushEnrolment({ onMessage }: { onMessage: (m: { kind: 'ok' | 'danger'; text: string }) => void }) {

@@ -18,6 +18,10 @@ export default defineConfig({
       PUBLIC_API_URL: 'http://localhost:4000',
       PUBLIC_SITE_URL: 'http://localhost:8080',
       LOG_LEVEL: 'silent',
+      // Set so the studio's "someone just booked" alert is exercised for real. Without an
+      // alert channel configured there is nothing to queue, and the tests would pass while
+      // proving nothing about the notification the client specifically asked for.
+      ADMIN_ALERT_EMAIL: 'studio@example.com',
     },
   },
 })

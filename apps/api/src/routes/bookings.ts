@@ -13,7 +13,13 @@ import {
   StudentModel,
   type CourseTypeDoc,
 } from '../models/index.js'
-import { cancelBooking, createBooking, listStudentBookings, rescheduleBooking } from '../services/bookingService.js'
+import {
+  HOLD_TTL_MS,
+  cancelBooking,
+  createBooking,
+  listStudentBookings,
+  rescheduleBooking,
+} from '../services/bookingService.js'
 import { findUsablePackage, summarisePackages } from '../services/packageService.js'
 import { queueMagicLink } from '../services/notificationService.js'
 import { toPublicSession } from '../services/calendarService.js'
@@ -21,7 +27,8 @@ import { optionalStudent, requireStudent } from '../middleware/auth.js'
 import { asyncRoute } from '../middleware/errorHandler.js'
 import { AppError, ForbiddenError, NotFoundError } from '../errors.js'
 import { LoginTokenModel } from '../models/index.js'
-import { generateMagicToken } from '../auth/tokens.js'
+import { generateHoldToken, generateMagicToken } from '../auth/tokens.js'
+import { z } from 'zod'
 import { config } from '../config.js'
 
 /**
@@ -138,16 +145,82 @@ bookingRouter.post(
       return
     }
 
-    // Paid workshops go through the existing WooCommerce shop. The hold that keeps the place
-    // during checkout arrives in Phase 2 along with the order webhook.
+    /*
+     * Paid workshops are paid for in the existing shop, so the student leaves this system for
+     * a few minutes. Their place is reserved before they go — otherwise the last seat stays on
+     * sale throughout checkout and two people can pay for it.
+     *
+     * The hold occupies a place exactly like a confirmed booking, and expires on its own if
+     * payment never lands, which is what makes it safe to hand out optimistically.
+     */
+    const holdToken = generateHoldToken()
+    const holdExpiresAt = new Date(Date.now() + HOLD_TTL_MS)
+
+    const hold = await createBooking({
+      sessionId: session._id,
+      studentId: student._id,
+      status: 'hold',
+      source: 'student_web',
+      usePackage: false,
+      holdToken,
+      holdExpiresAt,
+      actor: `student:${student.email}`,
+      studentNotes: input.notes,
+      // Nothing is confirmed yet — telling them now would be a lie, and telling the studio
+      // now would mean an alert for every abandoned cart.
+      notify: false,
+    })
+
+    const productId = courseType.wooProductIds[0]
+    const checkoutUrl = productId
+      ? `${config.PUBLIC_SITE_URL}/?add-to-cart=${productId}&mizuki_session=${session._id}&mizuki_hold=${holdToken}`
+      : `${config.PUBLIC_SITE_URL}/shop`
+
     res.json({
       outcome: 'checkout_required',
       message: 'This workshop is paid for through our shop.',
+      bookingId: String(hold.booking._id),
       studentId: String(student._id),
       sessionId: String(session._id),
+      holdToken,
+      holdExpiresAt: holdExpiresAt.toISOString(),
+      holdMinutes: config.HOLD_TTL_MINUTES,
+      checkoutUrl,
       wooProductIds: courseType.wooProductIds,
       shopUrl: `${config.PUBLIC_SITE_URL}/shop`,
     })
+  }),
+)
+
+/**
+ * Give up a held place deliberately — the student closed the booking box rather than paying.
+ *
+ * Without this the seat sits unavailable until the sweeper catches it, which on a class with
+ * two places left is the difference between someone else booking now or giving up.
+ */
+bookingRouter.post(
+  '/release-hold',
+  asyncRoute(async (req, res) => {
+    const { holdToken } = z.object({ holdToken: z.string().min(10) }).parse(req.body)
+
+    // Matched on the token alone: the visitor may not be signed in, and the token is the
+    // unguessable secret that proves this hold is theirs to give up.
+    const booking = await BookingModel.findOne({ holdToken, status: 'hold' })
+    if (!booking) {
+      // Already paid, already expired, or never existed — all fine, and none of the caller's business.
+      res.json({ ok: true })
+      return
+    }
+
+    await cancelBooking({
+      bookingId: booking._id,
+      reason: 'Checkout abandoned',
+      by: 'student',
+      enforceCutoff: false,
+      notify: false,
+    })
+
+    res.json({ ok: true })
   }),
 )
 

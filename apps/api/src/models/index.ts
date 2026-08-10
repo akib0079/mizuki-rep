@@ -1,6 +1,7 @@
 export { CourseTypeModel, type CourseTypeDoc } from './CourseType.js'
 export { ScheduleRuleModel, type ScheduleRuleDoc } from './ScheduleRule.js'
 export { SessionModel, type SessionDoc } from './Session.js'
+export { CourseSeriesModel, type CourseSeriesDoc } from './CourseSeries.js'
 export { ClosedDateModel, type ClosedDateDoc } from './ClosedDate.js'
 export { StudentModel, type StudentDoc } from './Student.js'
 export { PackageModel, type PackageDoc } from './Package.js'

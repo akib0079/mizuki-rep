@@ -20,6 +20,7 @@ import {
   type SessionDoc,
 } from '../../models/index.js'
 import { createAdHocSession } from '../../services/scheduleService.js'
+import { createBooking } from '../../services/bookingService.js'
 import { queueSessionCancelled, queueSessionMoved } from '../../services/notificationService.js'
 import { releaseSeat } from '../../services/seatService.js'
 import { restoreSession } from '../../services/packageService.js'
@@ -320,6 +321,8 @@ adminSessionsRouter.post(
       booking.cancelledAt = new Date()
       booking.cancelReason = input.reason || 'Class cancelled by the studio'
       booking.cancelledBy = actorOf(req)
+      // Marks this as collateral of the class being cancelled, so undo knows to restore it.
+      booking.cancelledWithSession = true
       await booking.save()
 
       await releaseSeat(session._id)
@@ -347,6 +350,76 @@ adminSessionsRouter.post(
     })
 
     res.json({ ok: true, bookingsCancelled: bookings.length, studentsNotified: notified })
+  }),
+)
+
+/**
+ * Put a cancelled class back on.
+ *
+ * Cancelling is the destructive step the studio is most likely to reach for by mistake — one
+ * wrong click on a Saturday with eight students booked. Restoring re-opens the class and, if
+ * asked, re-books the same students into it, subject to the same capacity guard as any other
+ * booking. Anyone who cannot be fitted back in is named rather than silently dropped.
+ */
+adminSessionsRouter.post(
+  '/:id/restore',
+  asyncRoute(async (req, res) => {
+    const { rebookStudents } = z.object({ rebookStudents: z.boolean().default(true) }).parse(req.body)
+
+    const session = await SessionModel.findById(req.params.id)
+    if (!session) throw new NotFoundError('Class')
+    if (session.status !== 'cancelled') {
+      throw new AppError(409, 'not_cancelled', 'That class is not cancelled.')
+    }
+    if (session.startAt.getTime() <= Date.now()) {
+      throw new AppError(422, 'session_past', 'That class is in the past and cannot be put back on.')
+    }
+
+    session.status = 'scheduled'
+    session.cancelledAt = null
+    session.cancelReason = ''
+    await session.save()
+
+    const restored: string[] = []
+    const couldNotFit: { name: string; email: string }[] = []
+
+    if (rebookStudents) {
+      // Only the bookings this cancellation took out, not ones the student cancelled themselves.
+      const cancelled = await BookingModel.find({
+        sessionId: session._id,
+        status: 'cancelled',
+        cancelledWithSession: true,
+      })
+
+      for (const booking of cancelled) {
+        try {
+          const result = await createBooking({
+            sessionId: session._id,
+            studentId: booking.studentId,
+            source: booking.source as 'student_web' | 'admin_manual' | 'woo_order',
+            usePackage: booking.packageId !== null,
+            actor: actorOf(req),
+            notify: false,
+          })
+          restored.push(String(result.booking._id))
+          // Consumed: a second undo must not restore this student twice.
+          await BookingModel.updateOne({ _id: booking._id }, { $set: { cancelledWithSession: false } })
+        } catch {
+          const student = await StudentModel.findById(booking.studentId).select('name email').lean()
+          couldNotFit.push({ name: student?.name ?? 'Unknown', email: student?.email ?? '' })
+        }
+      }
+    }
+
+    await recordAudit({
+      actor: actorOf(req),
+      action: 'session.restore',
+      entity: 'Session',
+      entityId: session._id,
+      after: { restored: restored.length, couldNotFit: couldNotFit.length },
+    })
+
+    res.json({ ok: true, studentsRestored: restored.length, couldNotFit })
   }),
 )
 

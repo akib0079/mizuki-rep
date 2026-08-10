@@ -22,6 +22,12 @@ booking calendar. Grant course sessions or extend an expiry. Reword any email.
 alert to the studio on every booking, and places held during checkout that go back on sale if
 payment never completes.
 
+**Through the shop** — buying a workshop confirms the place that was held while the student
+paid. Buying a course package grants the sessions and emails the student that they can start
+booking. Buying a set course like the Autumn Ikebana Course books all four of its mornings in
+one go — and either secures every date or none, because a student on three days of a four-day
+course has bought something that does not work.
+
 ## The rules it enforces
 
 | Course | Booked with | Notice to change a booking |
@@ -38,6 +44,11 @@ the console — changing the policy is a setting, not a deploy.
 **A class can never be oversold.** The check and the increment are one atomic database
 operation, so two students clicking the last place at the same instant cannot both succeed. This
 is covered by a test that fires twenty concurrent bookings at a five-place class.
+
+That guarantee holds through every route to a seat: the website, the studio adding someone by
+hand, a place held during checkout, and a shop callback arriving late. If payment lands after a
+hold expired and the class has since filled, nobody is overbooked — the studio gets an urgent
+alert to refund or offer another date.
 
 ## Layout
 
@@ -122,8 +133,11 @@ The client has not yet supplied a few things, and the system uses placeholders u
 1. **Class sizes.** Every seeded class uses a placeholder of 8. Set the real numbers per course
    under Settings, and per class on the calendar.
 2. **Dates already closed** for the rest of the year.
-3. **WooCommerce product IDs** for each paid workshop, so the calendar can hand off to the right
-   product — set under Settings → Courses.
+3. **WooCommerce product IDs.** Three kinds, all set in the console:
+   - Paid workshops → Settings → Courses.
+   - Course packages → Settings → Courses, along with how many sessions a purchase grants.
+   - The Autumn Ikebana Course → Settings → Set courses. **Until this one is set, buying that
+     course in the shop books nothing** — the order arrives with no way to tell what it was for.
 4. **Whether Sunday 27 September should have an Ikebana workshop.** October has both a
    fourth-weekend course morning (24th) and a Sunday two-session day (25th); September has the
    26th but no 27th. It may well be deliberate — worth one line of confirmation.

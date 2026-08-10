@@ -371,21 +371,24 @@ function mizuki_notify_booking_system( $order_id, $event ) {
 		return;
 	}
 
+	/*
+	 * Every line goes, not just the ones with a class attached.
+	 *
+	 * A course package is sold as an ordinary product with no session — filtering on the class
+	 * id here would mean buying a package tells the booking system nothing at all. WordPress
+	 * does not know which products matter; the booking system holds the product mapping, so it
+	 * decides. Lines it does not recognise are ignored there.
+	 */
 	$lines = array();
 	foreach ( $order->get_items() as $item ) {
-		$session_id = $item->get_meta( MIZUKI_META_SESSION, true );
-		if ( ! $session_id ) {
-			continue;
-		}
 		$lines[] = array(
-			'sessionId' => $session_id,
-			'holdToken' => $item->get_meta( MIZUKI_META_HOLD, true ),
+			'sessionId' => (string) $item->get_meta( MIZUKI_META_SESSION, true ),
+			'holdToken' => (string) $item->get_meta( MIZUKI_META_HOLD, true ),
 			'productId' => (int) $item->get_product_id(),
 			'quantity'  => (int) $item->get_quantity(),
 		);
 	}
 
-	// Nothing in this order came from the booking calendar.
 	if ( empty( $lines ) ) {
 		return;
 	}

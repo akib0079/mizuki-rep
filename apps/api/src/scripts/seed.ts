@@ -1,7 +1,7 @@
 import { studioInstant } from '@mizuki/shared'
 import { connectDb, disconnectDb } from '../db.js'
 import { logger } from '../logger.js'
-import { CourseTypeModel, ScheduleRuleModel, SessionModel } from '../models/index.js'
+import { CourseSeriesModel, CourseTypeModel, ScheduleRuleModel, SessionModel } from '../models/index.js'
 import { materializeSessions } from '../services/scheduleService.js'
 import { seedEmailTemplates } from '../services/emailTemplates.js'
 import { COURSES, ONE_OFF_SESSIONS, PLACEHOLDER_CAPACITY, WEEKLY_RULES } from './timetable.js'
@@ -115,10 +115,44 @@ async function seedOneOffSessions(courseIds: Map<string, string>): Promise<numbe
   return created
 }
 
+/**
+ * The "Autumn Ikebana Course" already in the shop — four consecutive mornings sold as one
+ * thing. Built from the sessions seeded above rather than duplicating those dates, so moving
+ * one of them on the calendar keeps the course pointing at the right class.
+ */
+async function seedAutumnIkebanaCourse(courseIds: Map<string, string>): Promise<void> {
+  const courseTypeId = courseIds.get('ikebana')
+  if (!courseTypeId) return
+
+  const sessions = await SessionModel.find({ title: /Autumn Ikebana Course/ }).sort({ startAt: 1 })
+  if (sessions.length === 0) return
+
+  const existing = await CourseSeriesModel.findOne({ name: 'Autumn Ikebana Course' })
+  if (existing) {
+    // Keep the dates in step if the seed runs again, but leave the shop product id alone —
+    // the studio sets that by hand once they know it.
+    existing.set('sessionIds', sessions.map((s) => s._id))
+    await existing.save()
+    return
+  }
+
+  await CourseSeriesModel.create({
+    name: 'Autumn Ikebana Course',
+    courseTypeId,
+    sessionIds: sessions.map((s) => s._id),
+    description:
+      'A four-session beginner course in the Ikenobo style, across four mornings — 12 and 26 September, 10 and 24 October. One booking covers all four dates.',
+    active: true,
+  })
+
+  logger.info({ sessions: sessions.length }, 'Autumn Ikebana Course seeded')
+}
+
 export async function runSeed(): Promise<void> {
   const courseIds = await seedCourses()
   await seedWeeklyRules(courseIds)
   await seedOneOffSessions(courseIds)
+  await seedAutumnIkebanaCourse(courseIds)
   await seedEmailTemplates()
 
   // Generate the weekday classes from the rules, out to the end of the calendar window.

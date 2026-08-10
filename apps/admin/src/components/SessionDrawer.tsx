@@ -88,6 +88,24 @@ export function SessionDrawer({
     onSuccess: () => { setCancelling(false); refresh() },
   })
 
+  /** Undo a cancellation — puts the class back on and re-books whoever it removed. */
+  const restoreMutation = useMutation({
+    mutationFn: () =>
+      api.post<{ studentsRestored: number; couldNotFit: { name: string; email: string }[] }>(
+        `/api/admin/sessions/${sessionId}/restore`,
+        { rebookStudents: true },
+      ),
+    onSuccess: (data) => {
+      setError(
+        data.couldNotFit.length > 0
+          ? `Class restored, but ${data.couldNotFit.map((s) => s.name).join(', ')} could not be fitted back in — the class is now too small. Please contact them.`
+          : null,
+      )
+      refresh()
+    },
+    onError: (err) => setError(err instanceof ApiError ? err.message : 'Could not put that class back on.'),
+  })
+
   const session = data?.session
   const roster = data?.roster ?? []
   const liveRoster = roster.filter((r) => r.status !== 'cancelled')
@@ -116,7 +134,18 @@ export function SessionDrawer({
           {error && <div className="banner banner-danger">{error}</div>}
 
           {session?.status === 'cancelled' && (
-            <div className="banner banner-danger">This class has been cancelled.</div>
+            <div className="banner banner-danger">
+              This class has been cancelled.
+              <div style={{ marginTop: 8 }}>
+                <button
+                  className="btn btn-sm"
+                  disabled={restoreMutation.isPending}
+                  onClick={() => restoreMutation.mutate()}
+                >
+                  {restoreMutation.isPending ? 'Putting it back…' : 'Put this class back on'}
+                </button>
+              </div>
+            </div>
           )}
 
           {session?.overCapacity && (

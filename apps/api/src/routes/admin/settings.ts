@@ -9,11 +9,13 @@ import {
 } from '@mizuki/shared'
 import {
   AuditLogModel,
+  CourseSeriesModel,
   CourseTypeModel,
   EmailTemplateModel,
   PushSubscriptionModel,
   ScheduleRuleModel,
 } from '../../models/index.js'
+import { getSeriesAvailability } from '../../services/seriesService.js'
 import { DEFAULT_TEMPLATES, renderTemplate, resetTemplate } from '../../services/emailTemplates.js'
 import { sendDirectEmail } from '../../services/mailer.js'
 import { materializeSessions } from '../../services/scheduleService.js'
@@ -137,6 +139,74 @@ adminSettingsRouter.post(
     const { from, to } = z.object({ from: z.string().optional(), to: z.string().optional() }).parse(req.body)
     const result = await materializeSessions({ from, to })
     res.json(result)
+  }),
+)
+
+// --- Set courses (the Autumn Ikebana Course and anything like it) ------------
+
+adminSettingsRouter.get(
+  '/series',
+  asyncRoute(async (_req, res) => {
+    const all = await CourseSeriesModel.find().sort({ createdAt: -1 }).lean()
+    const detailed = await Promise.all(
+      all.map(async (s) => ({
+        ...(await getSeriesAvailability(s._id)),
+        wooProductId: s.wooProductId,
+        active: s.active,
+        description: s.description,
+      })),
+    )
+    res.json({ series: detailed })
+  }),
+)
+
+const seriesInputSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  courseTypeId: z.string().regex(/^[0-9a-fA-F]{24}$/),
+  sessionIds: z.array(z.string().regex(/^[0-9a-fA-F]{24}$/)).min(1),
+  wooProductId: z.number().int().positive().nullable().default(null),
+  description: z.string().max(2000).default(''),
+  active: z.boolean().default(true),
+})
+
+adminSettingsRouter.post(
+  '/series',
+  asyncRoute(async (req, res) => {
+    const input = seriesInputSchema.parse(req.body)
+    const series = await CourseSeriesModel.create(input)
+
+    await recordAudit({
+      actor: actorOf(req),
+      action: 'series.create',
+      entity: 'CourseSeries',
+      entityId: series._id,
+      after: { name: input.name, sessions: input.sessionIds.length },
+    })
+
+    res.status(201).json({ series: { id: String(series._id), name: series.name } })
+  }),
+)
+
+/**
+ * Mostly used to attach the shop product. Until that is set, buying the course in the shop
+ * cannot book anything — the order arrives with no way to tell what it was for.
+ */
+adminSettingsRouter.patch(
+  '/series/:id',
+  asyncRoute(async (req, res) => {
+    const input = seriesInputSchema.partial().parse(req.body)
+    const series = await CourseSeriesModel.findByIdAndUpdate(req.params.id, { $set: input }, { new: true })
+    if (!series) throw new NotFoundError('Course')
+
+    await recordAudit({
+      actor: actorOf(req),
+      action: 'series.update',
+      entity: 'CourseSeries',
+      entityId: series._id,
+      after: input,
+    })
+
+    res.json({ series: { id: String(series._id), name: series.name, wooProductId: series.wooProductId } })
   }),
 )
 

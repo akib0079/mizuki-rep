@@ -75,6 +75,13 @@ export const widgetApi = {
   cancel: (bookingId: string, reason = '') =>
     request<unknown>('/api/bookings/cancel', { method: 'POST', body: JSON.stringify({ bookingId, reason }) }),
 
+  /** Hand a held place straight back when the student closes the box instead of paying. */
+  releaseHold: (holdToken: string) =>
+    request<{ ok: boolean }>('/api/bookings/release-hold', {
+      method: 'POST',
+      body: JSON.stringify({ holdToken }),
+    }),
+
   requestMagicLink: (email: string, redirectTo?: string) =>
     request<{ ok: boolean; message: string }>('/api/auth/magic-link', {
       method: 'POST',
@@ -88,8 +95,14 @@ export type StartBookingResult =
   | {
       outcome: 'checkout_required'
       message: string
+      bookingId: string
       studentId: string
       sessionId: string
+      /** Proves this held place belongs to this visitor, and travels through the shop with them. */
+      holdToken: string
+      holdExpiresAt: string
+      holdMinutes: number
+      checkoutUrl: string
       wooProductIds: number[]
       shopUrl: string
     }

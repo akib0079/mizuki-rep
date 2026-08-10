@@ -49,6 +49,17 @@ const bookingSchema = new Schema(
     cancelledAt: { type: Date, default: null },
     cancelReason: { type: String, default: '' },
     cancelledBy: { type: String, default: '' },
+
+    /**
+     * True when this booking was cancelled *because the class was*, rather than by the student
+     * or the studio removing one person. Undoing a cancelled class restores exactly these, so
+     * someone who had already dropped out is not silently put back in.
+     *
+     * A flag rather than a reading of `cancelReason`: the studio types that field freely, and
+     * inferring intent from prose means undo quietly stops working the day they word it
+     * differently.
+     */
+    cancelledWithSession: { type: Boolean, default: false, index: true },
   },
   { timestamps: true },
 )
