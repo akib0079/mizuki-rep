@@ -1,6 +1,7 @@
 import { createApp } from './app.js'
 import { connectDb, disconnectDb } from './db.js'
 import { config } from './config.js'
+import { startScheduler, stopScheduler } from './scheduler.js'
 import { logger } from './logger.js'
 import mongoose from 'mongoose'
 import './models/index.js'
@@ -20,8 +21,11 @@ async function main(): Promise<void> {
     logger.info({ port: config.PORT, env: config.NODE_ENV }, 'Mizuki booking API listening')
   })
 
+  startScheduler()
+
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'Shutting down')
+    stopScheduler()
     server.close(async () => {
       await disconnectDb()
       process.exit(0)

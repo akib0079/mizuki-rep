@@ -5,6 +5,18 @@ import { z } from 'zod'
  * Fail loudly at boot rather than at 2am when a reminder job needs a key that was never set.
  * Hostinger's Node app panel injects these as environment variables.
  */
+/**
+ * Environment variables are strings, and `z.coerce.boolean()` follows JavaScript's rule that any
+ * non-empty string is true — so SCHEDULER_ENABLED=false would enable it. This reads the words
+ * people actually write instead.
+ */
+const booleanFromEnv = z
+  .union([z.boolean(), z.string()])
+  .transform((value) => {
+    if (typeof value === 'boolean') return value
+    return !['false', '0', 'no', 'off', ''].includes(value.trim().toLowerCase())
+  })
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(4000),
@@ -52,6 +64,16 @@ const envSchema = z.object({
    * onto the web host's disk, which is a different provider from the database and therefore a
    * real second copy rather than the same risk twice.
    */
+  /*
+   * Run the scheduled work in-process rather than relying on an external cron.
+   *
+   * Set SCHEDULER_ENABLED=false only if something else is definitely hitting /api/jobs/tick —
+   * with neither, reminders stop, held places never release and no backups are taken, all
+   * silently.
+   */
+  SCHEDULER_ENABLED: booleanFromEnv.default(true),
+  SCHEDULER_INTERVAL_MINUTES: z.coerce.number().int().min(1).max(60).default(5),
+
   /** Where the built studio console lives. Defaults to apps/admin/dist beside this app. */
   ADMIN_DIST_DIR: z.string().optional(),
 

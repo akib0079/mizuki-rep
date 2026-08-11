@@ -18,6 +18,7 @@ import { wooRouter } from './routes/woo.js'
 import { requireAdmin } from './middleware/auth.js'
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js'
 import { config } from './config.js'
+import { schedulerStatus } from './scheduler.js'
 import { logger } from './logger.js'
 
 export function createApp(): Express {
@@ -82,9 +83,23 @@ export function createApp(): Express {
 
   app.get('/health', (_req, res) => {
     const dbUp = mongoose.connection.readyState === 1
+    const scheduler = schedulerStatus()
+
+    // A scheduler that has quietly stopped looks identical to one that is working, so its
+    // staleness is reported here rather than left to be noticed when a reminder does not arrive.
+    const scheduledWorkStale =
+      scheduler.enabled && scheduler.minutesSinceLastRun !== null && scheduler.minutesSinceLastRun > 30
+
     res.status(dbUp ? 200 : 503).json({
       ok: dbUp,
       db: dbUp ? 'connected' : 'disconnected',
+      scheduler: {
+        enabled: scheduler.enabled,
+        lastRunAt: scheduler.lastRunAt,
+        minutesSinceLastRun: scheduler.minutesSinceLastRun,
+        stale: scheduledWorkStale,
+        ...(scheduler.lastError ? { lastError: scheduler.lastError } : {}),
+      },
       now: new Date().toISOString(),
     })
   })
