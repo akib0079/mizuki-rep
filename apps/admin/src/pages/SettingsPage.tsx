@@ -141,6 +141,8 @@ export function SettingsPage({ totpEnabled }: { totpEnabled: boolean }) {
 
       <SetCoursesCard onMessage={setMessage} />
 
+      <IntegrationsCard onMessage={setMessage} />
+
       <div className="card">
         <h2 className="card-title">Alerts on your phone</h2>
         <p className="card-sub">Get a notification the moment someone books.</p>
@@ -389,6 +391,143 @@ function describeAction(action: string): string {
     'maintenance.repairSeatDrift': 'Place counts corrected',
   }
   return labels[action] ?? action
+}
+
+interface SecretStatus { configured: boolean; hint: string; source: 'studio' | 'environment' | 'none' }
+interface Integrations {
+  email: SecretStatus
+  telegramToken: SecretStatus
+  telegramChat: SecretStatus
+  mailFrom: string
+  replyTo: string | null
+}
+
+/**
+ * Connected services.
+ *
+ * Keys can be changed here rather than requiring a redeploy, which matters because rotating one
+ * is something the studio may need to do on a bad day without a developer. Only a masked hint is
+ * ever shown — the screen answers "is the right key in there?" without becoming a way to read a
+ * secret back out.
+ */
+function IntegrationsCard({ onMessage }: { onMessage: (m: { kind: 'ok' | 'danger'; text: string }) => void }) {
+  const queryClient = useQueryClient()
+  const [editing, setEditing] = useState<string | null>(null)
+  const [value, setValue] = useState('')
+
+  const { data } = useQuery({
+    queryKey: ['integrations'],
+    queryFn: () => api.get<Integrations>('/api/admin/settings/integrations'),
+  })
+
+  const save = useMutation({
+    mutationFn: (input: { name: string; value: string }) =>
+      api.put(`/api/admin/settings/integrations/${input.name}`, { value: input.value }),
+    onSuccess: () => {
+      setEditing(null)
+      setValue('')
+      onMessage({ kind: 'ok', text: 'Saved. New emails will use this key.' })
+      void queryClient.invalidateQueries({ queryKey: ['integrations'] })
+    },
+    onError: (err) => onMessage({ kind: 'danger', text: err instanceof ApiError ? err.message : 'Could not save.' }),
+  })
+
+  const check = useMutation({
+    mutationFn: () => api.post<{ ok: boolean; message: string; domains?: string[] }>('/api/admin/settings/integrations/resend/check'),
+    onSuccess: (r) =>
+      onMessage({
+        kind: r.ok ? 'ok' : 'danger',
+        text: r.domains?.length ? `${r.message} Domains: ${r.domains.join(', ')}` : r.message,
+      }),
+  })
+
+  const rows: { name: string; label: string; hint: string; status?: SecretStatus }[] = [
+    { name: 'resend', label: 'Resend API key', hint: 'Sends confirmations and reminders.', status: data?.email },
+    { name: 'telegram-token', label: 'Telegram bot token', hint: 'Optional — booking alerts on your phone.', status: data?.telegramToken },
+    { name: 'telegram-chat', label: 'Telegram chat ID', hint: 'From @userinfobot.', status: data?.telegramChat },
+  ]
+
+  return (
+    <div className="card">
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <h2 className="card-title">Connected services</h2>
+          <p className="card-sub" style={{ marginBottom: 0 }}>
+            Sending from <strong>{data?.mailFrom ?? '—'}</strong>
+            {data?.replyTo && <> · replies to {data.replyTo}</>}
+          </p>
+        </div>
+        <button type="button" className="btn btn-sm" disabled={check.isPending} onClick={() => check.mutate()}>
+          {check.isPending ? 'Checking…' : 'Test email key'}
+        </button>
+      </div>
+
+      <table className="table" style={{ marginTop: 14 }}>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.name}>
+              <td>
+                <div className="row-title">{row.label}</div>
+                <div className="row-sub">{row.hint}</div>
+
+                {editing === row.name && (
+                  <div className="row" style={{ marginTop: 10 }}>
+                    <input
+                      type="password"
+                      autoFocus
+                      className="btn"
+                      style={{ minWidth: 300, fontFamily: 'ui-monospace, monospace' }}
+                      placeholder="Paste the new key"
+                      value={value}
+                      onChange={(e) => setValue(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      disabled={!value.trim() || save.isPending}
+                      onClick={() => save.mutate({ name: row.name, value: value.trim() })}
+                    >
+                      Save
+                    </button>
+                    <button type="button" className="btn btn-sm" onClick={() => { setEditing(null); setValue('') }}>
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </td>
+              <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                {row.status?.configured ? (
+                  <>
+                    <span className="mono faint" style={{ marginRight: 8 }}>{row.status.hint}</span>
+                    <span className={row.status.source === 'studio' ? 'pill pill-ok' : 'pill pill-muted'}>
+                      {row.status.source === 'studio' ? 'Set here' : 'From server'}
+                    </span>
+                  </>
+                ) : (
+                  <span className="pill pill-warn">Not set</span>
+                )}
+                {editing !== row.name && (
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    style={{ marginLeft: 8 }}
+                    onClick={() => { setEditing(row.name); setValue('') }}
+                  >
+                    Change
+                  </button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <div className="banner banner-info" style={{ marginTop: 14, marginBottom: 0 }}>
+        Keys are stored encrypted and never shown again once saved — only the first and last few
+        characters, so you can tell which key is in place.
+      </div>
+    </div>
+  )
 }
 
 interface BackupFile { file: string; bytes: number; createdAt: string }

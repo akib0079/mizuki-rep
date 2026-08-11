@@ -19,7 +19,8 @@ import { getSeriesAvailability } from '../../services/seriesService.js'
 import { buildDashboard } from '../../services/dashboardService.js'
 import { hoursSinceLastBackup, listBackups, readBackup, runBackup } from '../../services/backupService.js'
 import { DEFAULT_TEMPLATES, renderTemplate, resetTemplate } from '../../services/emailTemplates.js'
-import { sendDirectEmail } from '../../services/mailer.js'
+import { checkEmailKey, sendDirectEmail } from '../../services/mailer.js'
+import { SECRET_KEYS, clearSecret, describeSecret, setSecret } from '../../services/secretStore.js'
 import { materializeSessions } from '../../services/scheduleService.js'
 import { findSeatDrift, repairSeatDrift } from '../../services/seatService.js'
 import { recordAudit } from '../../services/auditService.js'
@@ -360,6 +361,72 @@ adminSettingsRouter.post(
     )
 
     res.status(201).json({ ok: true })
+  }),
+)
+
+// --- Connected services -----------------------------------------------------
+
+/**
+ * The keys the studio can change themselves.
+ *
+ * Only ever reports whether each is set and a masked hint — never the value. The screen exists
+ * to answer "is the right key in there?", not to become a way of reading secrets back out.
+ */
+adminSettingsRouter.get(
+  '/integrations',
+  asyncRoute(async (_req, res) => {
+    const [email, telegramToken, telegramChat] = await Promise.all([
+      describeSecret(SECRET_KEYS.resendApiKey, config.RESEND_API_KEY),
+      describeSecret(SECRET_KEYS.telegramBotToken, config.TELEGRAM_BOT_TOKEN),
+      describeSecret(SECRET_KEYS.telegramChatId, config.TELEGRAM_CHAT_ID),
+    ])
+    res.json({ email, telegramToken, telegramChat, mailFrom: config.MAIL_FROM, replyTo: config.MAIL_REPLY_TO ?? null })
+  }),
+)
+
+const secretInputSchema = z.object({ value: z.string().trim().min(1, 'Paste the key') })
+
+const EDITABLE_SECRETS: Record<string, (typeof SECRET_KEYS)[keyof typeof SECRET_KEYS]> = {
+  resend: SECRET_KEYS.resendApiKey,
+  'telegram-token': SECRET_KEYS.telegramBotToken,
+  'telegram-chat': SECRET_KEYS.telegramChatId,
+}
+
+adminSettingsRouter.put(
+  '/integrations/:name',
+  asyncRoute(async (req, res) => {
+    const key = EDITABLE_SECRETS[req.params.name!]
+    if (!key) throw new NotFoundError('Setting')
+
+    const { value } = secretInputSchema.parse(req.body)
+    await setSecret(key, value, actorOf(req))
+
+    // The value is never logged or audited — only that it changed, and by whom.
+    await recordAudit({ actor: actorOf(req), action: 'integration.update', entity: 'Setting', reason: req.params.name })
+
+    res.json({ ok: true, status: await describeSecret(key) })
+  }),
+)
+
+/** Revert to whatever the server was deployed with. */
+adminSettingsRouter.delete(
+  '/integrations/:name',
+  asyncRoute(async (req, res) => {
+    const key = EDITABLE_SECRETS[req.params.name!]
+    if (!key) throw new NotFoundError('Setting')
+
+    await clearSecret(key, actorOf(req))
+    await recordAudit({ actor: actorOf(req), action: 'integration.clear', entity: 'Setting', reason: req.params.name })
+
+    res.json({ ok: true })
+  }),
+)
+
+/** Check a key works without sending anything or spending quota. */
+adminSettingsRouter.post(
+  '/integrations/resend/check',
+  asyncRoute(async (_req, res) => {
+    res.json(await checkEmailKey())
   }),
 )
 

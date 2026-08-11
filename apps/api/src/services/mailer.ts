@@ -5,6 +5,7 @@ import { DateTime } from 'luxon'
 import { STUDIO_TZ } from '@mizuki/shared'
 import { OutboxModel, PushSubscriptionModel, SessionModel, type OutboxDoc } from '../models/index.js'
 import { config } from '../config.js'
+import { SECRET_KEYS, getSecret } from './secretStore.js'
 import { logger } from '../logger.js'
 
 /**
@@ -16,7 +17,24 @@ import { logger } from '../logger.js'
  * own instant alerts.
  */
 
-const resend = config.RESEND_API_KEY ? new Resend(config.RESEND_API_KEY) : null
+/**
+ * Built per send rather than once at boot, because the studio can change the key from the
+ * console. A client captured at startup would keep using the old key until the next deploy —
+ * which is precisely when someone has just pasted a new one and is watching to see it work.
+ * The key itself is cached for a minute in the secret store, so this is not a database read
+ * per message.
+ */
+let cachedClient: { key: string; client: Resend } | null = null
+
+async function resendClient(): Promise<Resend | null> {
+  const key = await getSecret(SECRET_KEYS.resendApiKey, config.RESEND_API_KEY)
+  if (!key) return null
+
+  if (!cachedClient || cachedClient.key !== key) {
+    cachedClient = { key, client: new Resend(key) }
+  }
+  return cachedClient.client
+}
 
 if (config.VAPID_PUBLIC_KEY && config.VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(config.VAPID_SUBJECT, config.VAPID_PUBLIC_KEY, config.VAPID_PRIVATE_KEY)
@@ -97,8 +115,9 @@ async function deliver(message: OutboxDoc): Promise<boolean> {
 }
 
 async function sendEmail(message: OutboxDoc): Promise<boolean> {
+  const resend = await resendClient()
   if (!resend) {
-    logger.warn({ type: message.type }, 'RESEND_API_KEY not set — email not sent')
+    logger.warn({ type: message.type }, 'No Resend API key configured — email not sent')
     return false
   }
   if (!message.to) throw new Error('Email message has no recipient')
@@ -125,13 +144,17 @@ async function sendEmail(message: OutboxDoc): Promise<boolean> {
 }
 
 async function sendTelegram(message: OutboxDoc): Promise<boolean> {
-  if (!config.TELEGRAM_BOT_TOKEN || !config.TELEGRAM_CHAT_ID) return false
+  const [token, chatId] = await Promise.all([
+    getSecret(SECRET_KEYS.telegramBotToken, config.TELEGRAM_BOT_TOKEN),
+    getSecret(SECRET_KEYS.telegramChatId, config.TELEGRAM_CHAT_ID),
+  ])
+  if (!token || !chatId) return false
 
-  const response = await fetch(`https://api.telegram.org/bot${config.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+  const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      chat_id: config.TELEGRAM_CHAT_ID,
+      chat_id: chatId,
       text: message.bodyText,
       disable_web_page_preview: true,
     }),
@@ -222,7 +245,41 @@ export async function buildIcs(sessionId: string): Promise<string | null> {
 
 /** Used by the admin template editor's "send test to me" button. */
 export async function sendDirectEmail(to: string, subject: string, html: string, text: string): Promise<void> {
-  if (!resend) throw new Error('Email is not configured — set RESEND_API_KEY.')
-  const { error } = await resend.emails.send({ from: config.MAIL_FROM, to, subject, html, text })
+  const resend = await resendClient()
+  if (!resend) throw new Error('Email is not set up yet — add a Resend API key under Settings.')
+
+  const { error } = await resend.emails.send({
+    from: config.MAIL_FROM,
+    to,
+    subject,
+    html,
+    text,
+    ...(config.MAIL_REPLY_TO ? { replyTo: config.MAIL_REPLY_TO } : {}),
+  })
   if (error) throw new Error(error.message)
+}
+
+/**
+ * Ask Resend whether a key works, without sending anything.
+ *
+ * Listing domains is a read-only call, so the studio can check a key they have just pasted
+ * without spending quota or emailing a real person to find out.
+ */
+export async function checkEmailKey(): Promise<{ ok: boolean; message: string; domains?: string[] }> {
+  const resend = await resendClient()
+  if (!resend) return { ok: false, message: 'No API key is set.' }
+
+  try {
+    const { data, error } = await resend.domains.list()
+    if (error) return { ok: false, message: error.message }
+
+    const domains = (data?.data ?? []).map((d) => `${d.name} (${d.status})`)
+    return {
+      ok: true,
+      message: domains.length ? 'Key accepted.' : 'Key accepted, but no domain has been added in Resend yet.',
+      domains,
+    }
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : 'Could not reach Resend.' }
+  }
 }
