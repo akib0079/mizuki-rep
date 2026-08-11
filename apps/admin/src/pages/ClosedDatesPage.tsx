@@ -108,10 +108,10 @@ export function ClosedDatesPage() {
         </label>
 
         <div className="row">
-          <button className="btn" onClick={() => previewMutation.mutate()} disabled={previewMutation.isPending}>
+          <button type="button" className="btn" onClick={() => previewMutation.mutate()} disabled={previewMutation.isPending}>
             {previewMutation.isPending ? 'Checking…' : 'Check what this affects'}
           </button>
-          <button className="btn btn-primary" onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>
+          <button type="button" className="btn btn-primary" onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>
             {createMutation.isPending ? 'Saving…' : 'Close these days'}
           </button>
         </div>
@@ -171,7 +171,7 @@ export function ClosedDatesPage() {
                       )}
                     </td>
                     <td style={{ textAlign: 'right' }}>
-                      <button
+                      <button type="button"
                         className="btn btn-sm btn-danger"
                         disabled={cancelSessionMutation.isPending}
                         onClick={() => cancelSessionMutation.mutate(s.id)}
@@ -205,7 +205,7 @@ export function ClosedDatesPage() {
                     {c.reason && <div className="muted small">{c.reason}</div>}
                   </td>
                   <td style={{ textAlign: 'right' }}>
-                    <button className="btn btn-sm" onClick={() => deleteMutation.mutate(c.id)}>
+                    <button type="button" className="btn btn-sm" onClick={() => deleteMutation.mutate(c.id)}>
                       Reopen
                     </button>
                   </td>

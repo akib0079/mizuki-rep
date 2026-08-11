@@ -18,7 +18,7 @@ import { BookingDialog } from './BookingDialog.js'
  * A hand-built month grid rather than a calendar library: the whole embed has to stay small
  * enough to drop into a WordPress page without slowing it down.
  */
-export function BookingCalendar({ courseSlug }: { courseSlug?: string }) {
+export function BookingCalendar({ courseSlug, logoUrl }: { courseSlug?: string; logoUrl?: string }) {
   const [days, setDays] = useState<PublicCalendarDay[] | null>(null)
   const [courses, setCourses] = useState<{ id: string; name: string; slug: string; colour: string }[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -88,6 +88,14 @@ export function BookingCalendar({ courseSlug }: { courseSlug?: string }) {
 
   return (
     <div className="mzk">
+      {/* Optional: the page usually has the studio's branding already, so this is off by default. */}
+      {logoUrl && (
+        <div className="mzk-brandbar">
+          <img src={logoUrl} alt="Mizuki Flora" width={34} height={34} />
+          <span>Choose a date to see the classes running that day.</span>
+        </div>
+      )}
+
       <div className="mzk-panel">
         <div className="mzk-cal-head">
           <h2 className="mzk-month">{monthCursor.toFormat('LLLL yyyy')}</h2>

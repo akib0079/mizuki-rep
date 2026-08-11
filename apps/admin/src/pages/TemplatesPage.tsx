@@ -88,7 +88,7 @@ export function TemplatesPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 250px) 1fr', gap: 16, alignItems: 'start' }}>
         <div className="card" style={{ padding: 10 }}>
           {templates.map((t) => (
-            <button
+            <button type="button"
               key={t.key}
               className={t.key === active?.key ? 'nav-link active' : 'nav-link'}
               style={{ width: '100%', textAlign: 'left', border: 'none', cursor: 'pointer', background: t.key === active?.key ? undefined : 'transparent' }}
@@ -119,7 +119,7 @@ export function TemplatesPage() {
                 </span>
                 <div className="row" style={{ flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
                   {active.variables.map((v) => (
-                    <button key={v} className="btn btn-sm" onClick={() => insertVariable(v)} title={`Insert {{${v}}}`}>
+                    <button type="button" key={v} className="btn btn-sm" onClick={() => insertVariable(v)} title={`Insert {{${v}}}`}>
                       {v}
                     </button>
                   ))}
@@ -149,11 +149,11 @@ export function TemplatesPage() {
               </label>
 
               <div className="row" style={{ flexWrap: 'wrap' }}>
-                <button className="btn btn-primary" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+                <button type="button" className="btn btn-primary" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
                   {saveMutation.isPending ? 'Saving…' : 'Save'}
                 </button>
-                <button className="btn" onClick={() => previewMutation.mutate()}>Preview</button>
-                <button
+                <button type="button" className="btn" onClick={() => previewMutation.mutate()}>Preview</button>
+                <button type="button"
                   className="btn"
                   onClick={() => {
                     const to = prompt('Send a test to which address?')
@@ -163,7 +163,7 @@ export function TemplatesPage() {
                   Send test
                 </button>
                 <div className="spacer" />
-                <button
+                <button type="button"
                   className="btn btn-sm"
                   onClick={() => {
                     if (confirm('Restore the original wording for this email?')) resetMutation.mutate()

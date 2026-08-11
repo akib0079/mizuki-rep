@@ -90,7 +90,7 @@ export function AddStudentDialog({
                   <div className="small">{selected.sessionsRemaining} course session(s) remaining</div>
                 )}
                 <div>
-                  <button className="btn btn-sm btn-ghost" style={{ paddingLeft: 0 }} onClick={() => setSelected(null)}>
+                  <button type="button" className="btn btn-sm btn-ghost" style={{ paddingLeft: 0 }} onClick={() => setSelected(null)}>
                     Choose someone else
                   </button>
                 </div>
@@ -101,7 +101,7 @@ export function AddStudentDialog({
                   {results.isLoading && <p className="muted small">Searching…</p>}
                   {results.data?.students.length === 0 && <p className="muted small">No match.</p>}
                   {results.data?.students.map((s) => (
-                    <button
+                    <button type="button"
                       key={s.id}
                       className="btn"
                       style={{ justifyContent: 'flex-start', textAlign: 'left' }}
@@ -120,7 +120,7 @@ export function AddStudentDialog({
               )
             )}
 
-            <button className="btn btn-sm btn-ghost" style={{ paddingLeft: 0 }} onClick={() => setCreating(true)}>
+            <button type="button" className="btn btn-sm btn-ghost" style={{ paddingLeft: 0 }} onClick={() => setCreating(true)}>
               + This is someone new
             </button>
           </>
@@ -143,7 +143,7 @@ export function AddStudentDialog({
               <span>Phone (optional)</span>
               <input value={newStudent.phone} onChange={(e) => setNewStudent({ ...newStudent, phone: e.target.value })} />
             </label>
-            <button className="btn btn-sm btn-ghost" style={{ paddingLeft: 0 }} onClick={() => setCreating(false)}>
+            <button type="button" className="btn btn-sm btn-ghost" style={{ paddingLeft: 0 }} onClick={() => setCreating(false)}>
               ← Search existing students instead
             </button>
           </>
@@ -157,8 +157,8 @@ export function AddStudentDialog({
         )}
 
         <div className="row" style={{ marginTop: 20, justifyContent: 'flex-end' }}>
-          <button className="btn" onClick={onClose}>Cancel</button>
-          <button
+          <button type="button" className="btn" onClick={onClose}>Cancel</button>
+          <button type="button"
             className="btn btn-primary"
             disabled={!canSubmit || addMutation.isPending || (sessionFull && !override)}
             onClick={() => addMutation.mutate()}

@@ -89,7 +89,7 @@ export function DashboardPage() {
           <h1>Dashboard</h1>
           <p>Your studio at a glance — {today.toFormat('cccc d LLLL yyyy')}.</p>
         </div>
-        <button className="btn btn-primary btn-sm" onClick={() => navigate('/calendar')}>
+        <button type="button" className="btn btn-primary btn-sm" onClick={() => navigate('/calendar')}>
           Open the calendar
         </button>
       </div>
@@ -107,7 +107,7 @@ export function DashboardPage() {
         ) : (
           <div className="actions-grid">
             {data.actions.map((action, i) => (
-              <button key={`${action.kind}-${i}`} className="action-item" onClick={() => navigate(action.href)}>
+              <button type="button" key={`${action.kind}-${i}`} className="action-item" onClick={() => navigate(action.href)}>
                 <span className={`action-dot ${action.severity}`} />
                 <span className="action-body">
                   <span className="action-title">{action.title}</span>
@@ -151,7 +151,7 @@ export function DashboardPage() {
       </div>
 
       {/* --- Today --- */}
-      <button className="section-label" aria-expanded={openSections.today} onClick={() => toggle('today')}>
+      <button type="button" className="section-label" aria-expanded={openSections.today} onClick={() => toggle('today')}>
         <span className="chev">▾</span> Today
       </button>
 
@@ -205,7 +205,7 @@ export function DashboardPage() {
       )}
 
       {/* --- Coming up --- */}
-      <button className="section-label" aria-expanded={openSections.detail} onClick={() => toggle('detail')}>
+      <button type="button" className="section-label" aria-expanded={openSections.detail} onClick={() => toggle('detail')}>
         <span className="chev">▾</span> Coming up
       </button>
 
@@ -275,7 +275,7 @@ export function DashboardPage() {
       )}
 
       {/* --- Activity --- */}
-      <button className="section-label" aria-expanded={openSections.activity} onClick={() => toggle('activity')}>
+      <button type="button" className="section-label" aria-expanded={openSections.activity} onClick={() => toggle('activity')}>
         <span className="chev">▾</span> Recent activity
       </button>
 

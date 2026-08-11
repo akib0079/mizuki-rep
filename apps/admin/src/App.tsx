@@ -10,25 +10,32 @@ import { StudentsPage } from './pages/StudentsPage.js'
 import { TemplatesPage } from './pages/TemplatesPage.js'
 import { SettingsPage } from './pages/SettingsPage.js'
 import { CommandPalette } from './components/CommandPalette.js'
+import { Icon, type IconName } from './components/Icon.js'
 
 interface Me {
   admin: { id: string; name: string; email: string; role: string; totpEnabled: boolean }
 }
 
 /** Pinned entries sit above the rest, as on the agency panel the studio already uses. */
-const PINNED = [
-  { to: '/calendar', label: 'Calendar', icon: '▦' },
-  { to: '/students', label: 'Students', icon: '☺' },
+const PINNED: NavItem[] = [
+  { to: '/calendar', label: 'Calendar', icon: 'calendar' },
+  { to: '/students', label: 'Students', icon: 'students' },
 ]
 
-const NAV = [
-  { to: '/dashboard', label: 'Dashboard', icon: '◧' },
-  { to: '/calendar', label: 'Calendar', icon: '▦' },
-  { to: '/students', label: 'Students', icon: '☺' },
-  { to: '/closed-dates', label: 'Closed dates', icon: '⊘' },
-  { to: '/templates', label: 'Emails', icon: '✉' },
-  { to: '/settings', label: 'Settings', icon: '⚙' },
+const NAV: NavItem[] = [
+  { to: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
+  { to: '/calendar', label: 'Calendar', icon: 'calendar' },
+  { to: '/students', label: 'Students', icon: 'students' },
+  { to: '/closed-dates', label: 'Closed dates', icon: 'closed' },
+  { to: '/templates', label: 'Emails', icon: 'mail' },
+  { to: '/settings', label: 'Settings', icon: 'settings' },
 ]
+
+interface NavItem {
+  to: string
+  label: string
+  icon: IconName
+}
 
 export function App() {
   const { data, isLoading, isError, refetch } = useQuery({
@@ -76,29 +83,39 @@ export function App() {
     <div className="shell">
       <nav className={collapsed ? 'sidebar collapsed' : 'sidebar'}>
         <div className="brand">
-          <div className="brand-mark">M</div>
-          <div className="brand-text">Mizuki Flora</div>
+          <img className="brand-logo" src="/admin/mizuki-logo.png" alt="" width={32} height={32} />
+          <div className="brand-text">
+            <span className="brand-name">Mizuki Flora</span>
+            <span className="brand-sub">Studio</span>
+          </div>
         </div>
 
-        <button className="side-search" onClick={() => setPaletteOpen(true)}>
-          <span>⌕</span>
-          <span>Search…</span>
-          <kbd>⌘K</kbd>
+        <button type="button" className="side-search" onClick={() => setPaletteOpen(true)} title="Search (⌘K)">
+          <Icon name="search" size={15} />
+          <span className="nav-label">Search…</span>
+          <kbd className="nav-label">⌘K</kbd>
         </button>
 
         <div className="side-heading">Pinned</div>
         {PINNED.map((item) => (
-          <NavLink key={`pin-${item.to}`} to={item.to} className={navClass}>
-            <span className="nav-icon">{item.icon}</span>
+          // `title` is what makes the collapsed rail usable — an icon on its own is a guess.
+          <NavLink key={`pin-${item.to}`} to={item.to} className={navClass} title={item.label}>
+            <span className="nav-icon"><Icon name={item.icon} /></span>
             <span className="nav-label">{item.label}</span>
-            <span className="pin">★</span>
+            <span className="pin nav-label"><Icon name="star" size={11} /></span>
           </NavLink>
         ))}
 
         <div className="side-heading">Studio</div>
         {NAV.map((item) => (
-          <NavLink key={item.to} to={item.to} className={navClass} end={item.to === '/dashboard'}>
-            <span className="nav-icon">{item.icon}</span>
+          <NavLink
+            key={item.to}
+            to={item.to}
+            className={navClass}
+            title={item.label}
+            end={item.to === '/dashboard'}
+          >
+            <span className="nav-icon"><Icon name={item.icon} /></span>
             <span className="nav-label">{item.label}</span>
           </NavLink>
         ))}
@@ -108,7 +125,7 @@ export function App() {
           <div className="user-meta">
             <div className="name">{data.admin.name}</div>
             <div className="email">{data.admin.email}</div>
-            <button
+            <button type="button"
               className="signout"
               onClick={async () => {
                 await api.post('/api/auth/logout')
@@ -123,12 +140,25 @@ export function App() {
 
       <div className="main">
         <header className="topbar">
-          <button className="icon-btn" onClick={() => setCollapsed(!collapsed)} aria-label="Toggle sidebar">
-            ☰
+          <button type="button"
+            className="icon-btn"
+            onClick={() => setCollapsed(!collapsed)}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-expanded={!collapsed}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            <Icon name="menu" />
           </button>
           <div className="spacer" />
           <QuickAdd />
-          <button className="icon-btn" onClick={() => setPaletteOpen(true)} aria-label="Search">⌕</button>
+          <button type="button"
+            className="icon-btn"
+            onClick={() => setPaletteOpen(true)}
+            aria-label="Search"
+            title="Search (⌘K)"
+          >
+            <Icon name="search" />
+          </button>
         </header>
 
         <div className="content">
@@ -154,31 +184,39 @@ function QuickAdd() {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
 
+  // Escape closes, matching every other menu on the web.
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open])
+
+  // Each of these opens the relevant form on arrival — landing on a list and leaving the
+  // studio to hunt for a button is not "quick add".
+  const items: { label: string; to: string; icon: IconName }[] = [
+    { label: 'Add a class', to: '/calendar?new=1', icon: 'calendar' },
+    { label: 'Add a student', to: '/students?new=1', icon: 'students' },
+    { label: 'Close some days', to: '/closed-dates', icon: 'closed' },
+  ]
+
   return (
-    <div style={{ position: 'relative' }}>
-      <button className="btn btn-dark btn-sm" onClick={() => setOpen(!open)}>+ Quick add</button>
+    <div className="quickadd">
+      <button type="button" className="btn btn-dark btn-sm" onClick={() => setOpen(!open)} aria-expanded={open} aria-haspopup="menu">
+        <Icon name="plus" size={15} /> Quick add
+      </button>
       {open && (
         <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 30 }} onClick={() => setOpen(false)} />
-          <div
-            style={{
-              position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 31,
-              background: 'var(--surface)', border: '1px solid var(--line)',
-              borderRadius: 'var(--radius-sm)', boxShadow: '0 8px 24px rgba(31,39,51,0.12)',
-              minWidth: 190, padding: 5,
-            }}
-          >
-            {[
-              { label: 'Add a class', to: '/calendar' },
-              { label: 'Add a student', to: '/students' },
-              { label: 'Close some days', to: '/closed-dates' },
-            ].map((item) => (
-              <button
+          <div className="menu-scrim" onClick={() => setOpen(false)} />
+          <div className="menu" role="menu">
+            {items.map((item) => (
+              <button type="button"
                 key={item.to}
-                className="nav-link"
-                style={{ color: 'var(--ink)', margin: 0, width: '100%' }}
+                className="menu-item"
+                role="menuitem"
                 onClick={() => { setOpen(false); navigate(item.to) }}
               >
+                <Icon name={item.icon} size={16} />
                 {item.label}
               </button>
             ))}

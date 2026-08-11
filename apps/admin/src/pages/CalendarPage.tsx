@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
@@ -23,9 +24,24 @@ export function CalendarPage() {
   const calendarRef = useRef<FullCalendar>(null)
   const queryClient = useQueryClient()
 
+  const [params, setParams] = useSearchParams()
   const [range, setRange] = useState(() => monthWindow(DateTime.now().setZone(STUDIO_TZ)))
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(() => params.get('session'))
   const [creatingOn, setCreatingOn] = useState<string | null>(null)
+
+  // Deep links from the dashboard (?session=…) and Quick add (?new=1) land ready to act on.
+  useEffect(() => {
+    const session = params.get('session')
+    const isNew = params.get('new') === '1'
+    if (!session && !isNew) return
+
+    if (session) setSelectedId(session)
+    if (isNew) setCreatingOn(DateTime.now().setZone(STUDIO_TZ).toFormat('yyyy-MM-dd'))
+
+    params.delete('session')
+    params.delete('new')
+    setParams(params, { replace: true })
+  }, [params, setParams])
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null)
   const [courseFilter, setCourseFilter] = useState<string>('')
 
@@ -126,7 +142,7 @@ export function CalendarPage() {
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
-          <button className="btn btn-primary" onClick={() => setCreatingOn(DateTime.now().setZone(STUDIO_TZ).toFormat('yyyy-MM-dd'))}>
+          <button type="button" className="btn btn-primary" onClick={() => setCreatingOn(DateTime.now().setZone(STUDIO_TZ).toFormat('yyyy-MM-dd'))}>
             + Add class
           </button>
         </div>

@@ -78,6 +78,41 @@ adminStudentsRouter.get(
     const courses = await CourseTypeModel.find().lean()
     const courseById = new Map(courses.map((c) => [String(c._id), c]))
 
+    /*
+     * A full picture rather than a name and an email. When the studio has someone on the phone
+     * the questions are "has she been before", "did she turn up last time", "how many sessions
+     * has she got left" — so attendance history and lifetime counts belong here, not just
+     * contact details.
+     */
+    const packageSummaries = await summarisePackages(student._id)
+
+    const now = new Date()
+    const active = bookings.filter((b) => b.status !== 'cancelled')
+    const attended = bookings.filter((b) => b.status === 'attended').length
+    const noShows = bookings.filter((b) => b.status === 'no_show').length
+    const cancelled = bookings.filter((b) => b.status === 'cancelled').length
+    const past = active.filter((b) => {
+      const s = sessionById.get(String(b.sessionId))
+      return s && s.startAt < now
+    })
+
+    const attendedOrPast = attended + noShows
+    const firstBooking = [...bookings].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    )[0]
+
+    // Which courses this student actually does, most-booked first.
+    const courseTally = new Map<string, number>()
+    for (const booking of active) {
+      const session = sessionById.get(String(booking.sessionId))
+      if (!session) continue
+      const key = String(session.courseTypeId)
+      courseTally.set(key, (courseTally.get(key) ?? 0) + 1)
+    }
+    const coursesTaken = [...courseTally.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([id, count]) => ({ courseName: courseById.get(id)?.name ?? '—', count }))
+
     res.json({
       student: {
         id: String(student._id),
@@ -87,8 +122,24 @@ adminStudentsRouter.get(
         notes: student.notes,
         marketingOptIn: student.marketingOptIn,
         lastLoginAt: student.lastLoginAt,
+        wooCustomerId: student.wooCustomerId,
+        joinedAt: student.createdAt,
+        firstBookedAt: firstBooking?.createdAt ?? null,
       },
-      packages: (await summarisePackages(student._id)).map((p) => ({
+      stats: {
+        totalBookings: active.length,
+        upcoming: active.length - past.length,
+        attended,
+        noShows,
+        cancelled,
+        // Only meaningful once some classes have actually happened.
+        attendanceRate: attendedOrPast > 0 ? Math.round((attended / attendedOrPast) * 100) : null,
+        sessionsRemaining: packageSummaries
+          .filter((p) => p.status === 'active')
+          .reduce((sum, p) => sum + p.remaining, 0),
+      },
+      coursesTaken,
+      packages: packageSummaries.map((p) => ({
         ...p,
         courseName: courseById.get(p.courseTypeId)?.name ?? '',
       })),
@@ -99,12 +150,23 @@ adminStudentsRouter.get(
           status: b.status,
           source: b.source,
           usedPackage: b.packageId !== null,
+          capacityOverridden: b.capacityOverridden,
+          notes: b.studentNotes,
+          adminNotes: b.adminNotes,
+          bookedAt: b.createdAt,
+          cancelledAt: b.cancelledAt,
+          cancelReason: b.cancelReason,
+          wooOrderId: b.wooOrderId,
           session: session
             ? {
                 id: String(session._id),
                 title: session.title,
                 startAt: session.startAt.toISOString(),
+                endAt: session.endAt.toISOString(),
+                dateKey: session.dateKey,
+                status: session.status,
                 courseName: courseById.get(String(session.courseTypeId))?.name ?? '',
+                colour: courseById.get(String(session.courseTypeId))?.colour ?? '#94a3b8',
               }
             : null,
         }

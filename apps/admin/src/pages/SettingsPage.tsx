@@ -162,7 +162,7 @@ export function SettingsPage({ totpEnabled }: { totpEnabled: boolean }) {
         <h2 className="card-title">Maintenance</h2>
 
         <div className="row" style={{ marginBottom: 14 }}>
-          <button className="btn" onClick={() => generateMutation.mutate()} disabled={generateMutation.isPending}>
+          <button type="button" className="btn" onClick={() => generateMutation.mutate()} disabled={generateMutation.isPending}>
             {generateMutation.isPending ? 'Working…' : 'Fill the calendar from my weekly timetable'}
           </button>
         </div>
@@ -188,7 +188,7 @@ export function SettingsPage({ totpEnabled }: { totpEnabled: boolean }) {
                 ))}
               </tbody>
             </table>
-            <button className="btn btn-sm" style={{ marginTop: 12 }} onClick={() => repairMutation.mutate()}>
+            <button type="button" className="btn btn-sm" style={{ marginTop: 12 }} onClick={() => repairMutation.mutate()}>
               Correct these counts
             </button>
           </>
@@ -329,7 +329,7 @@ function AuditCard() {
             Every change to a class, a booking or a course package.
           </p>
         </div>
-        <button className="btn btn-sm" onClick={() => setOpen(!open)}>
+        <button type="button" className="btn btn-sm" onClick={() => setOpen(!open)}>
           {open ? 'Hide' : 'Show'}
         </button>
       </div>
@@ -429,7 +429,7 @@ function PushEnrolment({ onMessage }: { onMessage: (m: { kind: 'ok' | 'danger'; 
   }
 
   return (
-    <button className="btn" onClick={enable} disabled={busy}>
+    <button type="button" className="btn" onClick={enable} disabled={busy}>
       {busy ? 'Setting up…' : 'Turn on push alerts for this device'}
     </button>
   )
@@ -456,7 +456,7 @@ function TotpSetup({ onMessage }: { onMessage: (m: { kind: 'ok' | 'danger'; text
 
   if (!secret) {
     return (
-      <button className="btn" onClick={() => setupMutation.mutate()} disabled={setupMutation.isPending}>
+      <button type="button" className="btn" onClick={() => setupMutation.mutate()} disabled={setupMutation.isPending}>
         Set up two-factor sign-in
       </button>
     )
@@ -480,7 +480,7 @@ function TotpSetup({ onMessage }: { onMessage: (m: { kind: 'ok' | 'danger'; text
           value={code}
           onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
         />
-        <button className="btn btn-primary" disabled={code.length !== 6 || confirmMutation.isPending} onClick={() => confirmMutation.mutate()}>
+        <button type="button" className="btn btn-primary" disabled={code.length !== 6 || confirmMutation.isPending} onClick={() => confirmMutation.mutate()}>
           Confirm
         </button>
       </div>

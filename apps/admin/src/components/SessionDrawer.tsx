@@ -126,7 +126,7 @@ export function SessionDrawer({
               </p>
             )}
           </div>
-          <button className="icon-btn" onClick={onClose} aria-label="Close">×</button>
+          <button type="button" className="icon-btn" onClick={onClose} aria-label="Close">×</button>
         </div>
 
         <div className="drawer-body">
@@ -137,7 +137,7 @@ export function SessionDrawer({
             <div className="banner banner-danger">
               This class has been cancelled.
               <div style={{ marginTop: 8 }}>
-                <button
+                <button type="button"
                   className="btn btn-sm"
                   disabled={restoreMutation.isPending}
                   onClick={() => restoreMutation.mutate()}
@@ -181,13 +181,13 @@ export function SessionDrawer({
               <div className="section">
                 <div className="section-title">Class size</div>
                 <div className="stepper">
-                  <button
+                  <button type="button"
                     onClick={() => capacityMutation.mutate(session.capacity - 1)}
                     disabled={session.capacity <= 1 || capacityMutation.isPending}
                     aria-label="Reduce class size"
                   >−</button>
                   <span className="value">{session.capacity}</span>
-                  <button
+                  <button type="button"
                     onClick={() => capacityMutation.mutate(session.capacity + 1)}
                     disabled={capacityMutation.isPending}
                     aria-label="Increase class size"
@@ -199,13 +199,13 @@ export function SessionDrawer({
               <div className="section">
                 <div className="section-title">Held back for chat bookings</div>
                 <div className="stepper">
-                  <button
+                  <button type="button"
                     onClick={() => heldBackMutation.mutate(-1)}
                     disabled={session.heldBack === 0 || heldBackMutation.isPending}
                     aria-label="Release a held-back place"
                   >−</button>
                   <span className="value">{session.heldBack}</span>
-                  <button
+                  <button type="button"
                     onClick={() => heldBackMutation.mutate(1)}
                     disabled={session.seatsLeft === 0 || heldBackMutation.isPending}
                     aria-label="Hold back a place"
@@ -222,7 +222,7 @@ export function SessionDrawer({
                   <div className="section-title" style={{ marginBottom: 0 }}>
                     Who is coming ({liveRoster.length})
                   </div>
-                  <button className="btn btn-sm" onClick={() => setAdding(true)}>+ Add student</button>
+                  <button type="button" className="btn btn-sm" onClick={() => setAdding(true)}>+ Add student</button>
                 </div>
 
                 {liveRoster.length === 0 ? (
@@ -245,7 +245,7 @@ export function SessionDrawer({
                             </div>
                           </td>
                           <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                            <button
+                            <button type="button"
                               className="btn btn-sm"
                               onClick={() =>
                                 attendanceMutation.mutate({
@@ -257,7 +257,7 @@ export function SessionDrawer({
                             >
                               {entry.status === 'attended' ? 'Undo' : '✓'}
                             </button>{' '}
-                            <button
+                            <button type="button"
                               className="btn btn-sm"
                               onClick={() => {
                                 if (confirm(`Remove ${entry.name} from this class? Any course session they used is returned.`)) {
@@ -286,14 +286,14 @@ export function SessionDrawer({
         </div>
 
         <div className="drawer-foot">
-          <button
+          <button type="button"
             className="btn btn-danger btn-sm"
             disabled={session?.status === 'cancelled'}
             onClick={() => setCancelling(true)}
           >
             Cancel class
           </button>
-          <button className="btn btn-sm" onClick={onClose}>Done</button>
+          <button type="button" className="btn btn-sm" onClick={onClose}>Done</button>
         </div>
       </aside>
 

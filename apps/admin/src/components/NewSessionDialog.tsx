@@ -128,8 +128,8 @@ export function NewSessionDialog({
         </label>
 
         <div className="row" style={{ justifyContent: 'flex-end' }}>
-          <button className="btn" onClick={onClose}>Cancel</button>
-          <button
+          <button type="button" className="btn" onClick={onClose}>Cancel</button>
+          <button type="button"
             className="btn btn-primary"
             disabled={!form.courseTypeId || createMutation.isPending}
             onClick={() => createMutation.mutate()}

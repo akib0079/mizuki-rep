@@ -63,8 +63,8 @@ export function ConfirmDialog({
         )}
 
         <div className="row" style={{ marginTop: 20, justifyContent: 'flex-end' }}>
-          <button className="btn" onClick={onCancel} disabled={busy}>Keep as is</button>
-          <button
+          <button type="button" className="btn" onClick={onCancel} disabled={busy}>Keep as is</button>
+          <button type="button"
             className={danger ? 'btn btn-danger' : 'btn btn-primary'}
             disabled={busy}
             onClick={async () => {

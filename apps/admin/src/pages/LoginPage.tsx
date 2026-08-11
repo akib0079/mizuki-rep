@@ -37,6 +37,7 @@ export function LoginPage({ onSignedIn }: { onSignedIn: () => void }) {
   return (
     <div className="login-wrap">
       <form className="login-card" onSubmit={submit}>
+        <img src="/admin/mizuki-logo.png" alt="Mizuki Flora" width={56} height={56} className="login-logo" />
         <h1>Mizuki Studio</h1>
         <p>Sign in to manage classes and bookings.</p>
 
@@ -79,7 +80,7 @@ export function LoginPage({ onSignedIn }: { onSignedIn: () => void }) {
           </label>
         )}
 
-        <button className="btn btn-primary" style={{ width: '100%' }} disabled={busy}>
+        <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={busy}>
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
