@@ -19,11 +19,29 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${apiBase}${path}`, {
-    ...init,
-    credentials: 'include',
-    headers: { ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...init.headers },
-  })
+  let response: Response
+  try {
+    response = await fetch(`${apiBase}${path}`, {
+      ...init,
+      credentials: 'include',
+      headers: { ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...init.headers },
+    })
+  } catch (cause) {
+    /*
+     * fetch() rejects with an opaque TypeError for network failures and, more often in practice,
+     * for a blocked cross-origin response — browsers deliberately withhold the reason from the
+     * page. The widget cannot tell the difference, so it says what it can and leaves a precise
+     * hint in the console, where whoever is installing it will look.
+     */
+    console.error(
+      `[mizuki-booking] Could not reach ${apiBase}${path}.\n` +
+        `If the API is up and this page loads over https, the usual cause is that this site's ` +
+        `address is missing from CORS_ORIGINS on the booking system.\n` +
+        `This page's origin: ${window.location.origin}`,
+      cause,
+    )
+    throw new ApiError(0, 'unreachable', 'We could not reach the booking system. Please refresh, or let us know if it keeps happening.')
+  }
 
   const body = await response.json().catch(() => null)
 
