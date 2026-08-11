@@ -80,6 +80,25 @@ export async function materializeSessions(opts: { from?: DateKey; to?: DateKey; 
   let skippedExisting = 0
   let skippedClosed = 0
 
+  /*
+   * Every already-generated class in the window, fetched once.
+   *
+   * This used to ask the database "does this one exist?" per rule per day — around 440 queries
+   * for a three-month window. Against a database on the same machine that is free; against
+   * Atlas it is 440 round trips to Singapore, and the scheduled tick took 27 seconds to decide
+   * it had nothing to do. One query and a Set does the same work in one round trip.
+   */
+  const existing = await SessionModel.find({
+    scheduleRuleId: { $in: rules.map((r) => r._id) },
+    dateKey: { $gte: from, $lte: to },
+  })
+    .select('scheduleRuleId startAt')
+    .lean()
+
+  const seen = new Set(existing.map((s) => `${String(s.scheduleRuleId)}|${s.startAt.getTime()}`))
+
+  const pending: Record<string, unknown>[] = []
+
   for (const rule of rules) {
     for (const dateKey of dateKeys) {
       if (!ruleFiresOn(rule as unknown as ScheduleRuleDoc, dateKey)) continue
@@ -93,13 +112,12 @@ export async function materializeSessions(opts: { from?: DateKey; to?: DateKey; 
       }
 
       const startAt = studioInstant(dateKey, rule.startTime)
-      const exists = await SessionModel.exists({ scheduleRuleId: rule._id, dateKey, startAt })
-      if (exists) {
+      if (seen.has(`${String(rule._id)}|${startAt.getTime()}`)) {
         skippedExisting++
         continue
       }
 
-      await SessionModel.create({
+      pending.push({
         courseTypeId: rule.courseTypeId,
         scheduleRuleId: rule._id,
         startAt,
@@ -112,8 +130,15 @@ export async function materializeSessions(opts: { from?: DateKey; to?: DateKey; 
         status: 'scheduled',
         title: rule.title,
       })
-      created++
+      // Guards against a rule that somehow fires twice for the same instant within one pass.
+      seen.add(`${String(rule._id)}|${startAt.getTime()}`)
     }
+  }
+
+  // One insert rather than one per class — the same round-trip argument as the lookup above.
+  if (pending.length > 0) {
+    await SessionModel.insertMany(pending)
+    created = pending.length
   }
 
   logger.info({ from, to, created, skippedExisting, skippedClosed }, 'Materialized sessions')
