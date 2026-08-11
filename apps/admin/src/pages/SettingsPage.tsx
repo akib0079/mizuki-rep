@@ -155,7 +155,10 @@ export function SettingsPage({ totpEnabled }: { totpEnabled: boolean }) {
           Two-factor sign-in is {totpEnabled ? 'on' : 'off'}.
           {!totpEnabled && ' Turning it on means a code from your phone is needed as well as your password.'}
         </p>
-        {!totpEnabled && <TotpSetup onMessage={setMessage} />}
+        <ChangePassword onMessage={setMessage} />
+        <div style={{ marginTop: 18 }}>
+          {!totpEnabled && <TotpSetup onMessage={setMessage} />}
+        </div>
       </div>
 
       <BackupsCard onMessage={setMessage} />
@@ -703,6 +706,89 @@ function PushEnrolment({ onMessage }: { onMessage: (m: { kind: 'ok' | 'danger'; 
     <button type="button" className="btn" onClick={enable} disabled={busy}>
       {busy ? 'Setting up…' : 'Turn on push alerts for this device'}
     </button>
+  )
+}
+
+/** Change your own password. Signs every session out afterwards, including this one. */
+function ChangePassword({ onMessage }: { onMessage: (m: { kind: 'ok' | 'danger'; text: string }) => void }) {
+  const [open, setOpen] = useState(false)
+  const [form, setForm] = useState({ currentPassword: '', newPassword: '', confirm: '' })
+
+  const change = useMutation({
+    mutationFn: () =>
+      api.post<{ message: string }>('/api/auth/admin/password', {
+        currentPassword: form.currentPassword,
+        newPassword: form.newPassword,
+      }),
+    onSuccess: () => {
+      onMessage({ kind: 'ok', text: 'Password changed. Signing you out…' })
+      setTimeout(() => window.location.reload(), 1200)
+    },
+    onError: (err) =>
+      onMessage({ kind: 'danger', text: err instanceof ApiError ? err.message : 'Could not change your password.' }),
+  })
+
+  const mismatch = form.confirm.length > 0 && form.newPassword !== form.confirm
+  const canSubmit =
+    form.currentPassword.length > 0 && form.newPassword.length >= 12 && form.newPassword === form.confirm
+
+  if (!open) {
+    return (
+      <button type="button" className="btn" onClick={() => setOpen(true)}>
+        Change password
+      </button>
+    )
+  }
+
+  return (
+    <div style={{ maxWidth: 360 }}>
+      <label className="field">
+        <span>Current password</span>
+        <input
+          type="password"
+          autoFocus
+          autoComplete="current-password"
+          value={form.currentPassword}
+          onChange={(e) => setForm({ ...form, currentPassword: e.target.value })}
+        />
+      </label>
+      <label className="field">
+        <span>New password</span>
+        <input
+          type="password"
+          autoComplete="new-password"
+          value={form.newPassword}
+          onChange={(e) => setForm({ ...form, newPassword: e.target.value })}
+        />
+        <div className="field-hint">At least 12 characters.</div>
+      </label>
+      <label className="field">
+        <span>Confirm new password</span>
+        <input
+          type="password"
+          autoComplete="new-password"
+          value={form.confirm}
+          onChange={(e) => setForm({ ...form, confirm: e.target.value })}
+        />
+        {mismatch && <div className="field-hint" style={{ color: 'var(--danger)' }}>These do not match.</div>}
+      </label>
+
+      <div className="row">
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={!canSubmit || change.isPending}
+          onClick={() => change.mutate()}
+        >
+          {change.isPending ? 'Changing…' : 'Change password'}
+        </button>
+        <button type="button" className="btn" onClick={() => setOpen(false)}>Cancel</button>
+      </div>
+
+      <div className="field-hint" style={{ marginTop: 10 }}>
+        You will be signed out on every device, including this one.
+      </div>
+    </div>
   )
 }
 

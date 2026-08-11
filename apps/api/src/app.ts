@@ -35,15 +35,32 @@ export function createApp(): Express {
     }),
   )
 
+  /*
+   * The API's own origin is always allowed, because it serves the studio console: a browser
+   * posting from /admin sends Origin: https://api.mizuki.com.sg, and requiring the operator to
+   * remember that in CORS_ORIGINS is a trap — miss it and sign-in fails with an error that says
+   * nothing about the cause.
+   */
+  const allowedOrigins = new Set(config.corsOrigins)
+  try {
+    allowedOrigins.add(new URL(config.PUBLIC_API_URL).origin)
+  } catch {
+    // PUBLIC_API_URL is validated as a URL at boot, so this cannot realistically happen.
+  }
+
   app.use(
     cors({
       origin(origin, callback) {
-        // Same-origin and server-to-server calls arrive without an Origin header.
+        // Same-origin navigations and server-to-server calls arrive without an Origin header.
         if (!origin) return callback(null, true)
-        if (config.corsOrigins.length === 0 || config.corsOrigins.includes(origin)) {
+        if (config.corsOrigins.length === 0 || allowedOrigins.has(origin)) {
           return callback(null, true)
         }
-        callback(new Error(`Origin ${origin} is not allowed`))
+        // Refuse without throwing: cors() turns a thrown error into an opaque 500, which hides
+        // a configuration mistake behind "something went wrong on our side". The request still
+        // fails, but the browser reports it as the CORS problem it actually is.
+        logger.warn({ origin, allowed: [...allowedOrigins] }, 'Rejected a cross-origin request')
+        callback(null, false)
       },
       // The student session cookie has to ride along from the WordPress site.
       credentials: true,

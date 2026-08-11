@@ -216,6 +216,45 @@ authRouter.get(
   }),
 )
 
+/**
+ * Change your own password.
+ *
+ * Requires the current one, so someone who walks up to an unlocked laptop cannot lock the
+ * studio out of their own system. Every other session is signed out afterwards: if the reason
+ * for changing it is that the old one leaked, leaving those sessions alive defeats the point.
+ */
+authRouter.post(
+  '/admin/password',
+  loginLimiter,
+  requireAdmin,
+  asyncRoute(async (req, res) => {
+    const { currentPassword, newPassword } = z
+      .object({
+        currentPassword: z.string().min(1, 'Enter your current password'),
+        newPassword: z.string().min(12, 'Please choose at least 12 characters'),
+      })
+      .parse(req.body)
+
+    const admin = await AdminUserModel.findById(req.admin!._id).select('+passwordHash')
+    if (!admin) throw new AuthError()
+
+    if (!(await argon2.verify(admin.passwordHash, currentPassword))) {
+      throw new AuthError('That is not your current password.')
+    }
+    if (currentPassword === newPassword) {
+      throw new AppError(422, 'unchanged', 'That is the password you already have.')
+    }
+
+    admin.passwordHash = await argon2.hash(newPassword, { type: argon2.argon2id })
+    // Invalidates every issued token, including this request's own cookie.
+    admin.tokenVersion += 1
+    await admin.save()
+
+    res.clearCookie(COOKIE_NAMES.admin, { path: '/' })
+    res.json({ ok: true, message: 'Password changed. Please sign in again.' })
+  }),
+)
+
 /** Start 2FA enrolment: returns a secret to scan. Not enabled until a code is confirmed. */
 authRouter.post(
   '/admin/totp/setup',
