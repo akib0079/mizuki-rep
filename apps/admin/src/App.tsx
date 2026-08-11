@@ -185,7 +185,7 @@ export function App() {
             <Route path="/students" element={<StudentsPage />} />
             <Route path="/payments" element={<PaymentsPage />} />
             <Route path="/closed-dates" element={<ClosedDatesPage />} />
-            <Route path="/templates" element={<TemplatesPage />} />
+            <Route path="/templates" element={<TemplatesPage adminEmail={data.admin.email} />} />
             <Route path="/team" element={<TeamPage currentAdminId={data.admin.id} />} />
             <Route path="/settings" element={<SettingsPage totpEnabled={data.admin.totpEnabled} />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

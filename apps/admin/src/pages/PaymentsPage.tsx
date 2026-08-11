@@ -169,8 +169,8 @@ export function PaymentsPage() {
 }
 
 function waitedFor(iso: string): string {
-  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60_000)
-  if (mins < 60) return `${Math.max(mins, 1)} minutes`
+  const mins = Math.max(Math.round((Date.now() - new Date(iso).getTime()) / 60_000), 1)
+  if (mins < 60) return `${mins} ${mins === 1 ? 'minute' : 'minutes'}`
 
   const hours = Math.round(mins / 60)
   if (hours < 24) return `${hours} ${hours === 1 ? 'hour' : 'hours'}`

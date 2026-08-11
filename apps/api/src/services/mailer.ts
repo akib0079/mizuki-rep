@@ -83,7 +83,9 @@ export async function drainOutbox(limit = 25): Promise<DrainResult> {
       await message.save()
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err)
-      const exhausted = message.attempts >= MAX_ATTEMPTS
+      // A permanent rejection is settled on the first attempt: four more identical failures
+      // would only delay the studio seeing why, and the why is the actionable part.
+      const exhausted = err instanceof PermanentDeliveryError || message.attempts >= MAX_ATTEMPTS
 
       message.status = exhausted ? 'failed' : 'pending'
       message.lastError = reason
@@ -144,8 +146,44 @@ async function sendEmail(message: OutboxDoc): Promise<boolean> {
     ...(attachments.length ? { attachments } : {}),
   })
 
-  if (error) throw new Error(`Resend rejected the message: ${error.message}`)
+  if (error) {
+    if (isPermanentRejection(error.message)) throw new PermanentDeliveryError(explain(error.message))
+    throw new Error(`Resend rejected the message: ${error.message}`)
+  }
   return true
+}
+
+/**
+ * A rejection no amount of retrying will fix.
+ *
+ * The one that matters today is the sandbox sender: until a domain is verified, Resend accepts
+ * mail only to the account owner and rejects every other address outright. Retrying that five
+ * times over twenty-five minutes achieves nothing except burying the reason under a generic
+ * "failed" — and the reason is the whole point, because it is fixable in ten minutes of DNS.
+ */
+export class PermanentDeliveryError extends Error {}
+
+function isPermanentRejection(message: string): boolean {
+  const text = message.toLowerCase()
+  return (
+    text.includes('you can only send testing emails') ||
+    text.includes('domain is not verified') ||
+    text.includes('invalid `to` field') ||
+    text.includes('invalid `from` field')
+  )
+}
+
+/** Say what to do about it, not just what happened. */
+function explain(message: string): string {
+  if (message.toLowerCase().includes('you can only send testing emails')) {
+    return (
+      'Not delivered: the sender is still Resend\'s test address, which only reaches the Resend ' +
+      'account owner. Verify mizuki.com.sg at resend.com/domains and set the from address to ' +
+      'that domain, and student email will start arriving. ' +
+      `(Resend said: ${message})`
+    )
+  }
+  return `Not delivered, and retrying will not help: ${message}`
 }
 
 async function sendTelegram(message: OutboxDoc): Promise<boolean> {

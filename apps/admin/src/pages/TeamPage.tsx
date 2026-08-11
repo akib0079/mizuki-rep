@@ -152,16 +152,16 @@ export function TeamPage({ currentAdminId }: { currentAdminId: string }) {
                 <tr key={row.id} className={row.active ? '' : 'row-inactive'}>
                   <td>
                     <strong>{row.name}</strong>
-                    {row.id === currentAdminId && <span className="tag tag-quiet">You</span>}
+                    {row.id === currentAdminId && <span className="pill pill-muted" style={{ marginLeft: 7 }}>You</span>}
                   </td>
                   <td>{row.email}</td>
                   <td>
                     {!row.active ? (
-                      <span className="tag">No access</span>
+                      <span className="pill pill-muted">No access</span>
                     ) : row.invitePending ? (
-                      <span className="tag tag-warn">Invitation not used</span>
+                      <span className="pill pill-warn">Invitation not used</span>
                     ) : (
-                      <span className="tag tag-ok">Active</span>
+                      <span className="pill pill-ok">Active</span>
                     )}
                   </td>
                   <td className="row-actions">
@@ -243,7 +243,7 @@ export function TeamPage({ currentAdminId }: { currentAdminId: string }) {
           <>
             <ul className="pill-list">
               {(data?.effectiveRecipients ?? []).map((email) => (
-                <li key={email} className="pill">
+                <li key={email} className="recipient-pill">
                   {email}
                 </li>
               ))}

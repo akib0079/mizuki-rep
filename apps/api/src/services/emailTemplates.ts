@@ -269,13 +269,21 @@ export interface RenderedTemplate {
 export async function renderTemplate(
   key: EmailTemplateKey,
   vars: Record<string, string | number>,
+  /**
+   * Wording to render instead of what is stored.
+   *
+   * Only the editor's preview passes this. Without it the preview rendered the *saved* template,
+   * so the studio could rewrite an email, press Preview, and be shown the old copy — which reads
+   * as the edit not having worked and invites them to save something they never actually saw.
+   */
+  draft?: { subject?: string; bodyHtml?: string; bodyText?: string },
 ): Promise<RenderedTemplate> {
   const override = await EmailTemplateModel.findOne({ key }).lean()
   const fallback = DEFAULT_TEMPLATES[key]
 
-  const subject = override?.subject ?? fallback.subject
-  const bodyHtml = override?.bodyHtml ?? fallback.bodyHtml
-  const bodyText = override?.bodyText || fallback.bodyText
+  const subject = draft?.subject ?? override?.subject ?? fallback.subject
+  const bodyHtml = draft?.bodyHtml ?? override?.bodyHtml ?? fallback.bodyHtml
+  const bodyText = draft?.bodyText || override?.bodyText || fallback.bodyText
 
   return {
     subject: renderString(subject, vars),

@@ -287,7 +287,16 @@ adminSettingsRouter.post(
   '/templates/:key/preview',
   asyncRoute(async (req, res) => {
     const key = emailTemplateKeySchema.parse(req.params.key)
-    const rendered = await renderTemplate(key, SAMPLE_VARS)
+    // The editor sends what is on screen; an empty body still previews what is stored.
+    const draft = z
+      .object({
+        subject: z.string().max(200).optional(),
+        bodyHtml: z.string().max(50_000).optional(),
+        bodyText: z.string().max(20_000).optional(),
+      })
+      .parse(req.body ?? {})
+
+    const rendered = await renderTemplate(key, SAMPLE_VARS, draft)
     res.json(rendered)
   }),
 )

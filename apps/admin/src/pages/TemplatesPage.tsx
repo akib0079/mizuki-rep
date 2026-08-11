@@ -8,7 +8,7 @@ import { ApiError, api, type EmailTemplate } from '../api.js'
  * Every variable is one click away, the preview shows what a student actually receives, and
  * reset restores the wording the system shipped with — so experimenting is safe.
  */
-export function TemplatesPage() {
+export function TemplatesPage({ adminEmail }: { adminEmail: string }) {
   const queryClient = useQueryClient()
   const [activeKey, setActiveKey] = useState<string | null>(null)
   const [draft, setDraft] = useState({ subject: '', bodyHtml: '', bodyText: '' })
@@ -48,17 +48,48 @@ export function TemplatesPage() {
     },
   })
 
+  /*
+   * Previews what is on screen, not what is stored. Sending no body rendered the saved
+   * template, so rewording an email and pressing Preview showed the old copy — which reads as
+   * the edit having failed, and invites saving something never actually looked at.
+   */
   const previewMutation = useMutation({
-    mutationFn: () => api.post<{ subject: string; html: string }>(`/api/admin/settings/templates/${active!.key}/preview`),
+    mutationFn: (body: typeof draft) =>
+      api.post<{ subject: string; html: string }>(
+        `/api/admin/settings/templates/${active!.key}/preview`,
+        body,
+      ),
     onSuccess: setPreview,
   })
 
   const testMutation = useMutation({
     mutationFn: (to: string) => api.post(`/api/admin/settings/templates/${active!.key}/test`, { to }),
-    onSuccess: () => setMessage({ kind: 'ok', text: 'Test email sent.' }),
+    onSuccess: () =>
+      setMessage({
+        kind: 'ok',
+        text: `Test sent to ${adminEmail}. If it does not arrive, check the Emails section of Settings.`,
+      }),
     onError: (err) =>
       setMessage({ kind: 'danger', text: err instanceof ApiError ? err.message : 'Could not send the test.' }),
   })
+
+  /*
+   * Keep the preview in step with the editor. Debounced, because it is a round trip per
+   * keystroke otherwise, and rendering is the server's job — the templates use the same
+   * substitution the real emails do, and reimplementing it here is how a preview starts
+   * quietly disagreeing with what actually gets sent.
+   */
+  useEffect(() => {
+    if (!active) return
+    const timer = setTimeout(() => previewMutation.mutate(draft), 400)
+    return () => clearTimeout(timer)
+  }, [draft.subject, draft.bodyHtml, draft.bodyText, active?.key])
+
+  const dirty =
+    !!active &&
+    (draft.subject !== active.subject ||
+      draft.bodyHtml !== active.bodyHtml ||
+      draft.bodyText !== active.bodyText)
 
   /** Insert a variable at the cursor, so the studio never has to type the braces. */
   function insertVariable(variable: string) {
@@ -85,22 +116,28 @@ export function TemplatesPage() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 250px) 1fr', gap: 16, alignItems: 'start' }}>
+      {/* List, editor, preview. The preview earns its column: it is what stops wording being
+          saved and sent before anyone has seen how it reads. */}
+      <div className="tpl-layout">
         <div className="card" style={{ padding: 10 }}>
           {templates.map((t) => (
             <button type="button"
               key={t.key}
-              className={t.key === active?.key ? 'nav-link active' : 'nav-link'}
-              style={{ width: '100%', textAlign: 'left', border: 'none', cursor: 'pointer', background: t.key === active?.key ? undefined : 'transparent' }}
-              onClick={() => setActiveKey(t.key)}
+              className={t.key === active?.key ? 'tpl-item tpl-item-active' : 'tpl-item'}
+              onClick={() => {
+                // Switching template replaces the editor contents, so unsaved work would just
+                // disappear. Say so rather than losing it silently.
+                if (dirty && !confirm('You have unsaved changes. Leave them behind?')) return
+                setActiveKey(t.key)
+              }}
             >
-              {t.label}
-              {t.isCustomised && <span className="pill pill-muted" style={{ marginLeft: 6 }}>edited</span>}
+              <span>{t.label}</span>
+              {t.isCustomised && <span className="pill pill-muted">edited</span>}
             </button>
           ))}
         </div>
 
-        <div>
+        <div className="tpl-editor">
           {active && (
             <div className="card">
               <h2 className="card-title">{active.label}</h2>
@@ -119,7 +156,13 @@ export function TemplatesPage() {
                 </span>
                 <div className="row" style={{ flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
                   {active.variables.map((v) => (
-                    <button type="button" key={v} className="btn btn-sm" onClick={() => insertVariable(v)} title={`Insert {{${v}}}`}>
+                    <button
+                      type="button"
+                      key={v}
+                      className="var-chip"
+                      onClick={() => insertVariable(v)}
+                      title={`Insert {{${v}}} at the cursor`}
+                    >
                       {v}
                     </button>
                   ))}
@@ -148,20 +191,25 @@ export function TemplatesPage() {
                 <div className="field-hint">Shown by email apps that do not display HTML.</div>
               </label>
 
-              <div className="row" style={{ flexWrap: 'wrap' }}>
-                <button type="button" className="btn btn-primary" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-                  {saveMutation.isPending ? 'Saving…' : 'Save'}
-                </button>
-                <button type="button" className="btn" onClick={() => previewMutation.mutate()}>Preview</button>
-                <button type="button"
-                  className="btn"
-                  onClick={() => {
-                    const to = prompt('Send a test to which address?')
-                    if (to) testMutation.mutate(to)
-                  }}
+              <div className="row tpl-actions" style={{ flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => saveMutation.mutate()}
+                  disabled={saveMutation.isPending || !dirty}
                 >
-                  Send test
+                  {saveMutation.isPending ? 'Saving…' : dirty ? 'Save changes' : 'Saved'}
                 </button>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => testMutation.mutate(adminEmail)}
+                  disabled={testMutation.isPending}
+                  title={`Sends this email to ${adminEmail}`}
+                >
+                  {testMutation.isPending ? 'Sending…' : 'Send test to me'}
+                </button>
+                {dirty && <span className="tpl-dirty">Unsaved changes</span>}
                 <div className="spacer" />
                 <button type="button"
                   className="btn btn-sm"
@@ -174,22 +222,25 @@ export function TemplatesPage() {
               </div>
             </div>
           )}
-
-          {preview && (
-            <div className="card">
-              <h2 className="card-title">Preview</h2>
-              <p className="card-sub">Subject: {preview.subject}</p>
-              <iframe
-                title="Email preview"
-                // Sandboxed with no allow-scripts: the preview renders studio-authored HTML,
-                // and it should never be able to run anything inside the console.
-                sandbox=""
-                srcDoc={preview.html}
-                style={{ width: '100%', height: 460, border: '1px solid var(--line)', borderRadius: 8, background: '#fff' }}
-              />
-            </div>
-          )}
         </div>
+
+        {/* Its own column, outside the editor, so it can sit alongside rather than below. */}
+        {preview && (
+          <div className="card tpl-preview">
+            <h2 className="card-title">What the student sees</h2>
+            <p className="card-sub">
+              Subject: <strong>{preview.subject}</strong>
+            </p>
+            <iframe
+              title="Email preview"
+              // Sandboxed with no allow-scripts: the preview renders studio-authored HTML,
+              // and it should never be able to run anything inside the console.
+              sandbox=""
+              srcDoc={preview.html}
+              style={{ width: '100%', height: 520, border: '1px solid var(--line)', borderRadius: 8, background: '#fff' }}
+            />
+          </div>
+        )}
       </div>
     </>
   )

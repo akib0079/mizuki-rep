@@ -168,6 +168,13 @@ adminAdminsRouter.patch(
         )
       }
 
+      /*
+       * A backstop, not the main guard. The check above is what actually keeps the studio out of
+       * a locked console: requireAdmin rejects a deactivated admin, so whoever is making this
+       * request is active, and removing anyone other than themselves always leaves at least one.
+       * This fires only if that stops being true — an admin deactivated mid-session, say — and
+       * costs one count to keep the invariant stated rather than assumed.
+       */
       const activeCount = await AdminUserModel.countDocuments({ active: true })
       if (activeCount <= 1) {
         throw new AppError(
