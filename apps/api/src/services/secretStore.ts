@@ -124,3 +124,47 @@ export async function describeSecret(key: SecretKey, envFallback?: string): Prom
     source: stored ? 'studio' : 'environment',
   }
 }
+
+
+/**
+ * Plain settings the studio can change — not secrets, so stored as-is and safe to show back.
+ *
+ * The sending address lives here rather than only in the environment because it has to change
+ * at a predictable moment: Resend will not send from a domain until its DNS is verified, so a
+ * studio testing before that has to send from Resend's sandbox address and switch afterwards.
+ * Making that a field avoids a redeploy for what is really a one-line change.
+ */
+export const PLAIN_KEYS = {
+  mailFrom: 'mail.from',
+  mailReplyTo: 'mail.replyTo',
+} as const
+
+export type PlainKey = (typeof PLAIN_KEYS)[keyof typeof PLAIN_KEYS]
+
+const plainCache = new Map<string, { value: string | null; until: number }>()
+
+export async function getPlain(key: PlainKey, envFallback?: string): Promise<string | null> {
+  const cached = plainCache.get(key)
+  if (cached && cached.until > Date.now()) return cached.value ?? envFallback ?? null
+
+  const row = await SettingModel.findOne({ key }).lean()
+  const value = row?.value ? String(row.value) : null
+
+  plainCache.set(key, { value, until: Date.now() + CACHE_MS })
+  return value ?? envFallback ?? null
+}
+
+export async function setPlain(key: PlainKey, value: string, by: string): Promise<void> {
+  await SettingModel.findOneAndUpdate({ key }, { $set: { value, updatedBy: by } }, { upsert: true })
+  plainCache.delete(key)
+}
+
+export async function clearPlain(key: PlainKey, by: string): Promise<void> {
+  await SettingModel.deleteOne({ key })
+  plainCache.delete(key)
+  logger.info({ key, by }, 'Plain setting cleared — falling back to environment')
+}
+
+export function clearPlainCache(): void {
+  plainCache.clear()
+}

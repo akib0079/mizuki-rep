@@ -5,7 +5,7 @@ import { DateTime } from 'luxon'
 import { STUDIO_TZ } from '@mizuki/shared'
 import { OutboxModel, PushSubscriptionModel, SessionModel, type OutboxDoc } from '../models/index.js'
 import { config } from '../config.js'
-import { SECRET_KEYS, getSecret } from './secretStore.js'
+import { PLAIN_KEYS, SECRET_KEYS, getPlain, getSecret } from './secretStore.js'
 import { logger } from '../logger.js'
 
 /**
@@ -129,13 +129,18 @@ async function sendEmail(message: OutboxDoc): Promise<boolean> {
     if (ics) attachments.push({ filename: 'mizuki-class.ics', content: Buffer.from(ics).toString('base64') })
   }
 
+  const [from, replyTo] = await Promise.all([
+    getPlain(PLAIN_KEYS.mailFrom, config.MAIL_FROM),
+    getPlain(PLAIN_KEYS.mailReplyTo, config.MAIL_REPLY_TO),
+  ])
+
   const { error } = await resend.emails.send({
-    from: config.MAIL_FROM,
+    from: from ?? config.MAIL_FROM,
     to: message.to,
     subject: message.subject,
     html: message.bodyHtml,
     text: message.bodyText || undefined,
-    ...(config.MAIL_REPLY_TO ? { replyTo: config.MAIL_REPLY_TO } : {}),
+    ...(replyTo ? { replyTo } : {}),
     ...(attachments.length ? { attachments } : {}),
   })
 
@@ -248,13 +253,18 @@ export async function sendDirectEmail(to: string, subject: string, html: string,
   const resend = await resendClient()
   if (!resend) throw new Error('Email is not set up yet — add a Resend API key under Settings.')
 
+  const [from, replyTo] = await Promise.all([
+    getPlain(PLAIN_KEYS.mailFrom, config.MAIL_FROM),
+    getPlain(PLAIN_KEYS.mailReplyTo, config.MAIL_REPLY_TO),
+  ])
+
   const { error } = await resend.emails.send({
-    from: config.MAIL_FROM,
+    from: from ?? config.MAIL_FROM,
     to,
     subject,
     html,
     text,
-    ...(config.MAIL_REPLY_TO ? { replyTo: config.MAIL_REPLY_TO } : {}),
+    ...(replyTo ? { replyTo } : {}),
   })
   if (error) throw new Error(error.message)
 }

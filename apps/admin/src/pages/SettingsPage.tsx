@@ -462,6 +462,25 @@ function IntegrationsCard({ onMessage }: { onMessage: (m: { kind: 'ok' | 'danger
         </button>
       </div>
 
+      <div className="field-row" style={{ marginTop: 14 }}>
+        <MailField
+          label="Send from"
+          name="mail-from"
+          value={data?.mailFrom ?? ''}
+          hint="Resend will refuse this until your domain is verified. Use onboarding@resend.dev to test before then."
+          onSaved={() => void queryClient.invalidateQueries({ queryKey: ['integrations'] })}
+          onMessage={onMessage}
+        />
+        <MailField
+          label="Replies go to"
+          name="mail-reply-to"
+          value={data?.replyTo ?? ''}
+          hint="Where a student's reply lands."
+          onSaved={() => void queryClient.invalidateQueries({ queryKey: ['integrations'] })}
+          onMessage={onMessage}
+        />
+      </div>
+
       <table className="table" style={{ marginTop: 14 }}>
         <tbody>
           {rows.map((row) => (
@@ -527,6 +546,41 @@ function IntegrationsCard({ onMessage }: { onMessage: (m: { kind: 'ok' | 'danger
         characters, so you can tell which key is in place.
       </div>
     </div>
+  )
+}
+
+/** One editable mail address, saved on blur so there is no separate save button to miss. */
+function MailField({
+  label,
+  name,
+  value,
+  hint,
+  onSaved,
+  onMessage,
+}: {
+  label: string
+  name: string
+  value: string
+  hint: string
+  onSaved: () => void
+  onMessage: (m: { kind: 'ok' | 'danger'; text: string }) => void
+}) {
+  const save = useMutation({
+    mutationFn: (next: string) => api.put(`/api/admin/settings/mail/${name}`, { value: next }),
+    onSuccess: () => { onMessage({ kind: 'ok', text: 'Saved.' }); onSaved() },
+    onError: (err) => onMessage({ kind: 'danger', text: err instanceof ApiError ? err.message : 'Could not save.' }),
+  })
+
+  return (
+    <label className="field">
+      <span>{label}</span>
+      <input
+        defaultValue={value}
+        key={value}
+        onBlur={(e) => { if (e.target.value !== value) save.mutate(e.target.value) }}
+      />
+      <div className="field-hint">{hint}</div>
+    </label>
   )
 }
 

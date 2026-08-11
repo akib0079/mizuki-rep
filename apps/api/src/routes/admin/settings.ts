@@ -20,7 +20,15 @@ import { buildDashboard } from '../../services/dashboardService.js'
 import { hoursSinceLastBackup, listBackups, readBackup, runBackup } from '../../services/backupService.js'
 import { DEFAULT_TEMPLATES, renderTemplate, resetTemplate } from '../../services/emailTemplates.js'
 import { checkEmailKey, sendDirectEmail } from '../../services/mailer.js'
-import { SECRET_KEYS, clearSecret, describeSecret, setSecret } from '../../services/secretStore.js'
+import {
+  PLAIN_KEYS,
+  SECRET_KEYS,
+  clearSecret,
+  describeSecret,
+  getPlain,
+  setPlain,
+  setSecret,
+} from '../../services/secretStore.js'
 import { materializeSessions } from '../../services/scheduleService.js'
 import { findSeatDrift, repairSeatDrift } from '../../services/seatService.js'
 import { recordAudit } from '../../services/auditService.js'
@@ -380,11 +388,41 @@ adminSettingsRouter.get(
       describeSecret(SECRET_KEYS.telegramBotToken, config.TELEGRAM_BOT_TOKEN),
       describeSecret(SECRET_KEYS.telegramChatId, config.TELEGRAM_CHAT_ID),
     ])
-    res.json({ email, telegramToken, telegramChat, mailFrom: config.MAIL_FROM, replyTo: config.MAIL_REPLY_TO ?? null })
+    const [mailFrom, replyTo] = await Promise.all([
+      getPlain(PLAIN_KEYS.mailFrom, config.MAIL_FROM),
+      getPlain(PLAIN_KEYS.mailReplyTo, config.MAIL_REPLY_TO),
+    ])
+    res.json({ email, telegramToken, telegramChat, mailFrom, replyTo })
   }),
 )
 
 const secretInputSchema = z.object({ value: z.string().trim().min(1, 'Paste the key') })
+
+const PLAIN_SETTINGS: Record<string, (typeof PLAIN_KEYS)[keyof typeof PLAIN_KEYS]> = {
+  'mail-from': PLAIN_KEYS.mailFrom,
+  'mail-reply-to': PLAIN_KEYS.mailReplyTo,
+}
+
+/**
+ * The sending address.
+ *
+ * Editable because it has to change at a predictable moment: Resend refuses to send from a
+ * domain until its DNS is verified, so testing before that means sending from their sandbox
+ * address and switching afterwards. That should not need a redeploy.
+ */
+adminSettingsRouter.put(
+  '/mail/:name',
+  asyncRoute(async (req, res) => {
+    const key = PLAIN_SETTINGS[req.params.name!]
+    if (!key) throw new NotFoundError('Setting')
+
+    const { value } = z.object({ value: z.string().trim().max(200) }).parse(req.body)
+    await setPlain(key, value, actorOf(req))
+
+    await recordAudit({ actor: actorOf(req), action: 'mail.update', entity: 'Setting', reason: `${req.params.name} = ${value}` })
+    res.json({ ok: true, value })
+  }),
+)
 
 const EDITABLE_SECRETS: Record<string, (typeof SECRET_KEYS)[keyof typeof SECRET_KEYS]> = {
   resend: SECRET_KEYS.resendApiKey,
