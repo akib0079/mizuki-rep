@@ -17,6 +17,7 @@ import {
 } from '../../models/index.js'
 import { getSeriesAvailability } from '../../services/seriesService.js'
 import { buildDashboard } from '../../services/dashboardService.js'
+import { hoursSinceLastBackup, listBackups, readBackup, runBackup } from '../../services/backupService.js'
 import { DEFAULT_TEMPLATES, renderTemplate, resetTemplate } from '../../services/emailTemplates.js'
 import { sendDirectEmail } from '../../services/mailer.js'
 import { materializeSessions } from '../../services/scheduleService.js'
@@ -359,6 +360,46 @@ adminSettingsRouter.post(
     )
 
     res.status(201).json({ ok: true })
+  }),
+)
+
+// --- Backups ----------------------------------------------------------------
+
+adminSettingsRouter.get(
+  '/backups',
+  asyncRoute(async (_req, res) => {
+    const [backups, ageHours] = await Promise.all([listBackups(), hoursSinceLastBackup()])
+    res.json({ backups, ageHours, keep: config.BACKUP_KEEP })
+  }),
+)
+
+adminSettingsRouter.post(
+  '/backups/run',
+  asyncRoute(async (req, res) => {
+    const result = await runBackup()
+    await recordAudit({ actor: actorOf(req), action: 'maintenance.backup', entity: 'Database', after: result })
+    res.json(result)
+  }),
+)
+
+/**
+ * Download a backup.
+ *
+ * These contain student names, emails and phone numbers, so this sits behind the admin session
+ * like everything else here, and the filename is validated rather than trusted — it arrives
+ * from a URL and would otherwise be a path traversal.
+ */
+adminSettingsRouter.get(
+  '/backups/:file',
+  asyncRoute(async (req, res) => {
+    try {
+      const data = await readBackup(req.params.file!)
+      res.setHeader('Content-Type', 'application/gzip')
+      res.setHeader('Content-Disposition', `attachment; filename="${req.params.file}"`)
+      res.send(data)
+    } catch {
+      throw new NotFoundError('Backup')
+    }
   }),
 )
 

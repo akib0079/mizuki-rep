@@ -9,6 +9,10 @@ dist/
 wp-plugin/mizuki-booking-bridge/assets/
 wp-plugin/*.zip
 
+# Database backups: student names, emails and phone numbers. Never commit these.
+backups/
+*.json.gz
+
 .DS_Store
 *.log
 .vscode/

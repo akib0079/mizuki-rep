@@ -46,6 +46,15 @@ const envSchema = z.object({
   /** Studio-local hour for the 2-day reminder and the daily digest. */
   REMINDER_SEND_HOUR: z.coerce.number().int().min(0).max(23).default(9),
   DIGEST_SEND_HOUR: z.coerce.number().int().min(0).max(23).default(7),
+
+  /*
+   * Nightly backups. MongoDB's free tier has no automated backups, so the app takes its own —
+   * onto the web host's disk, which is a different provider from the database and therefore a
+   * real second copy rather than the same risk twice.
+   */
+  BACKUP_DIR: z.string().default('./backups'),
+  BACKUP_KEEP: z.coerce.number().int().min(1).max(365).default(30),
+  BACKUP_HOUR: z.coerce.number().int().min(0).max(23).default(3),
 })
 
 const parsed = envSchema.safeParse(process.env)

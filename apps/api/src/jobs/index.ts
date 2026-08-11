@@ -16,6 +16,7 @@ import { queueMessage, queueReminder } from '../services/notificationService.js'
 import { renderTemplate } from '../services/emailTemplates.js'
 import { materializeSessions } from '../services/scheduleService.js'
 import { drainOutbox } from '../services/mailer.js'
+import { hoursSinceLastBackup, pruneOutbox, runBackup } from '../services/backupService.js'
 import { config } from '../config.js'
 import { logger } from '../logger.js'
 
@@ -35,17 +36,19 @@ export interface TickResult {
   packageWarnings: number
   digestQueued: boolean
   driftDetected: number
+  backedUp: boolean
   mail: { sent: number; failed: number; skipped: number }
 }
 
 export async function runTick(now: Date = new Date()): Promise<TickResult> {
-  const [holdsExpired, remindersQueued, generated, packages, digestQueued, drift] = await Promise.all([
+  const [holdsExpired, remindersQueued, generated, packages, digestQueued, drift, backedUp] = await Promise.all([
     expireHolds(now),
     sendReminders(now),
     generateUpcomingSessions(now),
     sweepPackages(now),
     sendDailyDigest(now),
     detectDrift(now),
+    backupNightly(now),
   ])
 
   // Drain last so anything queued above goes out on this same tick.
@@ -59,6 +62,7 @@ export async function runTick(now: Date = new Date()): Promise<TickResult> {
     packageWarnings: packages.warned,
     digestQueued,
     driftDetected: drift,
+    backedUp,
     mail,
   }
 }
@@ -304,3 +308,37 @@ export async function detectDrift(now: Date = new Date()): Promise<number> {
 }
 
 export type { StudentDoc, CourseTypeDoc }
+
+/**
+ * Take a backup once a day, in the quiet hour.
+ *
+ * Guarded on how long it has been rather than on a "did I run today" flag, so a host that
+ * restarts, or a cron that misses its window, still gets a backup rather than skipping a day
+ * and nobody noticing until it matters.
+ */
+export async function backupNightly(now: Date = new Date()): Promise<boolean> {
+  const studioNow = DateTime.fromJSDate(now).setZone(STUDIO_TZ)
+  if (studioNow.hour !== config.BACKUP_HOUR) return false
+
+  const age = await hoursSinceLastBackup(now)
+  if (age !== null && age < 20) return false
+
+  try {
+    await runBackup(now)
+    await pruneOutbox(now)
+    return true
+  } catch (err) {
+    logger.error({ err }, 'Backup failed')
+
+    if (config.ADMIN_ALERT_EMAIL) {
+      await queueMessage('admin_backup_failed', {
+        dedupeKey: `admin_backup_failed:${studioNow.toFormat('yyyy-MM-dd')}`,
+        to: config.ADMIN_ALERT_EMAIL,
+        subject: 'Mizuki booking: last night\'s backup did not run',
+        bodyText: `The nightly backup failed:\n\n${err instanceof Error ? err.message : String(err)}\n\nBookings are unaffected, but there is no fresh copy of the data until this is fixed.`,
+        bodyHtml: `<p>The nightly backup failed:</p><pre>${err instanceof Error ? err.message : String(err)}</pre><p>Bookings are unaffected, but there is no fresh copy of the data until this is fixed.</p>`,
+      })
+    }
+    return false
+  }
+}

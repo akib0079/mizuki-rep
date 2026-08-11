@@ -10,6 +10,7 @@ import {
   StudentModel,
 } from '../models/index.js'
 import { findSeatDrift } from './seatService.js'
+import { hoursSinceLastBackup } from './backupService.js'
 import { config } from '../config.js'
 
 /**
@@ -255,6 +256,25 @@ async function buildActions(
       title: `${noPhone} student${noPhone === 1 ? ' has' : 's have'} no phone number`,
       subtitle: 'You could not reach them if a class changed at short notice',
       href: '/students?missingPhone=1',
+    })
+  }
+
+  const backupAge = await hoursSinceLastBackup(now)
+  if (backupAge === null) {
+    actions.push({
+      kind: 'no_backup',
+      severity: 'urgent',
+      title: 'No backup has ever been taken',
+      subtitle: 'Bookings and course balances could not be recovered if the database were lost',
+      href: '/settings',
+    })
+  } else if (backupAge > 48) {
+    actions.push({
+      kind: 'stale_backup',
+      severity: 'urgent',
+      title: `The last backup is ${Math.floor(backupAge / 24)} days old`,
+      subtitle: 'The nightly backup has stopped running',
+      href: '/settings',
     })
   }
 

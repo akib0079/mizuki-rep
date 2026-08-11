@@ -19,7 +19,8 @@
     "seed": "npm run seed -w @mizuki/api",
     "create-admin": "npm run create-admin -w @mizuki/api",
     "package:wp": "npm run build -w @mizuki/widget && node scripts/package-wp-plugin.mjs",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "restore": "npm run restore -w @mizuki/api --"
   },
   "allowScripts": {
     "esbuild@0.21.5": true,

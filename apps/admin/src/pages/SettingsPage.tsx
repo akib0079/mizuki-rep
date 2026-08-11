@@ -156,6 +156,8 @@ export function SettingsPage({ totpEnabled }: { totpEnabled: boolean }) {
         {!totpEnabled && <TotpSetup onMessage={setMessage} />}
       </div>
 
+      <BackupsCard onMessage={setMessage} />
+
       <AuditCard />
 
       <div className="card">
@@ -387,6 +389,82 @@ function describeAction(action: string): string {
     'maintenance.repairSeatDrift': 'Place counts corrected',
   }
   return labels[action] ?? action
+}
+
+interface BackupFile { file: string; bytes: number; createdAt: string }
+
+/**
+ * Nightly backups.
+ *
+ * MongoDB's free tier takes none, so the app takes its own onto this server's disk. Shown here
+ * because a backup job that quietly stopped looks exactly like one that is working, right up
+ * until the day it is needed.
+ */
+function BackupsCard({ onMessage }: { onMessage: (m: { kind: 'ok' | 'danger'; text: string }) => void }) {
+  const queryClient = useQueryClient()
+
+  const { data } = useQuery({
+    queryKey: ['backups'],
+    queryFn: () => api.get<{ backups: BackupFile[]; ageHours: number | null; keep: number }>('/api/admin/settings/backups'),
+  })
+
+  const run = useMutation({
+    mutationFn: () => api.post<{ file: string; totalDocuments: number }>('/api/admin/settings/backups/run'),
+    onSuccess: (r) => {
+      onMessage({ kind: 'ok', text: `Backed up ${r.totalDocuments} records to ${r.file}.` })
+      void queryClient.invalidateQueries({ queryKey: ['backups'] })
+    },
+    onError: (err) => onMessage({ kind: 'danger', text: err instanceof ApiError ? err.message : 'Backup failed.' }),
+  })
+
+  const backups = data?.backups ?? []
+  const stale = data?.ageHours === null || (data?.ageHours ?? 0) > 48
+
+  return (
+    <div className="card">
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <h2 className="card-title">Backups</h2>
+          <p className="card-sub" style={{ marginBottom: 0 }}>
+            Taken automatically every night, and kept for the last {data?.keep ?? 30} days.
+          </p>
+        </div>
+        <button type="button" className="btn btn-sm" disabled={run.isPending} onClick={() => run.mutate()}>
+          {run.isPending ? 'Backing up…' : 'Back up now'}
+        </button>
+      </div>
+
+      {stale && (
+        <div className="banner banner-danger" style={{ marginTop: 14 }}>
+          {data?.ageHours === null
+            ? 'No backup has been taken yet. Your bookings could not be recovered if the database were lost.'
+            : 'The nightly backup has not run in over two days.'}
+        </div>
+      )}
+
+      {backups.length > 0 && (
+        <table className="table" style={{ marginTop: 14 }}>
+          <tbody>
+            {backups.slice(0, 8).map((b) => (
+              <tr key={b.file}>
+                <td>
+                  <div className="row-title">
+                    {DateTime.fromISO(b.createdAt).setZone(STUDIO_TZ).toFormat('ccc d LLL yyyy, h:mm a')}
+                  </div>
+                  <div className="row-sub">{(b.bytes / 1024).toFixed(0)} KB</div>
+                </td>
+                <td style={{ textAlign: 'right' }}>
+                  <a className="btn btn-sm" href={`/api/admin/settings/backups/${b.file}`} download>
+                    Download
+                  </a>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  )
 }
 
 function PushEnrolment({ onMessage }: { onMessage: (m: { kind: 'ok' | 'danger'; text: string }) => void }) {

@@ -65,20 +65,38 @@ Upload under Plugins → Add New → Upload, activate, then Settings → Mizuki 
 address and a shared secret matching `WOO_WEBHOOK_SECRET`. Put `[mizuki_booking]` on the booking
 page and `[mizuki_my_bookings]` on a "My bookings" page.
 
-## 5. The database tier is a real decision
+## 5. The database tier
 
-**Atlas M0 (free) has no backups.** It is right for the development work done so far and wrong
-for a live booking system: if it is lost, every booking, course package balance and student
-record goes with it, and the studio has no way to reconstruct who paid for what.
+**Atlas M0 (free) is fine**, now that the app takes its own backups.
 
-M0 also has 512MB of storage, shared CPU, and can be paused after inactivity.
+The studio's entire year of timetable data is **75 KB**. Projecting real use — a few thousand
+bookings a year — the free tier's 512 MB holds decades. Storage was never the constraint.
 
-**M10 (~US$57/mo)** has continuous backups and point-in-time restore. **M2 (~US$9/mo)** has daily
-snapshots and is the honest minimum. The gap between "free" and "£7 a month" is the gap between
-losing the studio's records and not.
+The one real gap in M0 is that it takes no backups. The app now closes that itself: every night
+at 03:00 it writes a full compressed export to this server's disk, keeps the last 30, and prunes
+sent messages older than 90 days. That copy lives on Hostinger rather than in Atlas, so it is a
+genuine second location rather than the same risk twice.
 
-Whichever tier, restrict Atlas Network Access to the Hostinger app's IP rather than leaving it
-open to the world.
+Restore with:
+
+```bash
+npm run restore -- mizuki-2026-10-01T0300.json.gz
+```
+
+The export is Extended JSON, so ids and dates come back as real types rather than strings — a
+restore that inserted them as text would look successful and leave every date unqueryable. There
+is a test that wipes the database, restores from a real backup file, and checks the same records
+come back.
+
+Two things to still do on Atlas:
+
+- Restrict **Network Access** to the Hostinger app's IP rather than leaving it open.
+- Download a backup from Settings occasionally and keep it somewhere else, so a lost Hostinger
+  account does not take the backups with it.
+
+M0 pauses after 60 days of inactivity, which will not happen here — cron touches it every five
+minutes. If the studio grows to the point where losing a day of bookings matters more than
+US$9/month, M2 adds Atlas-side daily snapshots on top.
 
 ## 6. Before opening it to students
 
