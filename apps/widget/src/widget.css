@@ -304,3 +304,121 @@
   .mzk-summary-next { margin-left: 0; text-align: left; width: 100%; }
   .mzk-tab { padding: 9px 10px; font-size: 14px; }
 }
+
+/* --- Defence against the host theme --------------------------------------- */
+
+/*
+ * WordPress themes routinely style bare element selectors with !important. Astra ships
+ * `button { background: <brand colour> !important }`, which beat every rule here regardless of
+ * specificity and turned the whole calendar into dark green blocks — because each day, each
+ * session row and each arrow is a <button>.
+ *
+ * !important can only be answered with !important, so the buttons in this widget are first
+ * stripped back to nothing, then rebuilt. Scoped under .mzk so the theme's own buttons are
+ * untouched. This is verbose on purpose: the alternative is a widget that looks different on
+ * every site it is embedded in.
+ */
+.mzk button {
+  background: transparent !important;
+  background-image: none !important;
+  color: inherit !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  font: inherit !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  line-height: inherit !important;
+  text-decoration: none !important;
+  text-shadow: none !important;
+  min-height: 0 !important;
+  min-width: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+/* Month navigation */
+.mzk .mzk-nav button {
+  width: 34px !important;
+  height: 34px !important;
+  border: 1px solid var(--mzk-line) !important;
+  border-radius: 8px !important;
+  background: var(--mzk-bg) !important;
+  color: var(--mzk-ink) !important;
+}
+.mzk .mzk-nav button:hover:not(:disabled) { background: var(--mzk-canvas) !important; }
+.mzk .mzk-nav button:disabled { opacity: 0.35 !important; }
+
+/* Day cells */
+.mzk .mzk-day {
+  min-height: 44px !important;
+  padding: 2px !important;
+  border: 1px solid transparent !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: var(--mzk-ink) !important;
+  width: auto !important;
+}
+.mzk .mzk-day.has-classes { background: var(--mzk-accent-light) !important; font-weight: 650 !important; }
+.mzk .mzk-day.has-classes:hover { background: #cdeff6 !important; }
+.mzk .mzk-day.selected { background: var(--mzk-accent) !important; color: #fff !important; }
+.mzk .mzk-day.today { border-color: var(--mzk-accent) !important; }
+.mzk .mzk-day:disabled { color: #b9c4ca !important; background: transparent !important; }
+.mzk .mzk-day.closed {
+  background: repeating-linear-gradient(45deg, #f2f6f7, #f2f6f7 5px, #e6edef 5px, #e6edef 10px) !important;
+}
+
+/* Session rows */
+.mzk .mzk-session {
+  width: 100% !important;
+  padding: 13px 14px !important;
+  border: 1px solid var(--mzk-line) !important;
+  border-radius: 10px !important;
+  background: var(--mzk-bg) !important;
+  color: var(--mzk-ink) !important;
+  margin-bottom: 8px !important;
+}
+.mzk .mzk-session:hover:not(:disabled) { border-color: var(--mzk-accent) !important; background: var(--mzk-canvas) !important; }
+.mzk .mzk-session:disabled { background: var(--mzk-canvas) !important; opacity: 0.72 !important; }
+
+/* Ordinary and primary buttons */
+.mzk .mzk-btn {
+  padding: 11px 20px !important;
+  border: 1px solid var(--mzk-line) !important;
+  border-radius: 8px !important;
+  background: var(--mzk-bg) !important;
+  color: var(--mzk-ink) !important;
+  font-weight: 650 !important;
+}
+.mzk .mzk-btn:hover:not(:disabled) { background: var(--mzk-canvas) !important; }
+.mzk .mzk-btn:disabled { opacity: 0.55 !important; }
+.mzk .mzk-btn-primary { background: var(--mzk-accent) !important; border-color: var(--mzk-accent) !important; color: #fff !important; }
+.mzk .mzk-btn-primary:hover:not(:disabled) { background: var(--mzk-accent-dark) !important; }
+.mzk .mzk-btn-block { width: 100% !important; }
+
+/* Portal tabs */
+.mzk .mzk-tab {
+  padding: 10px 14px !important;
+  color: var(--mzk-soft) !important;
+  font-weight: 650 !important;
+  border-bottom: 2px solid transparent !important;
+}
+.mzk .mzk-tab-active { color: var(--mzk-accent) !important; border-bottom-color: var(--mzk-accent) !important; }
+
+.mzk .mzk-link-btn { color: var(--mzk-accent) !important; text-decoration: underline !important; }
+
+/* Themes also style inputs; keep the forms ours. */
+.mzk input, .mzk textarea, .mzk select {
+  background: var(--mzk-bg) !important;
+  color: var(--mzk-ink) !important;
+  border: 1px solid var(--mzk-line) !important;
+  border-radius: 8px !important;
+  font: inherit !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+}
+.mzk input[type="checkbox"] { width: auto !important; height: auto !important; }
