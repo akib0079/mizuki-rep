@@ -1,8 +1,11 @@
 import { Types } from 'mongoose'
 import {
+  ACTIVE_BOOKING_STATUSES,
+  SEAT_OCCUPYING_STATUSES,
   evaluateCancel,
   evaluateReschedule,
   evaluateSessionBookable,
+  formatSessionDateTime,
   type BookingSource,
 } from '@mizuki/shared'
 import {
@@ -21,12 +24,15 @@ import { AppError, ConflictError, NotFoundError, ruleError } from '../errors.js'
 import { releaseSeat, reserveSeat } from './seatService.js'
 import { consumeSession, findUsablePackage, restoreSession } from './packageService.js'
 import {
+  queueAdminAwaitingConfirmation,
   queueAdminBookingChange,
   queueAdminNewBooking,
   queueBookingCancelled,
   queueBookingConfirmation,
+  queueBookingPendingConfirmation,
   queueRescheduleConfirmation,
 } from './notificationService.js'
+import { recordAdminNotification, resolveForBooking } from './adminNotificationService.js'
 import { recordAudit } from './auditService.js'
 import { config } from '../config.js'
 import { logger } from '../logger.js'
@@ -111,7 +117,7 @@ export async function createBooking(input: CreateBookingInput): Promise<BookingR
   const existing = await BookingModel.findOne({
     sessionId: session._id,
     studentId: student._id,
-    status: { $in: ['hold', 'confirmed'] },
+    status: { $in: ACTIVE_BOOKING_STATUSES },
   })
   if (existing) {
     throw new ConflictError('already_booked', 'You already have a place in this class.')
@@ -196,6 +202,44 @@ export async function createBooking(input: CreateBookingInput): Promise<BookingR
 }
 
 /** Confirmation to the student, alert to the studio. Failures here must never undo a valid booking. */
+/**
+ * A paid place that the studio has to approve.
+ *
+ * Deliberately louder than a normal booking: it goes in the console as an action rather than a
+ * note, because until someone approves it the student has paid and has no confirmation. The
+ * student hears immediately too — silence after taking money reads as a failed payment.
+ */
+async function notifyAwaitingConfirmation(result: BookingResult): Promise<void> {
+  const ctx = {
+    booking: result.booking,
+    session: result.session,
+    courseType: result.courseType,
+    student: result.student,
+    pkg: result.pkg,
+  }
+
+  try {
+    await queueBookingPendingConfirmation(ctx)
+    await queueAdminAwaitingConfirmation(ctx)
+    await recordAdminNotification({
+      type: 'awaiting_confirmation',
+      severity: 'action',
+      title: `${result.student.name} paid for ${result.session.title}`,
+      body: `${formatSessionDateTime(result.session.startAt)} · check the payment, then confirm their place.`,
+      url: `/calendar?session=${result.session._id}&booking=${result.booking._id}`,
+      bookingId: result.booking._id,
+      sessionId: result.session._id,
+      studentId: result.student._id,
+      dedupeKey: `awaiting_confirmation:${result.booking._id}`,
+    })
+  } catch (err) {
+    logger.error(
+      { err, bookingId: String(result.booking._id) },
+      'Failed to raise an awaiting-confirmation alert',
+    )
+  }
+}
+
 export async function notifyBookingCreated(result: BookingResult): Promise<void> {
   const ctx = {
     booking: result.booking,
@@ -338,7 +382,7 @@ export async function rescheduleBooking(input: RescheduleInput): Promise<Booking
   const duplicate = await BookingModel.findOne({
     sessionId: toSession._id,
     studentId: student._id,
-    status: { $in: ['hold', 'confirmed'] },
+    status: { $in: ACTIVE_BOOKING_STATUSES },
   })
   if (duplicate) {
     throw new ConflictError('already_booked', 'You already have a place in that class.')
@@ -419,7 +463,8 @@ export async function confirmHold(bookingId: Types.ObjectId | string, wooOrderId
   const booking = await BookingModel.findById(bookingId)
   if (!booking) throw new NotFoundError('Booking')
 
-  if (booking.status === 'confirmed') {
+  // A repeated callback — WooCommerce does send them. Either settled state is a no-op.
+  if (booking.status === 'confirmed' || booking.status === 'awaiting_confirmation') {
     const ctx = await loadContext(booking.sessionId, booking.studentId)
     return { booking, ...ctx, pkg: null }
   }
@@ -427,16 +472,77 @@ export async function confirmHold(bookingId: Types.ObjectId | string, wooOrderId
     throw new ConflictError('not_a_hold', 'That booking is no longer awaiting payment.')
   }
 
-  booking.status = 'confirmed'
-  booking.confirmedAt = new Date()
+  const ctx = await loadContext(booking.sessionId, booking.studentId)
+
+  /*
+   * Payment has landed. Whether that is enough to confirm the place is the studio's call per
+   * course: some they reconcile against their bank by hand before committing a chair.
+   *
+   * Either way the hold stops expiring here. The student has paid; letting the sweeper reclaim
+   * their place while the studio checks the money would sell it to someone else.
+   */
+  const needsApproval = ctx.courseType.requiresManualConfirmation
+
+  booking.status = needsApproval ? 'awaiting_confirmation' : 'confirmed'
+  booking.confirmedAt = needsApproval ? null : new Date()
   booking.holdExpiresAt = null
   if (wooOrderId) booking.wooOrderId = wooOrderId
+  await booking.save()
+
+  const result: BookingResult = { booking, ...ctx, pkg: null }
+
+  if (needsApproval) await notifyAwaitingConfirmation(result)
+  else await notifyBookingCreated(result)
+
+  return result
+}
+
+/**
+ * The studio has checked the payment and is giving the student their place.
+ *
+ * The seat was already theirs — it has been held since payment — so nothing is reserved here.
+ * This only settles the status and sends the confirmation the student has been waiting for.
+ */
+export async function approveBooking(
+  bookingId: Types.ObjectId | string,
+  by: string,
+): Promise<BookingResult> {
+  const booking = await BookingModel.findById(bookingId)
+  if (!booking) throw new NotFoundError('Booking')
+
+  if (booking.status === 'confirmed') {
+    const ctx = await loadContext(booking.sessionId, booking.studentId)
+    return { booking, ...ctx, pkg: null }
+  }
+  if (booking.status !== 'awaiting_confirmation') {
+    throw new ConflictError(
+      'not_awaiting',
+      'That booking is not waiting to be confirmed.',
+    )
+  }
+
+  booking.status = 'confirmed'
+  booking.confirmedAt = new Date()
   await booking.save()
 
   const ctx = await loadContext(booking.sessionId, booking.studentId)
   const result: BookingResult = { booking, ...ctx, pkg: null }
 
-  await notifyBookingCreated(result)
+  await recordAudit({
+    action: 'booking.approve',
+    entity: 'Booking',
+    entityId: booking._id,
+    actor: by,
+    reason: `Confirmed ${ctx.student.name}'s place after checking payment`,
+  })
+  await resolveForBooking(booking._id, by)
+
+  try {
+    await queueBookingConfirmation({ ...ctx, booking, pkg: null })
+  } catch (err) {
+    logger.error({ err, bookingId: String(booking._id) }, 'Failed to queue the confirmation email')
+  }
+
   return result
 }
 
@@ -444,7 +550,7 @@ export async function confirmHold(bookingId: Types.ObjectId | string, wooOrderId
 export async function listStudentBookings(studentId: Types.ObjectId | string, opts: { includePast?: boolean } = {}) {
   const bookings = await BookingModel.find({
     studentId,
-    status: { $in: ['hold', 'confirmed', 'attended'] },
+    status: { $in: SEAT_OCCUPYING_STATUSES },
   }).lean()
 
   // Left unpopulated: callers resolve courses themselves in one query, and populating here

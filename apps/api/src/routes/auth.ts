@@ -1,10 +1,11 @@
 import { Router } from 'express'
+import { createHash } from 'node:crypto'
 import rateLimit from 'express-rate-limit'
 import argon2 from 'argon2'
 import { authenticator } from 'otplib'
 import { z } from 'zod'
 import { emailSchema, requestMagicLinkSchema } from '@mizuki/shared'
-import { AdminUserModel, LoginTokenModel, StudentModel } from '../models/index.js'
+import { AdminInviteModel, AdminUserModel, LoginTokenModel, StudentModel } from '../models/index.js'
 import {
   ADMIN_SESSION_HOURS,
   COOKIE_NAMES,
@@ -201,6 +202,67 @@ authRouter.post(
 
     res.json({
       admin: { id: String(admin._id), name: admin.name, email: admin.email, role: admin.role, totpEnabled: admin.totpEnabled },
+    })
+  }),
+)
+
+/**
+ * A new admin setting their own password from an invite link.
+ *
+ * Public by necessity — the person using it has no session yet. The link is the credential, so
+ * it is single-use, expires, and is matched by hash: a database dump gives an attacker nothing
+ * to replay. Signing them straight in afterwards means the link is spent immediately rather
+ * than sitting used-but-valid in whatever chat it was pasted into.
+ */
+authRouter.post(
+  '/admin/accept-invite',
+  asyncRoute(async (req, res) => {
+    const { token, password } = z
+      .object({
+        token: z.string().min(10),
+        password: z.string().min(12, 'Please choose at least 12 characters'),
+      })
+      .parse(req.body)
+
+    const invite = await AdminInviteModel.findOne({
+      tokenHash: createHash('sha256').update(token).digest('hex'),
+      usedAt: null,
+      expiresAt: { $gt: new Date() },
+    })
+    // Deliberately the same message whether the link is wrong, spent or stale: distinguishing
+    // them tells someone probing which of their guesses was closest.
+    if (!invite) {
+      throw new AppError(400, 'invalid_invite', 'That invitation link is no longer valid. Ask for a new one.')
+    }
+
+    const admin = await AdminUserModel.findById(invite.adminUserId)
+    if (!admin || !admin.active) {
+      throw new AppError(400, 'invalid_invite', 'That invitation link is no longer valid. Ask for a new one.')
+    }
+
+    admin.passwordHash = await argon2.hash(password, { type: argon2.argon2id })
+    admin.lastLoginAt = new Date()
+    await admin.save()
+
+    invite.usedAt = new Date()
+    await invite.save()
+
+    const token_ = signAdminToken({
+      sub: String(admin._id),
+      email: admin.email,
+      role: admin.role,
+      v: admin.tokenVersion,
+    })
+    res.cookie(COOKIE_NAMES.admin, token_, cookieOptions(ADMIN_SESSION_HOURS * 3600_000))
+
+    res.json({
+      admin: {
+        id: String(admin._id),
+        name: admin.name,
+        email: admin.email,
+        role: admin.role,
+        totpEnabled: admin.totpEnabled,
+      },
     })
   }),
 )

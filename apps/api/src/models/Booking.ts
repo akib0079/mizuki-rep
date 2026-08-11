@@ -1,4 +1,5 @@
 import { Schema, model, type InferSchemaType, type HydratedDocument } from 'mongoose'
+import { ACTIVE_BOOKING_STATUSES } from '@mizuki/shared'
 
 /**
  * One student in one class.
@@ -14,7 +15,7 @@ const bookingSchema = new Schema(
 
     status: {
       type: String,
-      enum: ['hold', 'confirmed', 'cancelled', 'attended', 'no_show'],
+      enum: ['hold', 'awaiting_confirmation', 'confirmed', 'cancelled', 'attended', 'no_show'],
       required: true,
       default: 'confirmed',
       index: true,
@@ -67,12 +68,17 @@ const bookingSchema = new Schema(
 /**
  * A student cannot hold two live places in the same class. Partial, so the same student
  * may rebook a class they previously cancelled — the cancelled row stays for history.
+ *
+ * The filter is built from the shared constant rather than written out, so a new live status is
+ * covered here the moment it is added. Getting this wrong is silent: the index would simply stop
+ * applying to the new status and let one student take two places. `syncIndexes()` at startup
+ * drops and rebuilds the index when this expression changes, so a deploy is enough.
  */
 bookingSchema.index(
   { sessionId: 1, studentId: 1 },
   {
     unique: true,
-    partialFilterExpression: { status: { $in: ['hold', 'confirmed'] } },
+    partialFilterExpression: { status: { $in: [...ACTIVE_BOOKING_STATUSES] } },
     name: 'one_live_booking_per_student_per_session',
   },
 )

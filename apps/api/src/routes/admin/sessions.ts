@@ -2,6 +2,8 @@ import { Router } from 'express'
 import { Types } from 'mongoose'
 import { DateTime } from 'luxon'
 import {
+  ACTIVE_BOOKING_STATUSES,
+  ROSTER_STATUSES,
   STUDIO_TZ,
   adjustHeldBackSchema,
   isOverCapacity,
@@ -94,7 +96,7 @@ adminSessionsRouter.get(
     const course = await CourseTypeModel.findById(session.courseTypeId)
     const bookings = await BookingModel.find({
       sessionId: session._id,
-      status: { $in: ['hold', 'confirmed', 'attended', 'no_show'] },
+      status: { $in: ROSTER_STATUSES },
     })
       .sort({ createdAt: 1 })
       .lean()
@@ -315,7 +317,7 @@ adminSessionsRouter.post(
       notified = await notifyRoster(session, async (ctx) => queueSessionCancelled(ctx, input.reason))
     }
 
-    const bookings = await BookingModel.find({ sessionId: session._id, status: { $in: ['hold', 'confirmed'] } })
+    const bookings = await BookingModel.find({ sessionId: session._id, status: { $in: ACTIVE_BOOKING_STATUSES } })
     for (const booking of bookings) {
       booking.status = 'cancelled'
       booking.cancelledAt = new Date()
@@ -435,7 +437,7 @@ adminSessionsRouter.delete(
 
     const live = await BookingModel.countDocuments({
       sessionId: session._id,
-      status: { $in: ['hold', 'confirmed'] },
+      status: { $in: ACTIVE_BOOKING_STATUSES },
     })
     if (live > 0) {
       throw new AppError(
@@ -463,7 +465,7 @@ async function notifyRoster(
   session: SessionDoc,
   send: (ctx: Parameters<typeof queueSessionMoved>[0]) => Promise<void>,
 ): Promise<number> {
-  const bookings = await BookingModel.find({ sessionId: session._id, status: { $in: ['hold', 'confirmed'] } })
+  const bookings = await BookingModel.find({ sessionId: session._id, status: { $in: ACTIVE_BOOKING_STATUSES } })
   if (bookings.length === 0) return 0
 
   const [students, courseType] = await Promise.all([

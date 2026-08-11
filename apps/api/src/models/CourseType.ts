@@ -27,6 +27,17 @@ const courseTypeSchema = new Schema(
 
     /** WooCommerce products that sell a seat (or a package) for this course. */
     wooProductIds: { type: [Number], default: [] },
+
+    /**
+     * When true, a paid place is not confirmed by the payment alone — it waits in
+     * `awaiting_confirmation` until the studio has checked the money actually arrived and
+     * approved it. The place is held throughout, so nobody else can take it.
+     *
+     * This exists because the studio reconciles some payments by hand against their bank rather
+     * than trusting the shop's status, and a place confirmed automatically is one they would
+     * have to chase and cancel afterwards.
+     */
+    requiresManualConfirmation: { type: Boolean, default: false },
     /** When a Woo purchase should grant course credits rather than book one class. */
     packageGrantSessions: { type: Number, default: 0, min: 0 },
     packageValidityDays: { type: Number, default: 365, min: 0 },

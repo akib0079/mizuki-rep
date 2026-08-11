@@ -75,13 +75,16 @@ export function SettingsPage({ totpEnabled }: { totpEnabled: boolean }) {
             <tr>
               <th>Course</th>
               <th>Booked with</th>
+              <th>Shop product</th>
+              <th>Confirm by hand</th>
               <th>Notice to change</th>
               <th>Default class size</th>
+              <th />
             </tr>
           </thead>
           <tbody>
             {(coursesQuery.data?.courses ?? []).map((c) => (
-              <tr key={c.id}>
+              <tr key={c.id} className={c.active ? '' : 'row-inactive'}>
                 <td>
                   <span className="legend-dot" style={{ background: c.colour, display: 'inline-block', marginRight: 8 }} />
                   <strong>{c.name}</strong>
@@ -90,6 +93,51 @@ export function SettingsPage({ totpEnabled }: { totpEnabled: boolean }) {
                   <span className="pill pill-muted">
                     {c.bookingMode === 'package' ? 'Course package' : c.bookingMode === 'paid' ? 'Shop payment' : 'Free'}
                   </span>
+                </td>
+                <td>
+                  {/*
+                    Empty is meaningful, not merely unset: with no product the shop has nothing to
+                    sell for this course, so a paid booking cannot be completed. Saying so beats
+                    an empty box that looks finished.
+                  */}
+                  <input
+                    type="number"
+                    min={1}
+                    className="btn btn-sm"
+                    style={{ width: 92 }}
+                    placeholder={c.bookingMode === 'free' ? 'not needed' : 'e.g. 1234'}
+                    defaultValue={c.wooProductIds[0] ?? ''}
+                    disabled={c.bookingMode === 'free'}
+                    onBlur={(e) => {
+                      const raw = e.target.value.trim()
+                      const next = raw ? [Number(raw)] : []
+                      if (next[0] !== c.wooProductIds[0]) {
+                        courseMutation.mutate({ id: c.id, patch: { wooProductIds: next } as Partial<Course> })
+                      }
+                    }}
+                  />
+                  {c.bookingMode !== 'free' && c.wooProductIds.length === 0 && (
+                    <div className="small" style={{ color: 'var(--danger, #b3382c)' }}>
+                      Not on sale yet
+                    </div>
+                  )}
+                </td>
+                <td>
+                  <label className="switch-label">
+                    <input
+                      type="checkbox"
+                      checked={c.requiresManualConfirmation}
+                      onChange={(e) =>
+                        courseMutation.mutate({
+                          id: c.id,
+                          patch: { requiresManualConfirmation: e.target.checked } as Partial<Course>,
+                        })
+                      }
+                    />
+                    <span className="small muted">
+                      {c.requiresManualConfirmation ? 'You approve each place' : 'Confirmed on payment'}
+                    </span>
+                  </label>
                 </td>
                 <td>
                   <select
@@ -128,10 +176,27 @@ export function SettingsPage({ totpEnabled }: { totpEnabled: boolean }) {
                     }}
                   />
                 </td>
+                <td className="row-actions">
+                  {/*
+                    Archived, never deleted: courses are referenced by every class ever taught and
+                    every package ever sold, and removing one would take the history with it.
+                  */}
+                  <button
+                    type="button"
+                    className={c.active ? 'link-btn link-danger' : 'link-btn'}
+                    onClick={() =>
+                      courseMutation.mutate({ id: c.id, patch: { active: !c.active } as Partial<Course> })
+                    }
+                  >
+                    {c.active ? 'Archive' : 'Restore'}
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
+
+        <NewCourseForm onMessage={setMessage} />
 
         <div className="banner banner-info" style={{ marginTop: 14, marginBottom: 0 }}>
           Changing the class size here only affects classes created from now on. To change one that
@@ -842,5 +907,174 @@ function TotpSetup({ onMessage }: { onMessage: (m: { kind: 'ok' | 'danger'; text
         </button>
       </div>
     </div>
+  )
+}
+
+/**
+ * Add a course.
+ *
+ * The two fields that decide whether a course can actually be sold — the shop product and
+ * whether the studio approves each payment — are on the form rather than left to be discovered
+ * afterwards. A course created without a product looks finished but silently cannot be booked,
+ * which is the failure the Autumn Ikebana Course already hit.
+ */
+function NewCourseForm({
+  onMessage,
+}: {
+  onMessage: (m: { kind: 'ok' | 'danger'; text: string }) => void
+}) {
+  const queryClient = useQueryClient()
+  const [open, setOpen] = useState(false)
+  const [form, setForm] = useState({
+    name: '',
+    colour: '#7c6a9c',
+    bookingMode: 'paid' as 'paid' | 'package' | 'free',
+    rescheduleCutoffHours: 72,
+    defaultDurationMins: 150,
+    defaultCapacity: 8,
+    wooProductId: '',
+    requiresManualConfirmation: true,
+  })
+
+  const create = useMutation({
+    mutationFn: () =>
+      api.post('/api/admin/settings/courses', {
+        name: form.name.trim(),
+        // Derived rather than asked for: the slug is only ever used in URLs and the shortcode,
+        // and asking the studio to invent one is asking them to get it wrong.
+        slug: form.name
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, ''),
+        colour: form.colour,
+        bookingMode: form.bookingMode,
+        rescheduleCutoffHours: form.rescheduleCutoffHours,
+        cancelCutoffHours: form.rescheduleCutoffHours,
+        defaultDurationMins: form.defaultDurationMins,
+        defaultCapacity: form.defaultCapacity,
+        wooProductIds: form.wooProductId.trim() ? [Number(form.wooProductId.trim())] : [],
+        requiresManualConfirmation: form.bookingMode === 'free' ? false : form.requiresManualConfirmation,
+      }),
+    onSuccess: () => {
+      onMessage({ kind: 'ok', text: `${form.name} added. Add classes for it on the calendar.` })
+      setForm({ ...form, name: '', wooProductId: '' })
+      setOpen(false)
+      void queryClient.invalidateQueries({ queryKey: ['courses'] })
+    },
+    onError: (err) =>
+      onMessage({
+        kind: 'danger',
+        text: err instanceof ApiError ? err.message : 'That course could not be added.',
+      }),
+  })
+
+  if (!open) {
+    return (
+      <button type="button" className="btn btn-quiet" style={{ marginTop: 14 }} onClick={() => setOpen(true)}>
+        + Add a course
+      </button>
+    )
+  }
+
+  return (
+    <form
+      className="inline-form"
+      onSubmit={(e) => {
+        e.preventDefault()
+        create.mutate()
+      }}
+    >
+      <label className="field">
+        <span>Course name</span>
+        <input
+          value={form.name}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
+          placeholder="Preserved Flower"
+          required
+          autoFocus
+        />
+      </label>
+
+      <label className="field" style={{ flex: '0 0 130px' }}>
+        <span>Paid how?</span>
+        <select
+          value={form.bookingMode}
+          onChange={(e) => setForm({ ...form, bookingMode: e.target.value as typeof form.bookingMode })}
+        >
+          <option value="paid">In the shop</option>
+          <option value="package">Course package</option>
+          <option value="free">Free</option>
+        </select>
+      </label>
+
+      <label className="field" style={{ flex: '0 0 120px' }}>
+        <span>Shop product ID</span>
+        <input
+          type="number"
+          min={1}
+          value={form.wooProductId}
+          onChange={(e) => setForm({ ...form, wooProductId: e.target.value })}
+          placeholder="e.g. 1234"
+          disabled={form.bookingMode === 'free'}
+        />
+      </label>
+
+      <label className="field" style={{ flex: '0 0 96px' }}>
+        <span>Class size</span>
+        <input
+          type="number"
+          min={1}
+          max={200}
+          value={form.defaultCapacity}
+          onChange={(e) => setForm({ ...form, defaultCapacity: Number(e.target.value) })}
+        />
+      </label>
+
+      <label className="field" style={{ flex: '0 0 116px' }}>
+        <span>Notice to change</span>
+        <select
+          value={form.rescheduleCutoffHours}
+          onChange={(e) => setForm({ ...form, rescheduleCutoffHours: Number(e.target.value) })}
+        >
+          <option value={0}>No restriction</option>
+          <option value={24}>24 hours</option>
+          <option value={48}>2 days</option>
+          <option value={72}>3 days</option>
+          <option value={168}>1 week</option>
+        </select>
+      </label>
+
+      <label className="field" style={{ flex: '1 1 210px' }}>
+        <span>Colour</span>
+        <input
+          type="color"
+          value={form.colour}
+          onChange={(e) => setForm({ ...form, colour: e.target.value })}
+        />
+      </label>
+
+      {form.bookingMode !== 'free' && (
+        <label className="switch-label" style={{ flex: '1 1 100%' }}>
+          <input
+            type="checkbox"
+            checked={form.requiresManualConfirmation}
+            onChange={(e) => setForm({ ...form, requiresManualConfirmation: e.target.checked })}
+          />
+          <span className="small">
+            I check each payment myself before confirming the place
+          </span>
+        </label>
+      )}
+
+      <div className="row" style={{ flex: '1 1 100%' }}>
+        <button type="submit" className="btn btn-primary" disabled={create.isPending || !form.name.trim()}>
+          Add course
+        </button>
+        <button type="button" className="btn btn-quiet" onClick={() => setOpen(false)}>
+          Cancel
+        </button>
+      </div>
+    </form>
   )
 }

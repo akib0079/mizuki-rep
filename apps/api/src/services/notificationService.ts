@@ -10,6 +10,7 @@ import {
 } from '@mizuki/shared'
 import { OutboxModel, type BookingDoc, type CourseTypeDoc, type PackageDoc, type SessionDoc, type StudentDoc } from '../models/index.js'
 import { renderTemplate } from './emailTemplates.js'
+import { notificationRecipients, recordAdminNotification } from './adminNotificationService.js'
 import { config } from '../config.js'
 import { logger } from '../logger.js'
 import { isDuplicateKeyError } from './transaction.js'
@@ -134,6 +135,74 @@ export async function queueBookingConfirmation(ctx: BookingContext): Promise<voi
   await queueStudentEmail('booking_confirmation', ctx)
 }
 
+/**
+ * Sent the moment a paid place lands on a course the studio confirms by hand.
+ *
+ * Not a confirmation and careful not to read like one: the place is held, the payment is being
+ * checked, and the real confirmation follows. Without this the student pays and hears nothing,
+ * which they reasonably read as the payment having failed.
+ */
+export async function queueBookingPendingConfirmation(ctx: BookingContext): Promise<void> {
+  await queueStudentEmail('booking_pending_confirmation', ctx)
+}
+
+/** The studio's copy: a place is paid for and waiting on their check. */
+export async function queueAdminAwaitingConfirmation(ctx: BookingContext): Promise<void> {
+  const vars = {
+    ...studentVars(ctx.student),
+    ...sessionVars(ctx.session, ctx.courseType),
+    seatsLeft: seatsLeft(ctx.session),
+    capacity: ctx.session.capacity,
+    packageLine: packageLine(ctx.pkg ?? null, ctx.courseType.name),
+    wooOrderId: ctx.booking.wooOrderId ?? '',
+    adminSessionUrl: `${config.PUBLIC_API_URL}/admin/calendar?session=${ctx.session._id}&booking=${ctx.booking._id}`,
+  }
+
+  const rendered = await renderTemplate('admin_awaiting_confirmation', vars)
+
+  await queueAdminEmail('admin_awaiting_confirmation', {
+    dedupeSuffix: String(ctx.booking._id),
+    subject: rendered.subject,
+    html: rendered.html,
+    text: rendered.text,
+    bookingId: ctx.booking._id,
+    sessionId: ctx.session._id,
+  })
+}
+
+/**
+ * Fan one message out to everyone who should hear about bookings.
+ *
+ * The recipient list used to be a single environment variable, so a second person in the studio
+ * meant a redeploy. The dedupe key carries the address, or the first recipient's row would claim
+ * the key and everyone else would be silently skipped as a duplicate.
+ */
+async function queueAdminEmail(
+  key: string,
+  opts: {
+    dedupeSuffix: string
+    subject: string
+    html: string
+    text: string
+    bookingId?: unknown
+    sessionId?: unknown
+  },
+): Promise<void> {
+  const recipients = await notificationRecipients()
+
+  for (const to of recipients) {
+    await queueMessage(key, {
+      dedupeKey: `${key}:email:${opts.dedupeSuffix}:${to}`,
+      to,
+      subject: opts.subject,
+      bodyHtml: opts.html,
+      bodyText: opts.text,
+      relatedBookingId: opts.bookingId as never,
+      relatedSessionId: opts.sessionId as never,
+    })
+  }
+}
+
 export async function queueRescheduleConfirmation(
   ctx: BookingContext,
   previous: { startAt: Date; endAt: Date },
@@ -202,17 +271,26 @@ export async function queueAdminNewBooking(ctx: BookingContext): Promise<void> {
 
   const rendered = await renderTemplate('admin_new_booking', vars)
 
-  if (config.ADMIN_ALERT_EMAIL) {
-    await queueMessage('admin_new_booking', {
-      dedupeKey: `admin_new_booking:email:${ctx.booking._id}`,
-      to: config.ADMIN_ALERT_EMAIL,
-      subject: rendered.subject,
-      bodyHtml: rendered.html,
-      bodyText: rendered.text,
-      relatedBookingId: ctx.booking._id,
-      relatedSessionId: ctx.session._id,
-    })
-  }
+  await queueAdminEmail('admin_new_booking', {
+    dedupeSuffix: String(ctx.booking._id),
+    subject: rendered.subject,
+    html: rendered.html,
+    text: rendered.text,
+    bookingId: ctx.booking._id,
+    sessionId: ctx.session._id,
+  })
+
+  // The console copy, so a booking is never something that only ever existed in an inbox.
+  await recordAdminNotification({
+    type: 'new_booking',
+    title: `${ctx.student.name} booked ${vars.sessionTitle}`,
+    body: `${vars.sessionDate} · ${vars.sessionTimeRange} — ${left} of ${ctx.session.capacity} places left`,
+    url: `/calendar?session=${ctx.session._id}`,
+    bookingId: ctx.booking._id,
+    sessionId: ctx.session._id,
+    studentId: ctx.student._id,
+    dedupeKey: `new_booking:${ctx.booking._id}`,
+  })
 
   const shortLine = `📅 ${ctx.student.name} booked ${vars.sessionTitle}\n${vars.sessionDate} · ${vars.sessionTimeRange}\n${left} of ${ctx.session.capacity} places left`
 

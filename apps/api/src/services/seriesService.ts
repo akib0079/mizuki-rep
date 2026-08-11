@@ -1,5 +1,10 @@
 import { Types } from 'mongoose'
-import { evaluateSessionBookable, formatSessionDateTime, seatsLeft } from '@mizuki/shared'
+import {
+  ACTIVE_BOOKING_STATUSES,
+  evaluateSessionBookable,
+  formatSessionDateTime,
+  seatsLeft,
+} from '@mizuki/shared'
 import {
   BookingModel,
   CourseSeriesModel,
@@ -128,7 +133,7 @@ export async function bookSeries(input: {
   const existing = await BookingModel.findOne({
     sessionId: { $in: series.sessionIds },
     studentId: student._id,
-    status: { $in: ['hold', 'confirmed'] },
+    status: { $in: ACTIVE_BOOKING_STATUSES },
   })
   if (existing) {
     throw new ConflictError('already_booked', `${student.name} already has a place on one of this course's dates.`)
@@ -230,7 +235,7 @@ export async function cancelSeriesBooking(input: {
   const bookings = await BookingModel.find({
     sessionId: { $in: series.sessionIds },
     studentId: input.studentId,
-    status: { $in: ['hold', 'confirmed'] },
+    status: { $in: ACTIVE_BOOKING_STATUSES },
   })
 
   for (const booking of bookings) {

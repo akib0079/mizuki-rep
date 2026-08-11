@@ -93,6 +93,11 @@ export interface Course {
   rescheduleCutoffHours: number
   defaultCapacity: number
   defaultDurationMins: number
+  /** Shop products that sell a place on this course. Empty means it cannot be bought yet. */
+  wooProductIds: number[]
+  /** True when a paid place waits for the studio to check the payment before it is confirmed. */
+  requiresManualConfirmation: boolean
+  active: boolean
 }
 
 export interface ClosedDate {

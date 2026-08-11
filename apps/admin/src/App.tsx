@@ -9,6 +9,10 @@ import { ClosedDatesPage } from './pages/ClosedDatesPage.js'
 import { StudentsPage } from './pages/StudentsPage.js'
 import { TemplatesPage } from './pages/TemplatesPage.js'
 import { SettingsPage } from './pages/SettingsPage.js'
+import { PaymentsPage } from './pages/PaymentsPage.js'
+import { TeamPage } from './pages/TeamPage.js'
+import { AcceptInvitePage } from './pages/AcceptInvitePage.js'
+import { NotificationBell } from './components/NotificationBell.js'
 import { CommandPalette } from './components/CommandPalette.js'
 import { Icon, type IconName } from './components/Icon.js'
 
@@ -26,8 +30,10 @@ const NAV: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
   { to: '/calendar', label: 'Calendar', icon: 'calendar' },
   { to: '/students', label: 'Students', icon: 'students' },
+  { to: '/payments', label: 'Payments', icon: 'ticket' },
   { to: '/closed-dates', label: 'Closed dates', icon: 'closed' },
   { to: '/templates', label: 'Emails', icon: 'mail' },
+  { to: '/team', label: 'Team', icon: 'users' },
   { to: '/settings', label: 'Settings', icon: 'settings' },
 ]
 
@@ -65,6 +71,15 @@ export function App() {
 
   if (isLoading) {
     return <div className="login-wrap"><p className="muted">Loading…</p></div>
+  }
+
+  /*
+   * Checked before the sign-in gate, not routed inside it: someone arriving on an invitation has
+   * no session by definition, so the gate would send them to a login screen they cannot pass and
+   * the link would look broken.
+   */
+  if (window.location.pathname.endsWith('/accept-invite')) {
+    return <AcceptInvitePage onSignedIn={() => void refetch()} />
   }
 
   if (isError || !data) {
@@ -151,6 +166,7 @@ export function App() {
           </button>
           <div className="spacer" />
           <QuickAdd />
+          <NotificationBell />
           <button type="button"
             className="icon-btn"
             onClick={() => setPaletteOpen(true)}
@@ -167,8 +183,10 @@ export function App() {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/students" element={<StudentsPage />} />
+            <Route path="/payments" element={<PaymentsPage />} />
             <Route path="/closed-dates" element={<ClosedDatesPage />} />
             <Route path="/templates" element={<TemplatesPage />} />
+            <Route path="/team" element={<TeamPage currentAdminId={data.admin.id} />} />
             <Route path="/settings" element={<SettingsPage totpEnabled={data.admin.totpEnabled} />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>

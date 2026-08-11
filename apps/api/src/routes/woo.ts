@@ -1,7 +1,12 @@
 import crypto from 'node:crypto'
 import { Router } from 'express'
 import { z } from 'zod'
-import { formatSessionDateTime, seatsLeft } from '@mizuki/shared'
+import {
+  ACTIVE_BOOKING_STATUSES,
+  EXPECTED_ATTENDANCE_STATUSES,
+  formatSessionDateTime,
+  seatsLeft,
+} from '@mizuki/shared'
 import { BookingModel, CourseTypeModel, PackageModel, SessionModel, StudentModel } from '../models/index.js'
 import { confirmHold, createBooking, cancelBooking } from '../services/bookingService.js'
 import { grantSessions } from '../services/packageService.js'
@@ -107,7 +112,7 @@ async function confirmPaidOrder(payload: OrderPayload) {
         const alreadyBooked = await BookingModel.findOne({
           wooOrderId: payload.orderId,
           sessionId: { $in: series.sessionIds },
-          status: { $in: ['confirmed', 'attended'] },
+          status: { $in: EXPECTED_ATTENDANCE_STATUSES },
         })
         if (alreadyBooked) {
           confirmed.push(String(alreadyBooked._id))
@@ -279,7 +284,7 @@ async function notifyPackageGranted(
 async function releaseOrder(payload: OrderPayload): Promise<number> {
   const bookings = await BookingModel.find({
     wooOrderId: payload.orderId,
-    status: { $in: ['hold', 'confirmed'] },
+    status: { $in: ACTIVE_BOOKING_STATUSES },
   })
 
   let released = 0

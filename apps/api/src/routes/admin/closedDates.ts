@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { z } from 'zod'
-import { closedDateInputSchema, eachDateKey } from '@mizuki/shared'
+import { ACTIVE_BOOKING_STATUSES, closedDateInputSchema, eachDateKey } from '@mizuki/shared'
 import { BookingModel, ClosedDateModel, SessionModel, StudentModel } from '../../models/index.js'
 import { recordAudit } from '../../services/auditService.js'
 import { actorOf } from '../../middleware/auth.js'
@@ -50,7 +50,7 @@ adminClosedDatesRouter.post(
 
     const bookings = await BookingModel.find({
       sessionId: { $in: sessions.map((s) => s._id) },
-      status: { $in: ['hold', 'confirmed'] },
+      status: { $in: ACTIVE_BOOKING_STATUSES },
     }).lean()
 
     const students = await StudentModel.find({ _id: { $in: bookings.map((b) => b.studentId) } })

@@ -13,8 +13,18 @@ export type SessionStatus = 'scheduled' | 'cancelled'
 /**
  * `hold` is a seat reserved while a student is inside WooCommerce checkout. It occupies
  * a place exactly like a confirmed booking, but expires on its own if payment never lands.
+ *
+ * `awaiting_confirmation` is the state after the student has paid but before the studio has
+ * checked the money actually arrived. It holds the place indefinitely — unlike `hold`, nothing
+ * expires it, because someone has paid and their place must not quietly go back on sale.
  */
-export type BookingStatus = 'hold' | 'confirmed' | 'cancelled' | 'attended' | 'no_show'
+export type BookingStatus =
+  | 'hold'
+  | 'awaiting_confirmation'
+  | 'confirmed'
+  | 'cancelled'
+  | 'attended'
+  | 'no_show'
 
 export type BookingSource = 'student_web' | 'admin_manual' | 'woo_order'
 
@@ -22,8 +32,45 @@ export type PackageStatus = 'active' | 'expired' | 'completed'
 
 export type RecurrenceFreq = 'WEEKLY' | 'NONE'
 
-/** Statuses that occupy a physical place in the room. */
-export const SEAT_OCCUPYING_STATUSES: readonly BookingStatus[] = ['hold', 'confirmed', 'attended']
+/*
+ * These three sets are the only place booking statuses may be grouped.
+ *
+ * They were previously written out as literal arrays at seventeen call sites — the capacity
+ * queries, the double-booking index, the roster, the closed-date sweep. Adding a status meant
+ * finding and editing all seventeen, and the ones that got missed would not fail loudly: a
+ * forgotten set in a capacity query undercounts the room and oversells the class, which is the
+ * single guarantee this system exists to make. A guard test asserts no such literal comes back.
+ */
+
+/** Live bookings: holding a place right now, and blocking the same student booking twice. */
+export const ACTIVE_BOOKING_STATUSES: readonly BookingStatus[] = [
+  'hold',
+  'awaiting_confirmation',
+  'confirmed',
+]
+
+/** Everyone who took up a place, including classes already taught. */
+export const SEAT_OCCUPYING_STATUSES: readonly BookingStatus[] = [
+  ...ACTIVE_BOOKING_STATUSES,
+  'attended',
+]
+
+/** Everyone who should appear on a class register, including those who did not turn up. */
+export const ROSTER_STATUSES: readonly BookingStatus[] = [...SEAT_OCCUPYING_STATUSES, 'no_show']
+
+/**
+ * People the studio should expect in the room — everyone but a checkout still in progress.
+ *
+ * Distinct from ACTIVE_BOOKING_STATUSES because `hold` is genuinely uncertain: it is someone
+ * part-way through paying who may simply close the tab. Someone awaiting confirmation, by
+ * contrast, has paid; only the studio's check of the money is outstanding, and leaving them out
+ * of a headcount would have the teacher expecting fewer students than actually turn up.
+ */
+export const EXPECTED_ATTENDANCE_STATUSES: readonly BookingStatus[] = [
+  'awaiting_confirmation',
+  'confirmed',
+  'attended',
+]
 
 export interface CourseType {
   id: string

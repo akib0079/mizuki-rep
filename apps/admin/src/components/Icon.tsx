@@ -30,6 +30,7 @@ export type IconName =
   | 'note'
   | 'ticket'
   | 'close'
+  | 'bell'
 
 const PATHS: Record<IconName, JSX.Element> = {
   dashboard: (
@@ -120,6 +121,12 @@ const PATHS: Record<IconName, JSX.Element> = {
     </>
   ),
   close: <path d="M6 6l12 12M18 6L6 18" />,
+  bell: (
+    <>
+      <path d="M18 8a6 6 0 1 0-12 0c0 4.5-1.5 6-2 6.5h16c-.5-.5-2-2-2-6.5z" />
+      <path d="M10 18.5a2 2 0 0 0 4 0" />
+    </>
+  ),
 }
 
 export interface IconProps extends Omit<SVGProps<SVGSVGElement>, 'name'> {

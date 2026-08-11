@@ -1,5 +1,5 @@
 import { Types } from 'mongoose'
-import { dateKeyOf, studioInstant } from '@mizuki/shared'
+import { ACTIVE_BOOKING_STATUSES, dateKeyOf, studioInstant } from '@mizuki/shared'
 import {
   BookingModel,
   CourseTypeModel,
@@ -82,5 +82,5 @@ export async function makePackage(
 }
 
 export async function countLiveBookings(sessionId: Types.ObjectId): Promise<number> {
-  return BookingModel.countDocuments({ sessionId, status: { $in: ['hold', 'confirmed'] } })
+  return BookingModel.countDocuments({ sessionId, status: { $in: ACTIVE_BOOKING_STATUSES } })
 }

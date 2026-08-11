@@ -85,6 +85,11 @@ export const courseTypeInputSchema = z.object({
   defaultDurationMins: z.number().int().min(15).max(600),
   defaultCapacity: z.number().int().min(1).max(200),
   wooProductIds: z.array(z.number().int().positive()).default([]),
+  requiresManualConfirmation: z.boolean().default(false),
+  packageGrantSessions: z.number().int().min(0).max(200).default(0),
+  packageValidityDays: z.number().int().min(0).max(3650).default(365),
+  description: z.string().trim().max(2000).default(''),
+  sortOrder: z.number().int().min(0).max(999).default(0),
   active: z.boolean().default(true),
 })
 
@@ -201,6 +206,13 @@ export const packageAdjustSchema = z.object({
 export const emailTemplateKeySchema = z.enum([
   'magic_link',
   'booking_confirmation',
+  /*
+   * Sent when a course is set to be confirmed by the studio by hand. The student has paid and
+   * needs to hear something back immediately — silence after taking someone's money reads as a
+   * failed transaction, and they book again or email to ask. This says the place is held and the
+   * confirmation is coming, so `booking_confirmation` still means what it says.
+   */
+  'booking_pending_confirmation',
   'reminder_2day',
   'reschedule_confirmed',
   'booking_cancelled',
@@ -209,6 +221,8 @@ export const emailTemplateKeySchema = z.enum([
   'package_low',
   'package_expiring',
   'admin_new_booking',
+  /** A paid place is waiting for the studio to check the money arrived. */
+  'admin_awaiting_confirmation',
   'admin_daily_digest',
 ])
 

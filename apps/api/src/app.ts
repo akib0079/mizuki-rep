@@ -13,6 +13,8 @@ import { adminSessionsRouter } from './routes/admin/sessions.js'
 import { adminStudentsRouter } from './routes/admin/students.js'
 import { adminClosedDatesRouter } from './routes/admin/closedDates.js'
 import { adminSettingsRouter } from './routes/admin/settings.js'
+import { adminNotificationsRouter } from './routes/admin/notifications.js'
+import { adminAdminsRouter } from './routes/admin/admins.js'
 import { jobsRouter } from './routes/jobs.js'
 import { wooRouter } from './routes/woo.js'
 import { requireAdmin } from './middleware/auth.js'
@@ -114,6 +116,8 @@ export function createApp(): Express {
   app.use('/api/admin/students', requireAdmin, adminStudentsRouter)
   app.use('/api/admin/closed-dates', requireAdmin, adminClosedDatesRouter)
   app.use('/api/admin/settings', requireAdmin, adminSettingsRouter)
+  app.use('/api/admin/notifications', requireAdmin, adminNotificationsRouter)
+  app.use('/api/admin/admins', requireAdmin, adminAdminsRouter)
 
   mountAdminConsole(app)
 

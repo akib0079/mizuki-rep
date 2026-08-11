@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { STUDIO_TZ, sessionsRemaining } from '@mizuki/shared'
+import { EXPECTED_ATTENDANCE_STATUSES, STUDIO_TZ, sessionsRemaining } from '@mizuki/shared'
 import {
   BookingModel,
   CourseTypeModel,
@@ -221,7 +221,7 @@ export async function sendDailyDigest(now: Date = new Date()): Promise<boolean> 
   const sessions = await SessionModel.find({ dateKey, status: 'scheduled' }).sort({ startAt: 1 }).lean()
 
   const counts = await BookingModel.aggregate<{ _id: unknown; n: number }>([
-    { $match: { sessionId: { $in: sessions.map((s) => s._id) }, status: { $in: ['confirmed', 'attended'] } } },
+    { $match: { sessionId: { $in: sessions.map((s) => s._id) }, status: { $in: EXPECTED_ATTENDANCE_STATUSES } } },
     { $group: { _id: '$sessionId', n: { $sum: 1 } } },
   ])
   const bookedBySession = new Map(counts.map((c) => [String(c._id), c.n]))

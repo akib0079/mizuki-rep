@@ -172,6 +172,42 @@ export const DEFAULT_TEMPLATES: Record<EmailTemplateKey, TemplateDefinition> = {
     variables: [...COMMON_VARS, 'courseName', 'sessionsRemaining', 'packageExpiryDate', 'bookingUrl'],
   },
 
+  booking_pending_confirmation: {
+    label: 'Payment received — awaiting confirmation',
+    description:
+      'Sent instead of the confirmation when a course is set to be confirmed by the studio by hand. Reassures the student their payment arrived and their place is held.',
+    subject: 'We have your booking — {{sessionTitle}}, {{sessionDate}}',
+    bodyHtml: layout(`<p>Hello {{studentName}},</p>
+      <p>Thank you — we have received your booking and your place is held for you.</p>
+      ${sessionCard}
+      <p>We check each payment by hand, so your confirmation will follow shortly. There is nothing else you need to do, and you do not need to book again.</p>
+      <p style="color:#5c5257;">If anything looks wrong, just reply to this email.</p>`),
+    bodyText: `Hello {{studentName}},\n\nThank you — we have received your booking and your place is held for you.\n\n{{sessionTitle}}\n{{sessionDate}} · {{sessionTimeRange}}\n\nWe check each payment by hand, so your confirmation will follow shortly. There is nothing else you need to do, and you do not need to book again.\n\nIf anything looks wrong, just reply to this email.`,
+    variables: [...COMMON_VARS],
+  },
+
+  admin_awaiting_confirmation: {
+    label: 'Admin alert — payment to check',
+    description: 'Sent when a student has paid for a course you confirm by hand.',
+    subject: 'Check payment: {{studentName}} — {{sessionTitle}}, {{sessionDate}}',
+    bodyHtml: layout(`<p><strong>{{studentName}}</strong> has paid and is waiting for you to confirm their place.</p>
+      ${sessionCard}
+      <p style="color:#5c5257;">Email: {{studentEmail}}<br />Phone: {{studentPhone}}<br />Shop order: {{wooOrderId}}</p>
+      <p style="color:#5c5257;">Their place is held in the meantime, so nobody else can take it.</p>
+      ${button('Check and confirm', '{{adminSessionUrl}}')}`),
+    bodyText: `{{studentName}} has paid and is waiting for you to confirm their place.\n\n{{sessionTitle}}\n{{sessionDate}} · {{sessionTimeRange}}\n\nEmail: {{studentEmail}}\nPhone: {{studentPhone}}\nShop order: {{wooOrderId}}\n\nTheir place is held in the meantime, so nobody else can take it.\n\n{{adminSessionUrl}}`,
+    variables: [
+      ...SESSION_VARS,
+      'studentName',
+      'studentEmail',
+      'studentPhone',
+      'seatsLeft',
+      'capacity',
+      'wooOrderId',
+      'adminSessionUrl',
+    ],
+  },
+
   admin_new_booking: {
     label: 'Admin alert — new booking',
     description: 'Sent to the studio the moment someone books.',
