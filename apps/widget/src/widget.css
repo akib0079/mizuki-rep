@@ -308,16 +308,28 @@
 /* --- Defence against the host theme --------------------------------------- */
 
 /*
- * WordPress themes routinely style bare element selectors with !important. Astra ships
- * `button { background: <brand colour> !important }`, which beat every rule here regardless of
- * specificity and turned the whole calendar into dark green blocks — because each day, each
- * session row and each arrow is a <button>.
+ * WordPress themes style bare element selectors with !important — Astra ships
+ * `button { background: <brand> !important }`, which turned every day cell into a solid block.
+ * Scoping this stylesheet stops it leaking outward; it does nothing about the theme leaking in,
+ * and !important can only be answered with !important.
  *
- * !important can only be answered with !important, so the buttons in this widget are first
- * stripped back to nothing, then rebuilt. Scoped under .mzk so the theme's own buttons are
- * untouched. This is verbose on purpose: the alternative is a widget that looks different on
- * every site it is embedded in.
+ * So everything inside .mzk is first reset, then rebuilt. It is verbose deliberately: this is
+ * the one part of the system whose surroundings are not under our control, and a booking form
+ * that looks different on every theme is a booking form nobody trusts.
  */
+.mzk button,
+.mzk input,
+.mzk textarea,
+.mzk select,
+.mzk h1, .mzk h2, .mzk h3, .mzk h4,
+.mzk p, .mzk span, .mzk div, .mzk label, .mzk ul, .mzk li, .mzk a {
+  font-family: inherit !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  text-shadow: none !important;
+  float: none !important;
+}
+
 .mzk button {
   background: transparent !important;
   background-image: none !important;
@@ -327,98 +339,189 @@
   box-shadow: none !important;
   padding: 0 !important;
   margin: 0 !important;
-  font: inherit !important;
-  text-transform: none !important;
-  letter-spacing: normal !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
   line-height: inherit !important;
   text-decoration: none !important;
-  text-shadow: none !important;
   min-height: 0 !important;
   min-width: 0 !important;
   width: auto !important;
   height: auto !important;
   opacity: 1 !important;
   transform: none !important;
+  transition: none !important;
 }
+
+.mzk h2, .mzk h3 {
+  margin: 0 !important;
+  padding: 0 !important;
+  color: var(--mzk-ink) !important;
+  border: none !important;
+}
+.mzk p { color: inherit !important; margin: 0 0 10px !important; padding: 0 !important; }
+.mzk ul { list-style: disc !important; margin: 8px 0 0 !important; padding-left: 18px !important; }
+.mzk li { margin: 0 !important; color: inherit !important; }
+.mzk a { text-decoration: none !important; }
 
 /* Month navigation */
 .mzk .mzk-nav button {
-  width: 34px !important;
-  height: 34px !important;
+  width: 34px !important; height: 34px !important;
   border: 1px solid var(--mzk-line) !important;
-  border-radius: 8px !important;
+  border-radius: 10px !important;
   background: var(--mzk-bg) !important;
   color: var(--mzk-ink) !important;
+  font-size: 15px !important;
+  transition: background 0.14s ease, border-color 0.14s ease !important;
 }
-.mzk .mzk-nav button:hover:not(:disabled) { background: var(--mzk-canvas) !important; }
-.mzk .mzk-nav button:disabled { opacity: 0.35 !important; }
+.mzk .mzk-nav button:hover:not(:disabled) { background: var(--mzk-canvas) !important; border-color: var(--mzk-accent) !important; }
+.mzk .mzk-nav button:disabled { opacity: 0.3 !important; }
 
 /* Day cells */
 .mzk .mzk-day {
-  min-height: 44px !important;
+  min-height: 46px !important;
   padding: 2px !important;
   border: 1px solid transparent !important;
-  border-radius: 8px !important;
+  border-radius: 10px !important;
   background: transparent !important;
   color: var(--mzk-ink) !important;
-  width: auto !important;
+  font-size: 14px !important;
+  transition: background 0.14s ease, transform 0.1s ease !important;
 }
 .mzk .mzk-day.has-classes { background: var(--mzk-accent-light) !important; font-weight: 650 !important; }
-.mzk .mzk-day.has-classes:hover { background: #cdeff6 !important; }
+.mzk .mzk-day.has-classes:hover { background: #cdeff6 !important; transform: translateY(-1px) !important; }
 .mzk .mzk-day.selected { background: var(--mzk-accent) !important; color: #fff !important; }
+.mzk .mzk-day.selected .mzk-day-num { color: #fff !important; }
 .mzk .mzk-day.today { border-color: var(--mzk-accent) !important; }
-.mzk .mzk-day:disabled { color: #b9c4ca !important; background: transparent !important; }
+.mzk .mzk-day:disabled { color: #b9c4ca !important; background: transparent !important; transform: none !important; }
 .mzk .mzk-day.closed {
   background: repeating-linear-gradient(45deg, #f2f6f7, #f2f6f7 5px, #e6edef 5px, #e6edef 10px) !important;
 }
 
 /* Session rows */
 .mzk .mzk-session {
+  display: flex !important;
   width: 100% !important;
-  padding: 13px 14px !important;
+  padding: 14px 16px !important;
+  border: 1px solid var(--mzk-line) !important;
+  border-radius: 12px !important;
+  background: var(--mzk-bg) !important;
+  color: var(--mzk-ink) !important;
+  margin-bottom: 8px !important;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease !important;
+}
+.mzk .mzk-session:hover:not(:disabled) {
+  border-color: var(--mzk-accent) !important;
+  background: var(--mzk-canvas) !important;
+  transform: translateY(-1px) !important;
+}
+.mzk .mzk-session:disabled { background: var(--mzk-canvas) !important; opacity: 0.7 !important; transform: none !important; }
+.mzk .mzk-session-title { font-size: 16px !important; font-weight: 650 !important; }
+.mzk .mzk-session-meta { font-size: 14px !important; color: var(--mzk-soft) !important; font-weight: 400 !important; }
+
+/* Buttons */
+.mzk .mzk-btn {
+  padding: 12px 20px !important;
   border: 1px solid var(--mzk-line) !important;
   border-radius: 10px !important;
   background: var(--mzk-bg) !important;
   color: var(--mzk-ink) !important;
-  margin-bottom: 8px !important;
-}
-.mzk .mzk-session:hover:not(:disabled) { border-color: var(--mzk-accent) !important; background: var(--mzk-canvas) !important; }
-.mzk .mzk-session:disabled { background: var(--mzk-canvas) !important; opacity: 0.72 !important; }
-
-/* Ordinary and primary buttons */
-.mzk .mzk-btn {
-  padding: 11px 20px !important;
-  border: 1px solid var(--mzk-line) !important;
-  border-radius: 8px !important;
-  background: var(--mzk-bg) !important;
-  color: var(--mzk-ink) !important;
+  font-size: 15px !important;
   font-weight: 650 !important;
+  transition: background 0.14s ease, border-color 0.14s ease !important;
 }
-.mzk .mzk-btn:hover:not(:disabled) { background: var(--mzk-canvas) !important; }
-.mzk .mzk-btn:disabled { opacity: 0.55 !important; }
-.mzk .mzk-btn-primary { background: var(--mzk-accent) !important; border-color: var(--mzk-accent) !important; color: #fff !important; }
-.mzk .mzk-btn-primary:hover:not(:disabled) { background: var(--mzk-accent-dark) !important; }
+.mzk .mzk-btn:hover:not(:disabled) { background: var(--mzk-canvas) !important; border-color: #cfd8db !important; }
+.mzk .mzk-btn:disabled { opacity: 0.5 !important; }
+.mzk .mzk-btn-primary {
+  background: var(--mzk-accent) !important;
+  border-color: var(--mzk-accent) !important;
+  color: #fff !important;
+}
+.mzk .mzk-btn-primary:hover:not(:disabled) { background: var(--mzk-accent-dark) !important; border-color: var(--mzk-accent-dark) !important; }
 .mzk .mzk-btn-block { width: 100% !important; }
+
+/* The two-tab switch */
+.mzk-switch {
+  display: inline-flex !important;
+  gap: 4px !important;
+  padding: 4px !important;
+  margin-bottom: 18px !important;
+  background: var(--mzk-canvas) !important;
+  border: 1px solid var(--mzk-line) !important;
+  border-radius: 999px !important;
+}
+.mzk .mzk-switch-btn {
+  padding: 9px 20px !important;
+  border-radius: 999px !important;
+  background: transparent !important;
+  color: var(--mzk-soft) !important;
+  font-size: 15px !important;
+  font-weight: 650 !important;
+  transition: background 0.15s ease, color 0.15s ease !important;
+}
+.mzk .mzk-switch-btn:hover { color: var(--mzk-ink) !important; }
+.mzk .mzk-switch-on {
+  background: var(--mzk-accent) !important;
+  color: #fff !important;
+  box-shadow: 0 1px 3px rgba(0, 105, 122, 0.25) !important;
+}
 
 /* Portal tabs */
 .mzk .mzk-tab {
-  padding: 10px 14px !important;
+  padding: 11px 15px !important;
   color: var(--mzk-soft) !important;
+  font-size: 15px !important;
   font-weight: 650 !important;
   border-bottom: 2px solid transparent !important;
 }
+.mzk .mzk-tab:hover { color: var(--mzk-ink) !important; }
 .mzk .mzk-tab-active { color: var(--mzk-accent) !important; border-bottom-color: var(--mzk-accent) !important; }
 
-.mzk .mzk-link-btn { color: var(--mzk-accent) !important; text-decoration: underline !important; }
+.mzk .mzk-link-btn { color: var(--mzk-accent) !important; text-decoration: underline !important; font-size: 14px !important; }
 
-/* Themes also style inputs; keep the forms ours. */
-.mzk input, .mzk textarea, .mzk select {
+/* Form fields */
+.mzk input,
+.mzk textarea,
+.mzk select {
   background: var(--mzk-bg) !important;
   color: var(--mzk-ink) !important;
   border: 1px solid var(--mzk-line) !important;
-  border-radius: 8px !important;
-  font: inherit !important;
-  text-transform: none !important;
-  letter-spacing: normal !important;
+  border-radius: 10px !important;
+  padding: 11px 13px !important;
+  font-size: 16px !important;   /* 16px stops iOS zooming the page when a field is focused */
+  line-height: 1.4 !important;
+  width: 100% !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  min-height: 0 !important;
 }
-.mzk input[type="checkbox"] { width: auto !important; height: auto !important; }
+.mzk input:focus, .mzk textarea:focus, .mzk select:focus {
+  border-color: var(--mzk-accent) !important;
+  outline: 2px solid var(--mzk-accent-light) !important;
+  outline-offset: 0 !important;
+}
+.mzk input:disabled { background: var(--mzk-canvas) !important; color: var(--mzk-soft) !important; }
+.mzk input[type="checkbox"] {
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  padding: 0 !important;
+  accent-color: var(--mzk-accent) !important;
+}
+
+/* Panels and tags, in case the theme styles generic containers */
+.mzk .mzk-panel {
+  background: var(--mzk-bg) !important;
+  border: 1px solid var(--mzk-line) !important;
+  border-radius: 14px !important;
+  padding: 20px !important;
+  box-shadow: none !important;
+}
+.mzk .mzk-tag { border-radius: 999px !important; padding: 3px 10px !important; font-size: 12.5px !important; font-weight: 650 !important; }
+.mzk .mzk-note { border-radius: 10px !important; padding: 13px 15px !important; }
+
+@media (max-width: 520px) {
+  .mzk-switch { display: flex !important; width: 100% !important; }
+  .mzk .mzk-switch-btn { flex: 1 !important; padding: 10px 12px !important; }
+  .mzk .mzk-panel { padding: 14px !important; }
+  .mzk .mzk-day { min-height: 42px !important; }
+}

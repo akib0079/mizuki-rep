@@ -129,19 +129,26 @@ function mizuki_render_settings_page() {
 
 		<h2><?php esc_html_e( 'Putting the calendar on a page', 'mizuki-booking' ); ?></h2>
 		<p><?php esc_html_e( 'Paste one of these into any page or post:', 'mizuki-booking' ); ?></p>
-		<table class="widefat striped" style="max-width:760px">
+		<table class="widefat striped" style="max-width:820px">
 			<tbody>
 				<tr>
 					<td><code>[mizuki_booking]</code></td>
-					<td><?php esc_html_e( 'The full class calendar — every course.', 'mizuki-booking' ); ?></td>
+					<td>
+						<strong><?php esc_html_e( 'This is the one you want.', 'mizuki-booking' ); ?></strong>
+						<?php esc_html_e( 'Booking and "my bookings" on one page, behind two tabs. One page, one menu link.', 'mizuki-booking' ); ?>
+					</td>
 				</tr>
 				<tr>
 					<td><code>[mizuki_booking course="ikebana"]</code></td>
 					<td><?php esc_html_e( 'Only one course. Use ikebana, ifda, preserved-flower, fresh-flower or bouquet.', 'mizuki-booking' ); ?></td>
 				</tr>
 				<tr>
-					<td><code>[mizuki_my_bookings]</code></td>
-					<td><?php esc_html_e( 'A student\'s own bookings, with the option to change the date.', 'mizuki-booking' ); ?></td>
+					<td><code>[mizuki_booking view="calendar"]</code></td>
+					<td><?php esc_html_e( 'Just the calendar, without the tabs.', 'mizuki-booking' ); ?></td>
+				</tr>
+				<tr>
+					<td><code>[mizuki_booking view="my-bookings"]</code></td>
+					<td><?php esc_html_e( 'Just a student\'s own bookings.', 'mizuki-booking' ); ?></td>
 				</tr>
 			</tbody>
 		</table>
@@ -211,12 +218,27 @@ function mizuki_render_widget( $atts, $view ) {
 	return '<div' . $rendered . '></div>';
 }
 
+/**
+ * The whole thing on one page: booking and "my bookings" behind two tabs.
+ *
+ * This is the shortcode to use. Students get one page and one link, and the studio has one page
+ * to maintain rather than two — a student who has just booked can see it without going to find
+ * another page.
+ *
+ * `view` narrows it to a single panel for anyone who really does want them separate.
+ */
 add_shortcode( 'mizuki_booking', 'mizuki_booking_shortcode' );
 function mizuki_booking_shortcode( $atts ) {
-	$atts = shortcode_atts( array( 'course' => '' ), $atts, 'mizuki_booking' );
-	return mizuki_render_widget( $atts, 'calendar' );
+	$atts = shortcode_atts( array( 'course' => '', 'view' => 'all' ), $atts, 'mizuki_booking' );
+
+	$view = in_array( $atts['view'], array( 'calendar', 'my-bookings' ), true ) ? $atts['view'] : 'all';
+	return mizuki_render_widget( $atts, $view );
 }
 
+/**
+ * Kept working for sites that already have it on a page, so an update never blanks a live page.
+ * New installs want [mizuki_booking] on its own.
+ */
 add_shortcode( 'mizuki_my_bookings', 'mizuki_my_bookings_shortcode' );
 function mizuki_my_bookings_shortcode( $atts ) {
 	$atts = shortcode_atts( array(), $atts, 'mizuki_my_bookings' );

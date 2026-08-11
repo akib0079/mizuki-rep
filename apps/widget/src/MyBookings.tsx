@@ -22,7 +22,7 @@ import {
  */
 type PortalTab = 'upcoming' | 'past' | 'course' | 'details'
 
-export function MyBookings() {
+export function MyBookings({ embedded = false }: { embedded?: boolean } = {}) {
   const [data, setData] = useState<MyBookingsData | null>(null)
   const [signedOut, setSignedOut] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -49,21 +49,23 @@ export function MyBookings() {
     void load()
   }, [])
 
-  if (signedOut) return <SignInPanel />
+  const Root = embedded ? ({ children }: { children: React.ReactNode }) => <>{children}</> : ({ children }: { children: React.ReactNode }) => <div className="mzk">{children}</div>
+
+  if (signedOut) return <Root><SignInPanel embedded /></Root>
 
   if (error) {
     return (
-      <div className="mzk">
+      <Root>
         <div className="mzk-note mzk-note-error">{error}</div>
-      </div>
+      </Root>
     )
   }
 
   if (!data) {
     return (
-      <div className="mzk">
+      <Root>
         <div className="mzk-panel"><div className="mzk-empty">Loading your bookings…</div></div>
-      </div>
+      </Root>
     )
   }
 
@@ -73,7 +75,7 @@ export function MyBookings() {
   const sessionsLeft = activePackages.reduce((sum, p) => sum + p.remaining, 0)
 
   return (
-    <div className="mzk">
+    <Root>
       {/* A short summary strip, so the answers to "when am I next in" and "how many
           sessions have I left" are visible before anything is clicked. */}
       <div className="mzk-summary">
@@ -157,7 +159,7 @@ export function MyBookings() {
           }}
         />
       )}
-    </div>
+    </Root>
   )
 }
 
@@ -473,7 +475,7 @@ function RescheduleDialog({
 }
 
 /** Shown when the visitor is not signed in — a link, not a password. */
-function SignInPanel() {
+function SignInPanel({ embedded = false }: { embedded?: boolean }) {
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -493,8 +495,12 @@ function SignInPanel() {
     }
   }
 
+  const Wrap = embedded
+    ? ({ children }: { children: React.ReactNode }) => <>{children}</>
+    : ({ children }: { children: React.ReactNode }) => <div className="mzk">{children}</div>
+
   return (
-    <div className="mzk">
+    <Wrap>
       <div className="mzk-panel">
         {sent ? (
           <>
@@ -531,6 +537,6 @@ function SignInPanel() {
           </form>
         )}
       </div>
-    </div>
+    </Wrap>
   )
 }

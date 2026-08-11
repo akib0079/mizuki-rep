@@ -3,6 +3,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { configureApi } from './api.js'
 import { BookingCalendar } from './BookingCalendar.js'
 import { MyBookings } from './MyBookings.js'
+import { MizukiApp } from './MizukiApp.js'
 import './widget.css'
 
 /**
@@ -16,7 +17,7 @@ import './widget.css'
 
 interface MountConfig {
   apiBase: string
-  view?: 'calendar' | 'my-bookings'
+  view?: 'all' | 'calendar' | 'my-bookings'
   course?: string
 }
 
@@ -31,7 +32,14 @@ function mount(element: Element, config: MountConfig): void {
 
   root.render(
     <StrictMode>
-      {config.view === 'my-bookings' ? <MyBookings /> : <BookingCalendar courseSlug={config.course} />}
+      {config.view === 'my-bookings' ? (
+        <MyBookings />
+      ) : config.view === 'calendar' ? (
+        <BookingCalendar courseSlug={config.course} />
+      ) : (
+        // Default: booking and "my bookings" together, so one page and one link does everything.
+        <MizukiApp courseSlug={config.course} />
+      )}
     </StrictMode>,
   )
 }
@@ -49,7 +57,12 @@ function mountFromElement(element: Element): void {
 
   mount(element, {
     apiBase,
-    view: el.dataset.view === 'my-bookings' ? 'my-bookings' : 'calendar',
+    view:
+      el.dataset.view === 'my-bookings'
+        ? 'my-bookings'
+        : el.dataset.view === 'calendar'
+          ? 'calendar'
+          : 'all',
     course: el.dataset.course || undefined,
   })
 }

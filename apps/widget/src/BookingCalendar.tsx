@@ -19,7 +19,18 @@ import { BookingDialog } from './BookingDialog.js'
  * A hand-built month grid rather than a calendar library: the whole embed has to stay small
  * enough to drop into a WordPress page without slowing it down.
  */
-export function BookingCalendar({ courseSlug, logoUrl }: { courseSlug?: string; logoUrl?: string }) {
+export function BookingCalendar({
+  courseSlug,
+  logoUrl,
+  embedded = false,
+  onSeeBookings,
+}: {
+  courseSlug?: string
+  logoUrl?: string
+  /** True when rendered inside MizukiApp, which already provides the .mzk scope. */
+  embedded?: boolean
+  onSeeBookings?: () => void
+}) {
   const [days, setDays] = useState<PublicCalendarDay[] | null>(null)
   const [courses, setCourses] = useState<{ id: string; name: string; slug: string; colour: string }[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -71,24 +82,26 @@ export function BookingCalendar({ courseSlug, logoUrl }: { courseSlug?: string; 
 
   const selectedDay = selectedDate ? byDate.get(selectedDate) : null
 
+  const Root = embedded ? EmbeddedRoot : StandaloneRoot
+
   if (error) {
     return (
-      <div className="mzk">
+      <Root>
         <div className="mzk-note mzk-note-error">{error}</div>
-      </div>
+      </Root>
     )
   }
 
   if (!days) {
     return (
-      <div className="mzk">
+      <Root>
         <div className="mzk-panel"><div className="mzk-empty">Loading classes…</div></div>
-      </div>
+      </Root>
     )
   }
 
   return (
-    <div className="mzk">
+    <Root>
       {/* Optional: the page usually has the studio's branding already, so this is off by default. */}
       {logoUrl && (
         <div className="mzk-brandbar">
@@ -189,6 +202,7 @@ export function BookingCalendar({ courseSlug, logoUrl }: { courseSlug?: string; 
         <BookingDialog
           session={booking}
           onClose={() => setBooking(null)}
+          onSeeBookings={onSeeBookings}
           onBooked={() => {
             setBooking(null)
             // Reload so the places-left counts reflect the booking just made.
@@ -196,8 +210,16 @@ export function BookingCalendar({ courseSlug, logoUrl }: { courseSlug?: string; 
           }}
         />
       )}
-    </div>
+    </Root>
   )
+}
+
+/** Standalone use still needs the scope class; inside MizukiApp it is already there. */
+function StandaloneRoot({ children }: { children: React.ReactNode }) {
+  return <div className="mzk">{children}</div>
+}
+function EmbeddedRoot({ children }: { children: React.ReactNode }) {
+  return <>{children}</>
 }
 
 function SessionRow({ session, onBook }: { session: PublicSession; onBook: () => void }) {

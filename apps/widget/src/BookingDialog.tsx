@@ -17,10 +17,13 @@ export function BookingDialog({
   session,
   onClose,
   onBooked,
+  onSeeBookings,
 }: {
   session: PublicSession
   onClose: () => void
   onBooked: () => void
+  /** Offered after a successful booking, so the next step is one click rather than a hunt. */
+  onSeeBookings?: () => void
 }) {
   const [form, setForm] = useState({ name: '', email: '', phone: '', notes: '' })
   const [busy, setBusy] = useState(false)
@@ -75,7 +78,7 @@ export function BookingDialog({
     <div className="mzk-modal-backdrop" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
       <div className="mzk mzk-modal" role="dialog" aria-modal="true" aria-label="Book this class">
         {result ? (
-          <BookingOutcome result={result} session={session} onClose={onClose} />
+          <BookingOutcome result={result} session={session} onClose={onClose} onSeeBookings={onSeeBookings} />
         ) : (
           <form onSubmit={submit}>
             <h3>{session.title}</h3>
@@ -179,10 +182,12 @@ function BookingOutcome({
   result,
   session,
   onClose,
+  onSeeBookings,
 }: {
   result: StartBookingResult
   session: PublicSession
   onClose: () => void
+  onSeeBookings?: () => void
 }) {
   const start = toStudio(session.startAt)
 
@@ -205,9 +210,21 @@ function BookingOutcome({
             your course package.
           </p>
         )}
-        <button className="mzk-btn mzk-btn-primary mzk-btn-block" style={{ marginTop: 12 }} onClick={onClose}>
-          Done
-        </button>
+        <div className="mzk-row" style={{ marginTop: 12 }}>
+          {onSeeBookings && (
+            <button
+              type="button"
+              className="mzk-btn mzk-btn-primary"
+              style={{ flex: 1 }}
+              onClick={() => { onClose(); onSeeBookings() }}
+            >
+              See my bookings
+            </button>
+          )}
+          <button type="button" className="mzk-btn" style={{ flex: 1 }} onClick={onClose}>
+            Book another
+          </button>
+        </div>
       </>
     )
   }
