@@ -24,7 +24,9 @@ beforeEach(async () => {
 })
 
 function startBooking(sessionId: string, email = 'aiko@example.com') {
-  return request(app).post('/api/bookings/start').send({ sessionId, email, name: 'Aiko Tan' })
+  return request(app)
+    .post('/api/bookings/start')
+    .send({ sessionId, email, name: 'Aiko Tan', phone: '+65 9123 4567' })
 }
 
 function wooCallback(payload: unknown) {

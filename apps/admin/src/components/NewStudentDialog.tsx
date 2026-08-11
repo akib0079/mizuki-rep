@@ -44,7 +44,11 @@ export function NewStudentDialog({
     create.mutate()
   }
 
-  const canSubmit = form.name.trim().length > 0 && form.email.trim().length > 0
+  // Mirrors the server rule, so the button is only live once the form would actually pass.
+  const canSubmit =
+    form.name.trim().length > 0 &&
+    form.email.trim().length > 0 &&
+    form.phone.replace(/\D/g, '').length >= 8
 
   return (
     <>
@@ -84,8 +88,15 @@ export function NewStudentDialog({
           </label>
 
           <label className="field">
-            <span>Phone (optional)</span>
-            <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            <span>Phone</span>
+            <input
+              type="tel"
+              inputMode="tel"
+              value={form.phone}
+              required
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            />
+            <div className="field-hint">Needed so you can reach them if a class changes.</div>
           </label>
 
           <label className="field">

@@ -82,6 +82,17 @@ export const widgetApi = {
       body: JSON.stringify({ holdToken }),
     }),
 
+  /** The student's own profile — email is not editable, it is their sign-in identity. */
+  updateMe: (body: { name: string; phone: string; marketingOptIn: boolean }) =>
+    request<{ student: StudentProfile }>('/api/bookings/me', { method: 'PATCH', body: JSON.stringify(body) }),
+
+  me: () => request<{ student: StudentProfile; packages: PackageRow[] }>('/api/auth/me'),
+
+  history: () => request<{ classes: PastClass[]; totals: { attended: number; total: number } }>('/api/bookings/history'),
+
+  /** Absolute, because the browser downloads it directly rather than fetching it. */
+  calendarUrl: (bookingId: string) => `${apiBase}/api/bookings/${bookingId}/calendar.ics`,
+
   requestMagicLink: (email: string, redirectTo?: string) =>
     request<{ ok: boolean; message: string }>('/api/auth/magic-link', {
       method: 'POST',
@@ -116,15 +127,36 @@ export interface MyBookingRow {
   rescheduleBlockedReason: string | null
 }
 
+export interface PackageRow {
+  id: string
+  courseTypeId: string
+  totalSessions: number
+  usedSessions: number
+  remaining: number
+  expiresAt: string | null
+  status: string
+}
+
+export interface StudentProfile {
+  id: string
+  name: string
+  email: string
+  phone: string
+  marketingOptIn?: boolean
+}
+
+export interface PastClass {
+  id: string
+  status: string
+  title: string
+  courseName: string
+  colour: string
+  startAt: string
+  endAt: string
+  durationMins: number
+}
+
 export interface MyBookings {
   bookings: MyBookingRow[]
-  packages: {
-    id: string
-    courseTypeId: string
-    totalSessions: number
-    usedSessions: number
-    remaining: number
-    expiresAt: string | null
-    status: string
-  }[]
+  packages: PackageRow[]
 }

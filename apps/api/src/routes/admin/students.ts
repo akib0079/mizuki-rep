@@ -26,8 +26,12 @@ export const adminStudentsRouter: Router = Router()
 adminStudentsRouter.get(
   '/',
   asyncRoute(async (req, res) => {
-    const { search, limit } = z
-      .object({ search: z.string().optional(), limit: z.coerce.number().min(1).max(200).default(50) })
+    const { search, limit, missingPhone } = z
+      .object({
+        search: z.string().optional(),
+        limit: z.coerce.number().min(1).max(200).default(50),
+        missingPhone: z.coerce.boolean().optional(),
+      })
       .parse(req.query)
 
     const query = search
@@ -40,7 +44,20 @@ adminStudentsRouter.get(
         }
       : {}
 
-    const students = await StudentModel.find(query).sort({ name: 1 }).limit(limit).lean()
+    /*
+     * Students with no contact number — chased from the dashboard.
+     *
+     * Combined with $and rather than by spreading: a search already uses $or, and a second $or
+     * on the same object would silently replace it, quietly ignoring what was typed.
+     */
+    const noPhone = { $or: [{ phone: '' }, { phone: null }] }
+    const filter = missingPhone
+      ? search
+        ? { $and: [query, noPhone] }
+        : noPhone
+      : query
+
+    const students = await StudentModel.find(filter).sort({ name: 1 }).limit(limit).lean()
 
     // One aggregate rather than a query per student — the list must stay fast as the studio grows.
     const packages = await PackageModel.find({

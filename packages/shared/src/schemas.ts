@@ -9,6 +9,23 @@ export const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Expected an
 
 export const emailSchema = z.string().trim().toLowerCase().email('Please enter a valid email address')
 
+/**
+ * A contact number the studio can actually ring.
+ *
+ * Deliberately permissive about shape — students are not all Singaporean, and rejecting a
+ * legitimate foreign number is a worse failure than accepting an oddly punctuated one. What it
+ * does insist on is enough digits to be a real number, so "n/a" and "-" cannot get through.
+ */
+export const phoneSchema = z
+  .string()
+  .trim()
+  .min(1, 'Please enter a phone number')
+  .refine((value) => value.replace(/\D/g, '').length >= 8, 'That does not look like a complete phone number')
+  .refine((value) => /^[+\d][\d\s()+-]*$/.test(value), 'Please use only digits, spaces and + ( ) -')
+
+/** For records the studio may hold without a number — imported or created from a shop order. */
+export const optionalPhoneSchema = z.union([z.literal(''), phoneSchema]).default('')
+
 export const bookingModeSchema = z.enum(['package', 'paid', 'free'])
 export const sessionStatusSchema = z.enum(['scheduled', 'cancelled'])
 
@@ -36,7 +53,7 @@ export const startBookingSchema = z.object({
   sessionId: objectIdSchema,
   email: emailSchema,
   name: z.string().trim().min(1, 'Please enter your name').max(120),
-  phone: z.string().trim().max(40).default(''),
+  phone: phoneSchema,
   notes: z.string().trim().max(500).default(''),
   marketingOptIn: z.boolean().default(false),
 })
@@ -151,7 +168,7 @@ export const applyAwayPeriodSchema = closedDateInputSchema.innerType().extend({
 export const studentInputSchema = z.object({
   name: z.string().trim().min(1).max(120),
   email: emailSchema,
-  phone: z.string().trim().max(40).default(''),
+  phone: phoneSchema,
   notes: z.string().trim().max(2000).default(''),
   marketingOptIn: z.boolean().default(false),
 })
@@ -214,3 +231,17 @@ export type ClosedDateInput = z.infer<typeof closedDateInputSchema>
 export type AdminAddBookingInput = z.infer<typeof adminAddBookingSchema>
 export type PackageGrantInput = z.infer<typeof packageGrantSchema>
 export type EmailTemplateKey = z.infer<typeof emailTemplateKeySchema>
+
+/**
+ * What a student can edit on their own page.
+ *
+ * Their email is not here on purpose: it is the identity their sign-in links and every
+ * confirmation depend on, so changing it is a request to the studio rather than a form field.
+ */
+export const studentSelfUpdateSchema = z.object({
+  name: z.string().trim().min(1, 'Please enter your name').max(120),
+  phone: phoneSchema,
+  marketingOptIn: z.boolean(),
+})
+
+export type StudentSelfUpdateInput = z.infer<typeof studentSelfUpdateSchema>

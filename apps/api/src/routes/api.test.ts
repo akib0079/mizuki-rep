@@ -102,7 +102,7 @@ describe('booking endpoint', () => {
 
     const res = await request(app)
       .post('/api/bookings/start')
-      .send({ sessionId: String(session!._id), email: 'aiko@example.com', name: 'Aiko Tan' })
+      .send({ sessionId: String(session!._id), email: 'aiko@example.com', name: 'Aiko Tan', phone: '+65 9123 4567' })
       .expect(200)
 
     expect(res.body.outcome).toBe('checkout_required')
@@ -116,7 +116,7 @@ describe('booking endpoint', () => {
 
     const res = await request(app)
       .post('/api/bookings/start')
-      .send({ sessionId: String(session!._id), email: 'mei@example.com', name: 'Mei' })
+      .send({ sessionId: String(session!._id), email: 'mei@example.com', name: 'Mei', phone: '+65 9123 4567' })
       .expect(200)
 
     // Knowing an address must not be enough to burn someone's paid-for sessions.
@@ -131,7 +131,7 @@ describe('booking endpoint', () => {
 
     const res = await request(app)
       .post('/api/bookings/start')
-      .send({ sessionId: String(session!._id), email: 'nobody@example.com', name: 'Nobody' })
+      .send({ sessionId: String(session!._id), email: 'nobody@example.com', name: 'Nobody', phone: '+65 9123 4567' })
       .expect(422)
 
     expect(res.body.error.code).toBe('no_package')
@@ -140,7 +140,7 @@ describe('booking endpoint', () => {
   it('rejects a malformed request with field-level detail', async () => {
     const res = await request(app)
       .post('/api/bookings/start')
-      .send({ sessionId: 'not-an-id', email: 'not-an-email', name: '' })
+      .send({ sessionId: 'not-an-id', email: 'not-an-email', name: '', phone: '+65 9123 4567' })
       .expect(400)
 
     expect(res.body.error.code).toBe('validation_error')

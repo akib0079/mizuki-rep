@@ -134,13 +134,18 @@ export function BookingDialog({
               </label>
 
               <label className="mzk-field">
-                <span>Phone (optional)</span>
+                <span>Phone</span>
                 <input
                   type="tel"
+                  inputMode="tel"
                   value={form.phone}
+                  required
                   autoComplete="tel"
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 />
+                <span className="mzk-muted mzk-small">
+                  So we can reach you quickly if a class changes at short notice.
+                </span>
               </label>
 
               <label className="mzk-field">

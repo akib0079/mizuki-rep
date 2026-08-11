@@ -240,6 +240,24 @@ async function buildActions(
     })
   }
 
+  /*
+   * Students on file with no contact number.
+   *
+   * A number is required to book now, but anyone added before that — or created from a shop
+   * order with no billing phone — still has none. Worth chasing, because the one time it
+   * matters is a class cancelled at short notice, when email is too slow.
+   */
+  const noPhone = await StudentModel.countDocuments({ $or: [{ phone: '' }, { phone: null }] })
+  if (noPhone > 0) {
+    actions.push({
+      kind: 'missing_phone',
+      severity: 'info',
+      title: `${noPhone} student${noPhone === 1 ? ' has' : 's have'} no phone number`,
+      subtitle: 'You could not reach them if a class changed at short notice',
+      href: '/students?missingPhone=1',
+    })
+  }
+
   // Today's classes, so the day is visible without opening the calendar.
   const todayCount = weekSessions.filter((s) => s.dateKey === todayKey).length
   if (todayCount > 0) {

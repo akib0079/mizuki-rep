@@ -156,7 +156,7 @@ describe('the package is immediately usable', () => {
 
     const res = await request(app)
       .post('/api/bookings/start')
-      .send({ sessionId: String(session._id), email: 'mei@example.com', name: 'Mei Lin' })
+      .send({ sessionId: String(session._id), email: 'mei@example.com', name: 'Mei Lin', phone: '+65 9123 4567' })
       .expect(200)
 
     // A package exists, so the student is asked to confirm by email rather than turned away.

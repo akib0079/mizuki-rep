@@ -15,15 +15,18 @@
   --sidebar-text-bright: #eef6f8;
 
   /*
-   * Taken from the studio's own logo — the turquoise of the flower and its lime green centre.
-   * The interactive accent is a deepened version of that turquoise: the logo cyan is lovely on
-   * a white page but too light to carry white button text at an accessible contrast.
+   * Sampled from the studio's logo: #00b8d8 is the turquoise of the petals, #a0c838 the lime
+   * of the centre. Both are used as-is wherever they are decoration — dots, stripes, progress.
+   *
+   * Neither can carry white text: on white they measure 2.37:1 and 1.94:1, well under the 4.5:1
+   * needed to be readable. So --accent is the same turquoise darkened to 70%, the lightest step
+   * that reaches 4.59:1, which keeps the hue recognisably theirs while staying legible.
    */
-  --brand-cyan: #00a9ce;
-  --brand-green: #8cc63f;
-  --accent: #0b7e93;
-  --accent-soft: #e6f5f9;
-  --accent-deep: #096375;
+  --brand-cyan: #00b8d8;
+  --brand-green: #a0c838;
+  --accent: #008197;
+  --accent-soft: #e4f7fb;
+  --accent-deep: #00697a;
 
   --ink: #1f2733;
   --ink-soft: #64707f;

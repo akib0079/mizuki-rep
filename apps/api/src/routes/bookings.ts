@@ -5,7 +5,9 @@ import {
   evaluateReschedule,
   rescheduleBookingSchema,
   startBookingSchema,
+  studentSelfUpdateSchema,
 } from '@mizuki/shared'
+import { buildIcs } from '../services/mailer.js'
 import {
   BookingModel,
   CourseTypeModel,
@@ -263,6 +265,95 @@ bookingRouter.get(
     })
 
     res.json({ bookings, packages: await summarisePackages(student._id) })
+  }),
+)
+
+/**
+ * A student's own record.
+ *
+ * Their email is deliberately not editable here: it is the identity their sign-in links and
+ * every confirmation depend on, so changing it is a conversation with the studio rather than a
+ * form field they can get wrong and lock themselves out with.
+ */
+bookingRouter.patch(
+  '/me',
+  requireStudent,
+  asyncRoute(async (req, res) => {
+    const input = studentSelfUpdateSchema.parse(req.body)
+
+    const student = await StudentModel.findByIdAndUpdate(
+      req.student!._id,
+      { $set: { name: input.name, phone: input.phone, marketingOptIn: input.marketingOptIn } },
+      { new: true },
+    )
+    if (!student) throw new NotFoundError('Student')
+
+    res.json({
+      student: {
+        id: String(student._id),
+        name: student.name,
+        email: student.email,
+        phone: student.phone,
+        marketingOptIn: student.marketingOptIn,
+      },
+    })
+  }),
+)
+
+/** Classes a student has already had, so their own history is theirs to look at. */
+bookingRouter.get(
+  '/history',
+  requireStudent,
+  asyncRoute(async (req, res) => {
+    const rows = await listStudentBookings(req.student!._id, { includePast: true })
+    const now = new Date()
+
+    const courses = await CourseTypeModel.find().lean()
+    const courseById = new Map(courses.map((c) => [String(c._id), c]))
+
+    const past = rows
+      .filter((row) => row.session.startAt < now)
+      .sort((a, b) => b.session.startAt.getTime() - a.session.startAt.getTime())
+
+    res.json({
+      classes: past.map((row) => {
+        const course = courseById.get(String(row.session.courseTypeId))
+        return {
+          id: String(row.booking._id),
+          status: row.booking.status,
+          title: row.session.title || course?.name || 'Class',
+          courseName: course?.name ?? '',
+          colour: course?.colour ?? '#94a3b8',
+          startAt: row.session.startAt.toISOString(),
+          endAt: row.session.endAt.toISOString(),
+          durationMins: Math.round((row.session.endAt.getTime() - row.session.startAt.getTime()) / 60_000),
+        }
+      }),
+      totals: {
+        attended: past.filter((r) => r.booking.status === 'attended').length,
+        total: past.length,
+      },
+    })
+  }),
+)
+
+/**
+ * A calendar invitation for one booking, so a student can add a class to their phone at any
+ * time rather than only from the confirmation email they may have deleted.
+ */
+bookingRouter.get(
+  '/:id/calendar.ics',
+  requireStudent,
+  asyncRoute(async (req, res) => {
+    await assertOwnBooking(req.student!._id, req.params.id!)
+
+    const booking = await BookingModel.findById(req.params.id).select('sessionId').lean()
+    const ics = booking ? await buildIcs(String(booking.sessionId)) : null
+    if (!ics) throw new NotFoundError('Calendar invitation')
+
+    res.setHeader('Content-Type', 'text/calendar; charset=utf-8')
+    res.setHeader('Content-Disposition', 'attachment; filename="mizuki-class.ics"')
+    res.send(ics)
   }),
 )
 

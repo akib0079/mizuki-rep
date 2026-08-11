@@ -13,6 +13,7 @@ export function StudentsPage() {
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
+  const missingPhone = params.get('missingPhone') === '1'
 
   // `?new=1` lets Quick add land here with the form already open, instead of dropping
   // the studio on a list and leaving them to find the button.
@@ -25,8 +26,11 @@ export function StudentsPage() {
   }, [params, setParams])
 
   const listQuery = useQuery({
-    queryKey: ['students', search],
-    queryFn: () => api.get<{ students: StudentSummary[] }>(`/api/admin/students?search=${encodeURIComponent(search)}`),
+    queryKey: ['students', search, missingPhone],
+    queryFn: () =>
+      api.get<{ students: StudentSummary[] }>(
+        `/api/admin/students?search=${encodeURIComponent(search)}${missingPhone ? '&missingPhone=1' : ''}`,
+      ),
   })
 
   const students = listQuery.data?.students ?? []
@@ -53,6 +57,19 @@ export function StudentsPage() {
           </button>
         </div>
       </div>
+
+      {missingPhone && (
+        <div className="banner banner-info">
+          Showing only students with no phone number. Open each one to add it under Details.{' '}
+          <button
+            type="button"
+            className="btn btn-sm btn-ghost"
+            onClick={() => { params.delete('missingPhone'); setParams(params, { replace: true }) }}
+          >
+            Show everyone
+          </button>
+        </div>
+      )}
 
       <div className="card card-pad-0">
         {listQuery.isLoading ? (
