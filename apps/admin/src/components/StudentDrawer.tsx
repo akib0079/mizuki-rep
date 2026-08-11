@@ -375,7 +375,7 @@ function PackagesTab({
                   onClick={() =>
                     adjust.mutate({
                       id: p.id,
-                      extendToDate: DateTime.fromISO(p.expiresAt ?? DateTime.now().toISO()).plus({ months: 3 }).toISO(),
+                      extendToDate: DateTime.fromISO(p.expiresAt ?? DateTime.now().toISO(), { zone: STUDIO_TZ }).plus({ months: 3 }).toISO(),
                     })
                   }
                 >

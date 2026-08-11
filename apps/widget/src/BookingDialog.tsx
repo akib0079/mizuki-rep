@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { DateTime } from 'luxon'
-import { formatDuration, formatTimeRange, type PublicSession } from '@mizuki/shared'
+import { formatDuration, formatTimeRange, type PublicSession,
+  toStudio,
+} from '@mizuki/shared'
 import { ApiError, widgetApi, type StartBookingResult } from './api.js'
 
 /**
@@ -35,8 +37,8 @@ export function BookingDialog({
     return () => document.removeEventListener('keydown', onKey)
   }, [busy, onClose])
 
-  const start = DateTime.fromISO(session.startAt)
-  const end = DateTime.fromISO(session.endAt)
+  const start = toStudio(session.startAt)
+  const end = toStudio(session.endAt)
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -97,8 +99,8 @@ export function BookingDialog({
                 <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
                   {alternatives.map((alt) => (
                     <li key={alt.id}>
-                      {DateTime.fromISO(alt.startAt).toFormat('ccc d LLL')} ·{' '}
-                      {DateTime.fromISO(alt.startAt).toFormat('h:mm a')} — {alt.seatsLeft} left
+                      {toStudio(alt.startAt).toFormat('ccc d LLL')} ·{' '}
+                      {toStudio(alt.startAt).toFormat('h:mm a')} — {alt.seatsLeft} left
                     </li>
                   ))}
                 </ul>
@@ -177,7 +179,7 @@ function BookingOutcome({
   session: PublicSession
   onClose: () => void
 }) {
-  const start = DateTime.fromISO(session.startAt)
+  const start = toStudio(session.startAt)
 
   if (result.outcome === 'booked') {
     return (

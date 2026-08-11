@@ -6,6 +6,7 @@ import {
   formatTimeRange,
   type PublicCalendarDay,
   type PublicSession,
+  toStudio,
 } from '@mizuki/shared'
 import { widgetApi } from './api.js'
 import { BookingDialog } from './BookingDialog.js'
@@ -200,8 +201,8 @@ export function BookingCalendar({ courseSlug, logoUrl }: { courseSlug?: string; 
 }
 
 function SessionRow({ session, onBook }: { session: PublicSession; onBook: () => void }) {
-  const start = DateTime.fromISO(session.startAt)
-  const end = DateTime.fromISO(session.endAt)
+  const start = toStudio(session.startAt)
+  const end = toStudio(session.endAt)
   const low = session.seatsLeft > 0 && session.seatsLeft <= 2
 
   return (

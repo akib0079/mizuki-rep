@@ -199,8 +199,8 @@ export function ClosedDatesPage() {
                   <td>
                     <strong>
                       {c.startDate === c.endDate
-                        ? DateTime.fromISO(c.startDate).toFormat('ccc d LLL yyyy')
-                        : `${DateTime.fromISO(c.startDate).toFormat('d LLL')} – ${DateTime.fromISO(c.endDate).toFormat('d LLL yyyy')}`}
+                        ? DateTime.fromISO(c.startDate, { zone: STUDIO_TZ }).toFormat('ccc d LLL yyyy')
+                        : `${DateTime.fromISO(c.startDate, { zone: STUDIO_TZ }).toFormat('d LLL')} – ${DateTime.fromISO(c.endDate, { zone: STUDIO_TZ }).toFormat('d LLL yyyy')}`}
                     </strong>
                     {c.reason && <div className="muted small">{c.reason}</div>}
                   </td>

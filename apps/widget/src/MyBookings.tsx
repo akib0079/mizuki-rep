@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { DateTime } from 'luxon'
-import { formatDuration, formatTimeRange, type PublicSession } from '@mizuki/shared'
+import { formatDuration, formatTimeRange, type PublicSession,
+  toStudio,
+} from '@mizuki/shared'
 import { ApiError, widgetApi, type MyBookingRow, type MyBookings as MyBookingsData } from './api.js'
 
 /**
@@ -68,7 +70,7 @@ export function MyBookings() {
                 </span>
                 {p.expiresAt && (
                   <span className="mzk-muted mzk-small">
-                    Expires {DateTime.fromISO(p.expiresAt).toFormat('d LLL yyyy')}
+                    Expires {toStudio(p.expiresAt).toFormat('d LLL yyyy')}
                   </span>
                 )}
               </div>
@@ -118,8 +120,8 @@ function BookingCard({
 }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const start = DateTime.fromISO(row.session.startAt)
-  const end = DateTime.fromISO(row.session.endAt)
+  const start = toStudio(row.session.startAt)
+  const end = toStudio(row.session.endAt)
 
   async function cancel() {
     if (!confirm(`Cancel your place in ${row.session.title} on ${start.toFormat('ccc d LLL')}?`)) return
@@ -160,7 +162,7 @@ function BookingCard({
           <>
             <p className="mzk-muted mzk-small" style={{ marginBottom: 8 }}>
               You can change this until{' '}
-              <strong>{DateTime.fromISO(row.rescheduleDeadline!).toFormat('ccc d LLL, h:mm a')}</strong>.
+              <strong>{toStudio(row.rescheduleDeadline!).toFormat('ccc d LLL, h:mm a')}</strong>.
             </p>
             <div className="mzk-row">
               <button className="mzk-btn" onClick={onReschedule} disabled={busy}>
@@ -219,7 +221,7 @@ function RescheduleDialog({
       <div className="mzk mzk-modal" role="dialog" aria-modal="true" aria-label="Change your date">
         <h3>Change your date</h3>
         <p className="mzk-muted mzk-small">
-          Moving from {DateTime.fromISO(row.session.startAt).toFormat('ccc d LLL, h:mm a')}.
+          Moving from {toStudio(row.session.startAt).toFormat('ccc d LLL, h:mm a')}.
           Only {row.session.courseName} classes with places are shown.
         </p>
 
@@ -244,10 +246,10 @@ function RescheduleDialog({
                 <span className="mzk-stripe" style={{ background: option.colour }} />
                 <span className="mzk-session-main">
                   <span className="mzk-session-title">
-                    {DateTime.fromISO(option.startAt).toFormat('ccc d LLL')}
+                    {toStudio(option.startAt).toFormat('ccc d LLL')}
                   </span>
                   <span className="mzk-session-meta">
-                    {DateTime.fromISO(option.startAt).toFormat('h:mm a')} ·{' '}
+                    {toStudio(option.startAt).toFormat('h:mm a')} ·{' '}
                     {formatDuration(option.durationMins)}
                   </span>
                 </span>
