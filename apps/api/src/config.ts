@@ -52,6 +52,9 @@ const envSchema = z.object({
    * onto the web host's disk, which is a different provider from the database and therefore a
    * real second copy rather than the same risk twice.
    */
+  /** Where the built studio console lives. Defaults to apps/admin/dist beside this app. */
+  ADMIN_DIST_DIR: z.string().optional(),
+
   BACKUP_DIR: z.string().default('./backups'),
   BACKUP_KEEP: z.coerce.number().int().min(1).max(365).default(30),
   BACKUP_HOUR: z.coerce.number().int().min(0).max(23).default(3),
