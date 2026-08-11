@@ -3,7 +3,7 @@
  * Plugin Name:       Mizuki Booking Bridge
  * Plugin URI:        https://mizuki.com.sg
  * Description:       Embeds the Mizuki Flora class calendar into WordPress and connects WooCommerce checkout to the booking system, so a paid workshop holds its place until payment lands.
- * Version:           1.0.0
+ * Version:           1.1.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Mizuki Flora
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'MIZUKI_BRIDGE_VERSION', '1.0.0' );
+define( 'MIZUKI_BRIDGE_VERSION', '1.1.0' );
 define( 'MIZUKI_BRIDGE_FILE', __FILE__ );
 
 /** Query args carried from the booking widget into the shop. */
@@ -174,12 +174,28 @@ function mizuki_render_settings_page() {
  * -----------------------------------------------------------------------------
  */
 
+/**
+ * Version the bundle by its own modification time, not by the plugin's version constant.
+ *
+ * The constant only changes when someone remembers to change it, and the browser — plus whatever
+ * page cache or CDN sits in front of the site — keys on the full URL. Updating the plugin without
+ * moving `?ver=` means the visitor keeps the bundle they already had, and the update appears to
+ * have done nothing at all. This is exactly what happened on the first release of the tabs.
+ */
+function mizuki_asset_version( $relative ) {
+	$path  = plugin_dir_path( MIZUKI_BRIDGE_FILE ) . $relative;
+	$mtime = file_exists( $path ) ? filemtime( $path ) : 0;
+
+	return $mtime ? MIZUKI_BRIDGE_VERSION . '.' . $mtime : MIZUKI_BRIDGE_VERSION;
+}
+
 add_action( 'wp_enqueue_scripts', 'mizuki_register_assets' );
 function mizuki_register_assets() {
 	$base = plugin_dir_url( MIZUKI_BRIDGE_FILE );
 
-	wp_register_style( 'mizuki-booking', $base . 'assets/widget.css', array(), MIZUKI_BRIDGE_VERSION );
-	wp_register_script( 'mizuki-booking', $base . 'assets/widget.js', array(), MIZUKI_BRIDGE_VERSION, true );
+	// No stylesheet to enqueue: the widget renders inside a shadow root and carries its own CSS,
+	// which is the only way to be sure the theme cannot restyle it.
+	wp_register_script( 'mizuki-booking', $base . 'assets/widget.js', array(), mizuki_asset_version( 'assets/widget.js' ), true );
 }
 
 /**
@@ -197,7 +213,6 @@ function mizuki_render_widget( $atts, $view ) {
 		return '';
 	}
 
-	wp_enqueue_style( 'mizuki-booking' );
 	wp_enqueue_script( 'mizuki-booking' );
 
 	$attributes = array(

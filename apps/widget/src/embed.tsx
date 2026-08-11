@@ -4,7 +4,10 @@ import { configureApi } from './api.js'
 import { BookingCalendar } from './BookingCalendar.js'
 import { MyBookings } from './MyBookings.js'
 import { MizukiApp } from './MizukiApp.js'
-import './widget.css'
+import { ErrorBoundary } from './ErrorBoundary.js'
+// Imported as text rather than as a stylesheet: it is injected into the shadow root below,
+// where the page's CSS cannot reach it and it cannot reach the page.
+import css from './widget.css?inline'
 
 /**
  * Entry point for the WordPress embed.
@@ -23,23 +26,82 @@ interface MountConfig {
 
 const roots = new WeakMap<Element, Root>()
 
+/**
+ * Put the widget inside a shadow root, and render into that.
+ *
+ * This site runs Astra plus Elementor plus a dozen other plugins, all of which style bare
+ * element selectors — `button`, `input`, `h3` — site-wide and with !important. Scoping our own
+ * CSS under `.mzk` stops us leaking outward but does nothing about them leaking in, and answering
+ * !important with !important is a fight that has to be re-won every time the studio installs or
+ * updates a plugin. It was already lost once: every day cell rendered as a solid green block.
+ *
+ * A shadow root ends the argument. Page rules simply do not match elements inside one, so there
+ * is nothing to out-specify and nothing to keep up with. What still crosses the boundary is
+ * inherited text properties, and widget.css pins those explicitly on `.mzk`.
+ */
+function containerFor(element: Element): HTMLElement {
+  const host = element as HTMLElement
+
+  const prepared = host.shadowRoot?.querySelector<HTMLElement>('[data-mizuki-root]')
+  if (prepared) return prepared
+
+  let shadow = host.shadowRoot
+  if (!shadow) {
+    try {
+      shadow = host.attachShadow({ mode: 'open' })
+    } catch {
+      // Some other script got there first with mode:'closed', or this is a browser old enough
+      // not to support it. Fall back to rendering in the page and hope the !important wins.
+      shadow = null
+    }
+  }
+
+  const container = document.createElement('div')
+  container.setAttribute('data-mizuki-root', '')
+
+  if (!shadow) {
+    injectPageStyle()
+    host.appendChild(container)
+    return container
+  }
+
+  const style = document.createElement('style')
+  style.textContent = css
+  shadow.append(style, container)
+  return container
+}
+
+/** Only for the no-shadow-root fallback: the stylesheet has to go somewhere. */
+function injectPageStyle(): void {
+  if (document.getElementById('mizuki-booking-css')) return
+
+  const style = document.createElement('style')
+  style.id = 'mizuki-booking-css'
+  style.textContent = css
+  document.head.appendChild(style)
+}
+
 function mount(element: Element, config: MountConfig): void {
   configureApi(config.apiBase)
 
-  const existing = roots.get(element)
-  const root = existing ?? createRoot(element)
-  if (!existing) roots.set(element, root)
+  const container = containerFor(element)
+
+  const existing = roots.get(container)
+  const root = existing ?? createRoot(container)
+  if (!existing) roots.set(container, root)
 
   root.render(
     <StrictMode>
-      {config.view === 'my-bookings' ? (
-        <MyBookings />
-      ) : config.view === 'calendar' ? (
-        <BookingCalendar courseSlug={config.course} />
-      ) : (
-        // Default: booking and "my bookings" together, so one page and one link does everything.
-        <MizukiApp courseSlug={config.course} />
-      )}
+      <ErrorBoundary label="booking widget">
+        {config.view === 'my-bookings' ? (
+          <MyBookings />
+        ) : config.view === 'calendar' ? (
+          <BookingCalendar courseSlug={config.course} />
+        ) : (
+          // Default: booking and "my bookings" together, so one page and one link does everything.
+          <MizukiApp courseSlug={config.course} />
+        )}
+      </ErrorBoundary>
     </StrictMode>,
   )
 }

@@ -37,7 +37,9 @@ async function main() {
   await rm(assetsDir, { recursive: true, force: true })
   await mkdir(assetsDir, { recursive: true })
 
-  for (const file of ['widget.js', 'widget.css']) {
+  // Just the one file: the stylesheet is compiled into the bundle and injected into the widget's
+  // shadow root, so there is no separate widget.css to ship.
+  for (const file of ['widget.js']) {
     const source = path.join(widgetDist, file)
     if (!(await exists(source))) {
       console.error(`Missing build output: ${file}`)

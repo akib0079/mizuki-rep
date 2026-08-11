@@ -1,7 +1,11 @@
 /*
- * Scoped under .mzk so nothing here leaks into the WordPress theme and — just as important —
- * the theme's own broad selectors do not reshape the calendar. Everything sets its own values
- * rather than inheriting whatever the page happens to define.
+ * Injected into a shadow root by embed.tsx, so the host page's CSS cannot match anything here
+ * and nothing here can escape into the page.
+ *
+ * One category still crosses that boundary: inherited text properties, which pass through the
+ * host element from whatever the theme set on the page. They are all pinned on .mzk below, so
+ * every descendant inherits from a known starting point rather than from Astra or Elementor.
+ * font-family is the deliberate exception — the widget should read in the site's own typeface.
  */
 
 .mzk {
@@ -21,13 +25,28 @@
   --mzk-danger: #b3382c;
   --mzk-ok: #2f7d5f;
 
-  font-family: inherit;
-  color: var(--mzk-ink);
+  /* Everything a child could inherit from the page, given a definite value here. */
+  font-family: inherit;   /* the one we do want from the site, so the widget matches its pages */
   font-size: 16px;
+  font-weight: 400;
+  font-style: normal;
+  font-variant: normal;
   line-height: 1.5;
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-align: left;
+  text-indent: 0;
+  text-transform: none;
+  text-shadow: none;
+  white-space: normal;
+  color: var(--mzk-ink);
+  cursor: auto;
+  visibility: visible;
+  direction: ltr;
+  list-style: none;
+
   max-width: 760px;
   margin: 0 auto;
-  text-align: left;
   box-sizing: border-box;
 }
 .mzk *, .mzk *::before, .mzk *::after { box-sizing: border-box; }
@@ -95,8 +114,14 @@
 .mzk-day:hover:not(:disabled) { background: var(--mzk-canvas); }
 .mzk-day-num { font-size: 14px; font-variant-numeric: tabular-nums; }
 .mzk-day.has-classes { background: var(--mzk-accent-light); border-color: transparent; font-weight: 650; }
-.mzk-day.has-classes:hover { background: #cdeff6; }
+/*
+ * :not(.selected) matters: a bare :hover outranks .selected on specificity, so pointing at the
+ * day you had already chosen repainted it pale while its text stayed white — the selected day
+ * became unreadable under the cursor. Selected gets its own darker hover instead.
+ */
+.mzk-day.has-classes:hover:not(.selected) { background: #cdeff6; }
 .mzk-day.selected { background: var(--mzk-accent); color: #fff; }
+.mzk-day.selected:hover { background: var(--mzk-accent-dark); }
 .mzk-day.selected .mzk-day-num { color: #fff; }
 .mzk-day.today { border-color: var(--mzk-accent); }
 .mzk-day:disabled { color: #b9c4ca; cursor: default; }
@@ -154,6 +179,12 @@
 
 .mzk-field { display: block; margin-bottom: 13px; }
 .mzk-field > span { display: block; font-size: 13px; font-weight: 650; margin-bottom: 5px; color: var(--mzk-soft); }
+/*
+ * A field's caption and the hint underneath it are both plain spans, so the rule above styled
+ * them identically — the hint came out at the same weight as the label it sits under and read as
+ * a second label rather than as help. It sits below the box, so its spacing goes above, not below.
+ */
+.mzk-field > span.mzk-small { font-weight: 400; margin: 5px 0 0; }
 .mzk-field input, .mzk-field textarea {
   width: 100%;
   padding: 10px 12px;
@@ -305,17 +336,17 @@
   .mzk-tab { padding: 9px 10px; font-size: 14px; }
 }
 
-/* --- Defence against the host theme --------------------------------------- */
+/* --- Reset, then rebuild --------------------------------------------------- */
 
 /*
- * WordPress themes style bare element selectors with !important — Astra ships
- * `button { background: <brand> !important }`, which turned every day cell into a solid block.
- * Scoping this stylesheet stops it leaking outward; it does nothing about the theme leaking in,
- * and !important can only be answered with !important.
+ * Everything below is first reset and then given explicit values, rather than left to inherit
+ * from a browser default that varies by engine. Buttons in particular: the calendar is built
+ * from them, and an unstyled <button> is a grey chip with a border.
  *
- * So everything inside .mzk is first reset, then rebuilt. It is verbose deliberately: this is
- * the one part of the system whose surroundings are not under our control, and a booking form
- * that looks different on every theme is a booking form nobody trusts.
+ * The !important on these is belt and braces. Inside the shadow root nothing competes with them,
+ * so they cost nothing; on the fallback path in embed.tsx — a browser too old for shadow roots,
+ * or another script having claimed a closed one — this stylesheet lands in the page and has to
+ * out-rank a theme that styles bare `button` with !important of its own. Kept for that case.
  */
 .mzk button,
 .mzk input,
@@ -363,6 +394,14 @@
 .mzk li { margin: 0 !important; color: inherit !important; }
 .mzk a { text-decoration: none !important; }
 
+/*
+ * `color: inherit !important` on p and li above quietly un-mutes every <p class="mzk-muted"> —
+ * the class stayed on the element and stopped doing anything, which is the kind of breakage that
+ * survives review because nothing looks obviously wrong. Utilities have to be re-asserted after
+ * the reset that flattened them.
+ */
+.mzk .mzk-muted { color: var(--mzk-soft) !important; }
+
 /* Month navigation */
 .mzk .mzk-nav button {
   width: 34px !important; height: 34px !important;
@@ -388,8 +427,9 @@
   transition: background 0.14s ease, transform 0.1s ease !important;
 }
 .mzk .mzk-day.has-classes { background: var(--mzk-accent-light) !important; font-weight: 650 !important; }
-.mzk .mzk-day.has-classes:hover { background: #cdeff6 !important; transform: translateY(-1px) !important; }
+.mzk .mzk-day.has-classes:hover:not(.selected) { background: #cdeff6 !important; transform: translateY(-1px) !important; }
 .mzk .mzk-day.selected { background: var(--mzk-accent) !important; color: #fff !important; }
+.mzk .mzk-day.selected:hover { background: var(--mzk-accent-dark) !important; }
 .mzk .mzk-day.selected .mzk-day-num { color: #fff !important; }
 .mzk .mzk-day.today { border-color: var(--mzk-accent) !important; }
 .mzk .mzk-day:disabled { color: #b9c4ca !important; background: transparent !important; transform: none !important; }

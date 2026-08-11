@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { BookingCalendar } from './BookingCalendar.js'
 import { MyBookings } from './MyBookings.js'
+import { ErrorBoundary } from './ErrorBoundary.js'
 
 /**
  * Booking and "my bookings" on one page, behind two tabs.
@@ -70,10 +71,14 @@ export function MizukiApp({ courseSlug }: { courseSlug?: string }) {
         open — the tabs are a view control, not navigation.
       */}
       <div hidden={tab !== 'book'}>
-        <BookingCalendar courseSlug={courseSlug} embedded onSeeBookings={() => go('bookings')} />
+        <ErrorBoundary label="calendar">
+          <BookingCalendar courseSlug={courseSlug} embedded onSeeBookings={() => go('bookings')} />
+        </ErrorBoundary>
       </div>
       <div hidden={tab !== 'bookings'}>
-        <MyBookings embedded />
+        <ErrorBoundary label="my bookings">
+          <MyBookings embedded />
+        </ErrorBoundary>
       </div>
     </div>
   )
