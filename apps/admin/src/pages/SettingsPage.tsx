@@ -14,6 +14,16 @@ interface EmailHealth {
   recentFailures: { type: string; to: string; error: string; at: string }[]
 }
 
+interface TelegramHealth {
+  ok: boolean
+  message: string
+  fix?: string
+  botUsername: string
+  hasToken: boolean
+  hasChat: boolean
+  chats: { id: string; label: string }[]
+}
+
 interface SeatDrift {
   sessionId: string
   dateKey: string
@@ -532,6 +542,32 @@ function IntegrationsCard({ onMessage }: { onMessage: (m: { kind: 'ok' | 'danger
     },
   })
 
+  /*
+   * Telegram is the setting most likely to be half-done: a token on its own looks finished and
+   * sends nothing, because Telegram will not let a bot message anyone who has not opened a
+   * conversation with it first. Checked on load so that state is visible rather than discovered.
+   */
+  const telegram = useQuery({
+    queryKey: ['telegram-health'],
+    queryFn: () => api.get<TelegramHealth>('/api/admin/settings/integrations/telegram/check'),
+  })
+
+  const useChat = useMutation({
+    mutationFn: (chatId: string) =>
+      api.post<TelegramHealth>('/api/admin/settings/integrations/telegram/use-chat', { chatId }),
+    onSuccess: (r) => {
+      queryClient.setQueryData(['telegram-health'], r)
+      void queryClient.invalidateQueries({ queryKey: ['integrations'] })
+      onMessage({ kind: 'ok', text: 'Saved. Send a test to make sure it arrives.' })
+    },
+    onError: (err) => onMessage({ kind: 'danger', text: err instanceof ApiError ? err.message : 'Could not save.' }),
+  })
+
+  const telegramTest = useMutation({
+    mutationFn: () => api.post<{ ok: boolean; message: string }>('/api/admin/settings/integrations/telegram/test'),
+    onSuccess: (r) => onMessage({ kind: r.ok ? 'ok' : 'danger', text: r.message }),
+  })
+
   const check = useMutation({
     mutationFn: () => api.get<EmailHealth>('/api/admin/settings/integrations/resend/check'),
     onSuccess: (r) => {
@@ -543,7 +579,7 @@ function IntegrationsCard({ onMessage }: { onMessage: (m: { kind: 'ok' | 'danger
   const rows: { name: string; label: string; hint: string; status?: SecretStatus }[] = [
     { name: 'resend', label: 'Resend API key', hint: 'Sends confirmations and reminders.', status: data?.email },
     { name: 'telegram-token', label: 'Telegram bot token', hint: 'Optional — booking alerts on your phone.', status: data?.telegramToken },
-    { name: 'telegram-chat', label: 'Telegram chat ID', hint: 'From @userinfobot.', status: data?.telegramChat },
+    { name: 'telegram-chat', label: 'Telegram chat ID', hint: 'Found for you once someone presses Start on the bot.', status: data?.telegramChat },
   ]
 
   return (
@@ -560,6 +596,53 @@ function IntegrationsCard({ onMessage }: { onMessage: (m: { kind: 'ok' | 'danger
           {check.isPending ? 'Checking…' : 'Test email key'}
         </button>
       </div>
+
+      {telegram.data && !telegram.data.ok && telegram.data.hasToken && (
+        <div className="banner banner-info" style={{ marginTop: 14 }}>
+          <strong>{telegram.data.message}</strong>
+          {telegram.data.fix && <div style={{ marginTop: 4 }}>{telegram.data.fix}</div>}
+
+          {telegram.data.chats.length > 0 ? (
+            <div className="row" style={{ marginTop: 10, flexWrap: 'wrap' }}>
+              {telegram.data.chats.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  className="btn btn-sm"
+                  disabled={useChat.isPending}
+                  onClick={() => useChat.mutate(c.id)}
+                >
+                  Send alerts to {c.label}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-sm"
+              style={{ marginTop: 10 }}
+              disabled={telegram.isFetching}
+              onClick={() => void telegram.refetch()}
+            >
+              {telegram.isFetching ? 'Looking…' : 'Find my chat'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {telegram.data?.ok && (
+        <div className="row" style={{ marginTop: 12 }}>
+          <span className="small muted">Phone alerts: {telegram.data.message}</span>
+          <button
+            type="button"
+            className="btn btn-sm"
+            disabled={telegramTest.isPending}
+            onClick={() => telegramTest.mutate()}
+          >
+            {telegramTest.isPending ? 'Sending…' : 'Send a test message'}
+          </button>
+        </div>
+      )}
 
       {health.data && (!health.data.ok || health.data.recentFailures.length > 0) && (
         // Danger only when mail is actually failing now. Old failures under a configuration that

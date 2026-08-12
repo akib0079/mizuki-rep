@@ -19,7 +19,13 @@ import { getSeriesAvailability } from '../../services/seriesService.js'
 import { buildDashboard } from '../../services/dashboardService.js'
 import { hoursSinceLastBackup, listBackups, readBackup, runBackup } from '../../services/backupService.js'
 import { DEFAULT_TEMPLATES, renderTemplate, resetTemplate } from '../../services/emailTemplates.js'
-import { checkEmailKey, clearFailedMessages, sendDirectEmail } from '../../services/mailer.js'
+import {
+  checkEmailKey,
+  checkTelegram,
+  clearFailedMessages,
+  sendDirectEmail,
+  sendTelegramTest,
+} from '../../services/mailer.js'
 import {
   PLAIN_KEYS,
   SECRET_KEYS,
@@ -484,6 +490,25 @@ adminSettingsRouter.put(
     if (!key) throw new NotFoundError('Setting')
 
     const { value } = secretInputSchema.parse(req.body)
+
+    /*
+     * A Telegram chat id is a number — negative for groups and channels. A @username is not one,
+     * and the bot's own @username least of all: a bot cannot message itself.
+     *
+     * Saved without complaint, that produced a console showing everything configured and a phone
+     * that never buzzed, with the failure recorded only as "no transport configured". Caught
+     * here, while somebody is looking at the screen.
+     */
+    if (key === SECRET_KEYS.telegramChatId && !/^-?\d+$/.test(value)) {
+      throw new AppError(
+        400,
+        'not_a_chat_id',
+        value.startsWith('@')
+          ? 'That is a username, not a chat id. Press "Find my chat" below — the bot can only tell ' +
+            'us the id after somebody has opened Telegram and pressed Start on it.'
+          : 'A Telegram chat id is a number, like 123456789 or -1001234567890.',
+      )
+    }
     await setSecret(key, value, actorOf(req))
 
     // The value is never logged or audited — only that it changed, and by whom.
@@ -533,6 +558,39 @@ adminSettingsRouter.post(
       reason: `Cleared ${cleared} failed message(s)`,
     })
     res.json({ cleared })
+  }),
+)
+
+adminSettingsRouter.get(
+  '/integrations/telegram/check',
+  asyncRoute(async (_req, res) => {
+    res.json(await checkTelegram())
+  }),
+)
+
+/** Save the chat the bot should message, chosen from the ones it can actually see. */
+adminSettingsRouter.post(
+  '/integrations/telegram/use-chat',
+  asyncRoute(async (req, res) => {
+    const { chatId } = z.object({ chatId: z.string().trim().min(1) }).parse(req.body)
+
+    await setSecret(SECRET_KEYS.telegramChatId, chatId, actorOf(req))
+    await recordAudit({
+      actor: actorOf(req),
+      action: 'settings.telegram_chat',
+      entity: 'Setting',
+      reason: `Telegram alerts now go to chat ${chatId}`,
+    })
+
+    res.json(await checkTelegram())
+  }),
+)
+
+/** Prove it works now, rather than finding out at the next booking. */
+adminSettingsRouter.post(
+  '/integrations/telegram/test',
+  asyncRoute(async (_req, res) => {
+    res.json(await sendTelegramTest())
   }),
 )
 

@@ -506,4 +506,145 @@ export async function clearFailedMessages(): Promise<number> {
   return result.deletedCount ?? 0
 }
 
+export interface TelegramHealth {
+  ok: boolean
+  message: string
+  fix?: string
+  botUsername: string
+  hasToken: boolean
+  hasChat: boolean
+  /** Conversations the bot can see. Empty until somebody has pressed Start. */
+  chats: { id: string; label: string }[]
+}
 
+/**
+ * Can the studio actually be messaged on Telegram?
+ *
+ * The half-configured state is the one that catches people, and it is invisible: a bot token on
+ * its own looks like setup is done, and nothing arrives. Telegram will not let a bot message
+ * anyone who has not opened a conversation with it first, so until somebody presses Start there
+ * is no chat to send to and no way to discover its id.
+ *
+ * The old instruction was "get your id from @userinfobot", which is a different number obtained
+ * a different way, and still fails silently if Start was never pressed. Asking Telegram what
+ * conversations the bot can see answers both questions at once.
+ */
+interface TelegramReply {
+  ok?: boolean
+  description?: string
+  result?: {
+    username?: string
+    message?: { chat?: TelegramChat }
+    channel_post?: { chat?: TelegramChat }
+  } & Array<{ message?: { chat?: TelegramChat }; channel_post?: { chat?: TelegramChat } }>
+}
+
+interface TelegramChat {
+  id?: number | string
+  type?: string
+  title?: string
+  first_name?: string
+  last_name?: string
+  username?: string
+}
+
+export async function checkTelegram(): Promise<TelegramHealth> {
+  const [token, chatId] = await Promise.all([
+    getSecret(SECRET_KEYS.telegramBotToken, config.TELEGRAM_BOT_TOKEN),
+    getSecret(SECRET_KEYS.telegramChatId, config.TELEGRAM_CHAT_ID),
+  ])
+
+  const base = { hasToken: Boolean(token), hasChat: Boolean(chatId), botUsername: '', chats: [] }
+
+  if (!token) {
+    return {
+      ...base,
+      ok: false,
+      message: 'No bot token, so phone alerts are off.',
+      fix: 'Create a bot with @BotFather in Telegram and paste its token below. This is optional — email still works without it.',
+    }
+  }
+
+  try {
+    const me = (await fetch(`https://api.telegram.org/bot${token}/getMe`).then((r) => r.json())) as TelegramReply
+    if (!me?.ok) {
+      return {
+        ...base,
+        ok: false,
+        message: `Telegram rejected the token: ${me?.description ?? 'unknown error'}`,
+        fix: 'Check the token, or ask @BotFather for a new one.',
+      }
+    }
+
+    const botUsername = me.result?.username ?? ''
+
+    const updates = (await fetch(`https://api.telegram.org/bot${token}/getUpdates`).then((r) => r.json())) as TelegramReply
+    const chats = new Map<string, string>()
+
+    for (const update of Array.isArray(updates?.result) ? updates.result : []) {
+      const chat = update?.message?.chat ?? update?.channel_post?.chat
+      if (!chat?.id) continue
+
+      const label =
+        chat.title ||
+        [chat.first_name, chat.last_name].filter(Boolean).join(' ') ||
+        chat.username ||
+        'Chat'
+      chats.set(String(chat.id), `${label} (${chat.type ?? 'chat'})`)
+    }
+
+    const list = [...chats].map(([id, label]) => ({ id, label }))
+
+    if (!chatId) {
+      return {
+        ...base,
+        ok: false,
+        botUsername,
+        chats: list,
+        message: list.length
+          ? 'The bot is set up but no chat is chosen, so nothing is being sent.'
+          : `The bot @${botUsername} is ready, but nobody has spoken to it yet.`,
+        fix: list.length
+          ? 'Pick the chat below.'
+          : `Open Telegram, find @${botUsername}, press Start, then press "Find my chat" here.`,
+      }
+    }
+
+    return {
+      ...base,
+      ok: true,
+      botUsername,
+      chats: list,
+      message: `Ready. Alerts go to @${botUsername}.`,
+    }
+  } catch (err) {
+    return {
+      ...base,
+      ok: false,
+      message: err instanceof Error ? err.message : 'Could not reach Telegram.',
+    }
+  }
+}
+
+/** Send a message right now, to prove the setup works rather than waiting for a booking. */
+export async function sendTelegramTest(): Promise<{ ok: boolean; message: string }> {
+  const [token, chatId] = await Promise.all([
+    getSecret(SECRET_KEYS.telegramBotToken, config.TELEGRAM_BOT_TOKEN),
+    getSecret(SECRET_KEYS.telegramChatId, config.TELEGRAM_CHAT_ID),
+  ])
+  if (!token || !chatId) return { ok: false, message: 'Set the bot token and chat first.' }
+
+  const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text: '✅ Mizuki Flora — phone alerts are working. New bookings will arrive here.',
+    }),
+  })
+
+  const body = (await response.json().catch(() => null)) as TelegramReply | null
+  return response.ok
+    ? { ok: true, message: 'Sent. Check Telegram.' }
+    : { ok: false, message: body?.description ?? 'Telegram refused the message.' }
+}
