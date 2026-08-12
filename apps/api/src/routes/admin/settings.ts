@@ -35,7 +35,7 @@ import { recordAudit } from '../../services/auditService.js'
 import { actorOf } from '../../middleware/auth.js'
 import { asyncRoute } from '../../middleware/errorHandler.js'
 import { NotFoundError } from '../../errors.js'
-import { config } from '../../config.js'
+import { config, bookingPageUrl, myBookingsUrl } from '../../config.js'
 
 /** Courses, recurring timetable rules, message wording, and the maintenance levers. */
 export const adminSettingsRouter: Router = Router()
@@ -340,8 +340,8 @@ const SAMPLE_VARS: Record<string, string | number> = {
   sessionListHtml: '<ul><li><strong>10:00 AM</strong> — Ikebana Workshop: 5/8 booked</li></ul>',
   sessionListText: '• 10:00 AM — Ikebana Workshop: 5/8 booked',
   magicLinkUrl: `${config.PUBLIC_API_URL}/api/auth/magic-link/verify?token=sample`,
-  myBookingsUrl: `${config.PUBLIC_SITE_URL}/my-bookings`,
-  bookingUrl: `${config.PUBLIC_SITE_URL}/book`,
+  myBookingsUrl: myBookingsUrl(),
+  bookingUrl: bookingPageUrl(),
   adminSessionUrl: `${config.PUBLIC_API_URL}/admin/calendar`,
   adminCalendarUrl: `${config.PUBLIC_API_URL}/admin/calendar`,
   siteUrl: config.PUBLIC_SITE_URL,

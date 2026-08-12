@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
+import listPlugin from '@fullcalendar/list'
+import luxonPlugin from '@fullcalendar/luxon3'
+import { useIsPhone } from '../useIsPhone.js'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import type { EventDropArg } from '@fullcalendar/core'
@@ -21,6 +24,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog.js'
  * moves it; if anyone is booked, they are told before it happens, never after.
  */
 export function CalendarPage() {
+  const isPhone = useIsPhone()
   const calendarRef = useRef<FullCalendar>(null)
   const queryClient = useQueryClient()
 
@@ -155,13 +159,32 @@ export function CalendarPage() {
       <div className="calendar-wrap">
         <FullCalendar
           ref={calendarRef}
-          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-          initialView="dayGridMonth"
+          /*
+           * A month grid needs seven columns. On a phone that is 50px each, which turns every
+           * class into a truncated stub — "2a IFDA", "6:30a I" — and makes the one screen the
+           * studio actually opens on their phone the least readable one in the console.
+           *
+           * So a phone opens on a fortnight's list instead: full titles, full times, how many
+           * are booked, in the order they happen. The month grid is still one tap away.
+           */
+          plugins={[dayGridPlugin, timeGridPlugin, listPlugin, luxonPlugin, interactionPlugin]}
+          initialView={isPhone ? 'listTwoWeek' : 'dayGridMonth'}
+          views={{
+            listTwoWeek: { type: 'list', duration: { weeks: 2 }, buttonText: 'list' },
+          }}
           headerToolbar={{
             left: 'prev,next today',
             center: 'title',
-            right: 'dayGridMonth,timeGridWeek,timeGridDay',
+            right: isPhone ? 'listTwoWeek,dayGridMonth' : 'dayGridMonth,timeGridWeek,timeGridDay',
           }}
+          /*
+           * The Luxon plugin is what makes this line mean anything.
+           *
+           * On its own FullCalendar understands exactly two timezones — 'local' and 'UTC' — and
+           * silently treats any named zone as UTC. So the studio's own calendar was showing every
+           * class eight hours early: a 10:00 IFDA Morning appeared at 2:00am, on every view.
+           * Nothing errored, and the times looked plausible enough to read past.
+           */
           timeZone={STUDIO_TZ}
           firstDay={1}
           height="auto"

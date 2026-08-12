@@ -35,6 +35,18 @@ const envSchema = z.object({
   PUBLIC_API_URL: z.string().url(),
   /** The WordPress site, used for redirects back into the shop and the booking page. */
   PUBLIC_SITE_URL: z.string().url(),
+
+  /**
+   * The page on the studio's site where the booking widget lives.
+   *
+   * Every link the system emails a student lands here, so it has to be the page that actually
+   * exists. It was assumed to be `/book` and `/my-bookings`, which were two separate pages before
+   * the widget was consolidated into one with tabs — so a sign-in link delivered the student to a
+   * 404 and their bookings appeared to have vanished.
+   *
+   * Configurable rather than hardcoded because it is the studio's page, and they may rename it.
+   */
+  PUBLIC_BOOKING_PATH: z.string().default('/book-a-class/'),
   /** Comma-separated origins allowed to call the API from a browser. */
   CORS_ORIGINS: z.string().default(''),
 
@@ -99,3 +111,18 @@ export const config = {
 } as const
 
 export type Config = typeof config
+
+/**
+ * Where a student should land when they follow a link from an email.
+ *
+ * `bookingUrl` opens the calendar; `myBookingsUrl` opens the same page on its bookings tab —
+ * the widget reads `?tab=bookings` and switches to it. One page, one link, whichever they need.
+ */
+export const bookingPageUrl = (): string =>
+  new URL(config.PUBLIC_BOOKING_PATH, config.PUBLIC_SITE_URL).toString()
+
+export const myBookingsUrl = (): string => {
+  const url = new URL(config.PUBLIC_BOOKING_PATH, config.PUBLIC_SITE_URL)
+  url.searchParams.set('tab', 'bookings')
+  return url.toString()
+}

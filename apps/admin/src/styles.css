@@ -665,34 +665,134 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .grid-2-1, .grid-3 { grid-template-columns: minmax(0, 1fr); }
 }
+/* ===========================================================================
+ * Phones
+ *
+ * The rail used to become a horizontal strip across the top, which had three problems: it
+ * scrolled sideways so half the pages were off the edge, it repeated the pinned shortcuts, and
+ * it hid the footer — which is where Sign out lives, so there was no way to sign out on a phone
+ * at all. It is now an off-canvas drawer holding the whole rail, footer included.
+ * ======================================================================== */
 @media (max-width: 820px) {
   .shell { flex-direction: column; }
-  .sidebar {
-    width: 100%; height: auto; position: sticky; top: 0; z-index: 30;
-    flex-direction: row; overflow-x: auto; align-items: center;
-    gap: 4px; padding: 8px 10px;
-    /* Momentum scrolling, and no scrollbar eating a row of a strip this short. */
-    scrollbar-width: none;
+
+  .nav-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    background: rgba(16, 34, 43, 0.5);
+    animation: fade-in 0.18s ease-out;
   }
-  .sidebar::-webkit-scrollbar { display: none; }
+  @keyframes fade-in { from { opacity: 0 } to { opacity: 1 } }
 
-  .sidebar .side-heading, .sidebar .side-search, .sidebar-footer { display: none; }
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 100;
+    width: min(280px, 84vw);
+    height: 100dvh;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    /* Off-canvas until asked for. transform rather than left, so it slides on the compositor
+       and does not repaint the page behind it on every frame. */
+    transform: translateX(-100%);
+    transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+    /* Below the phone's home indicator, and clear of a notch in landscape. */
+    padding: 12px 10px calc(12px + env(safe-area-inset-bottom));
+    padding-left: calc(10px + env(safe-area-inset-left));
+  }
+  .sidebar.nav-open { transform: none; }
 
-  /*
-   * The pinned shortcuts are the same two links as the main nav below them. On the desktop rail
-   * that repetition is a deliberate shortcut sitting in its own section; in a single horizontal
-   * strip it is Calendar and Students twice, pushing everything after Payments off the edge.
-   */
-  .nav-pinned { display: none; }
+  /* Collapsing is a desktop idea — a drawer is either open or it is not. */
+  .sidebar.collapsed { width: min(280px, 84vw); }
+  .sidebar.collapsed .nav-label,
+  .sidebar.collapsed .brand-text,
+  .sidebar.collapsed .user-meta { display: initial; }
 
-  .nav-link { width: auto; white-space: nowrap; flex-shrink: 0; }
-  .brand { padding: 0 10px 0 0; margin: 0; min-height: 0; flex-shrink: 0; }
-  .brand-text { display: none; }
+  /* The footer is the whole reason for the drawer: Sign out has to be reachable. */
+  .sidebar-footer { display: flex; }
+  .sidebar .side-heading, .sidebar .side-search { display: block; }
+
+  /* The pinned shortcuts repeat two links that are already in the list below, so they go — and
+     the heading goes with them, or the drawer opens on a section label with nothing under it. */
+  .nav-pinned,
+  .side-heading-pinned { display: none; }
+
+  .nav-link { width: 100%; }
+  .brand { padding: 2px 8px 14px; }
 
   .content { padding: 16px; }
   .actions-grid, .grid-2, .grid-4 { grid-template-columns: minmax(0, 1fr); }
   .field-row { grid-template-columns: 1fr; }
+
+  .page-head h1 { font-size: 20px; }
+  .topbar { padding-inline: 12px; }
+
+  /* Tables are the one thing that genuinely cannot reflow, so they scroll on their own rather
+     than pushing the whole page sideways. Scoped away from FullCalendar, whose list view is
+     already built to fit and would be forced into a scrollbar by a blanket min-width. */
+  .card-pad-0, .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .card-pad-0 > .table, .table-wrap > .table { min-width: 520px; }
+
+  /*
+   * FullCalendar sizes itself from its own tables, which on a 390px screen means it decides it
+   * needs more room than there is and hands the page a horizontal scrollbar.
+   */
+  .calendar-wrap { overflow-x: hidden; }
+  .fc, .fc table { max-width: 100%; }
+  /*
+   * Each entry becomes a block rather than a row of columns. Three columns inside 390px means
+   * the time and the title compete, and whichever loses gets an ellipsis — "IFDA Mor…" tells
+   * you less than nothing when three classes a day start with the same word. Stacked, both get
+   * the full width.
+   */
+  .fc .fc-list-table,
+  .fc .fc-list-table tbody,
+  .fc .fc-list-table tr { display: block; width: 100%; }
+
+  /* The day heading is a row too, so it needs the same treatment or it stops short of the edge. */
+  .fc .fc-list-day,
+  .fc .fc-list-day > th,
+  .fc .fc-list-day-cushion { display: block; width: 100%; }
+
+  .fc .fc-list-event { padding: 10px 14px; width: 100%; }
+  .fc .fc-list-event > td { display: block; border: 0; padding: 0; width: 100%; }
+  /* Beats the rule above, which would otherwise turn the colour swatch into its own line
+     between the time and the title. */
+  .fc .fc-list-event > td.fc-list-event-graphic { display: none; }
+
+  .fc .fc-list-event-time {
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    padding: 0 0 2px;
+    white-space: nowrap;
+  }
+  .fc .fc-list-event-title { font-weight: 600; word-break: break-word; }
+  .fc .fc-list-day-cushion { padding: 8px 14px; }
+
+  /* The toolbar wraps rather than pushing the title off the edge. */
+  .fc .fc-toolbar { flex-wrap: wrap; gap: 8px; }
+  .fc .fc-toolbar-title { font-size: 15px; }
+  .fc .fc-button { padding: 5px 9px; font-size: 13px; }
+
+  /* Enough of a target to hit with a thumb. */
+  .btn, .btn-quiet { min-height: 42px; }
+  .icon-btn { min-width: 40px; min-height: 40px; }
+
+  /* 16px or iOS zooms the page when a field is focused, and never zooms back. */
+  input, select, textarea { font-size: 16px; }
+
 }
+
+/* The drawer must never animate for someone who has asked it not to. */
+@media (max-width: 820px) and (prefers-reduced-motion: reduce) {
+  .sidebar { transition: none; }
+  .nav-backdrop { animation: none; }
+}
+
 
 /* --- Notifications ---------------------------------------------------------
  *
@@ -1224,3 +1324,47 @@ h3 { letter-spacing: -0.01em; }
 .login-card { animation: content-in 0.3s ease-out; }
 .login-card h1 { margin: 0 0 4px; font-size: 21px; }
 .login-card p { margin: 0 0 18px; color: var(--ink-soft); font-size: 14px; }
+
+/* ===========================================================================
+ * Phone overrides for components declared further down this file
+ *
+ * These live at the end deliberately. CSS resolves ties by order, so a media query written
+ * before a component's own rules loses to them — which is exactly what happened to the
+ * notifications panel: it kept its 380px desktop width on a 390px screen and hung off the edge,
+ * with the media query sitting a few hundred lines above, apparently correct.
+ * ======================================================================== */
+@media (max-width: 820px) {
+  /* A dropdown anchored to the right of a narrow screen becomes a sheet pinned to both edges. */
+  .notif-panel {
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    top: 58px;
+    width: auto;
+    max-height: calc(100dvh - 74px);
+  }
+
+  /* A centred dialog becomes a sheet from the bottom, and must scroll — a form taller than the
+     screen with the keyboard up is otherwise unreachable at the end. */
+  .modal-backdrop { align-items: flex-end; padding: 0; }
+  .modal {
+    width: 100%;
+    max-height: 92dvh;
+    overflow-y: auto;
+    border-radius: 16px 16px 0 0;
+    padding: 20px 18px calc(20px + env(safe-area-inset-bottom));
+  }
+
+  .drawer { width: 100%; max-width: none; }
+
+  .payment-row { flex-direction: column; align-items: stretch; }
+  .payment-actions { width: 100%; }
+  .payment-actions .btn { flex: 1; }
+
+  .inline-form { flex-direction: column; align-items: stretch; }
+  .inline-form .field { width: 100%; }
+  .tpl-layout { grid-template-columns: 1fr; }
+  .tpl-preview { position: static; }
+  .invite-row { flex-direction: column; }
+  .row-actions { flex-wrap: wrap; justify-content: flex-start; }
+}

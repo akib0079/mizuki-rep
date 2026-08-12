@@ -54,10 +54,29 @@ export function App() {
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('mzk.sidebar') === 'collapsed')
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
+  /*
+   * Separate from `collapsed`, which is the desktop rail's width preference. On a phone the rail
+   * is off-canvas entirely and this is whether it is showing — two different questions that were
+   * one state, which is why the same button had to mean two things.
+   */
+  const [navOpen, setNavOpen] = useState(false)
 
   useEffect(() => {
     localStorage.setItem('mzk.sidebar', collapsed ? 'collapsed' : 'open')
   }, [collapsed])
+
+  // Escape closes the drawer, like every other overlay in here.
+  useEffect(() => {
+    if (!navOpen) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setNavOpen(false)
+    document.addEventListener('keydown', onKey)
+    // The page behind a full-height drawer must not scroll under it.
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = ''
+    }
+  }, [navOpen])
 
   // ⌘K anywhere, the way the reference panel advertises in its search box.
   useEffect(() => {
@@ -102,7 +121,18 @@ export function App() {
 
   return (
     <div className="shell">
-      <nav className={collapsed ? 'sidebar collapsed' : 'sidebar'}>
+      {/* Only ever visible on a phone; on desktop the rail is always in the layout. */}
+      {navOpen && <div className="nav-backdrop" onClick={() => setNavOpen(false)} aria-hidden />}
+
+      <nav
+        className={[collapsed ? 'sidebar collapsed' : 'sidebar', navOpen ? 'nav-open' : '']
+          .filter(Boolean)
+          .join(' ')}
+        onClick={(e) => {
+          // Any link tap closes the drawer — otherwise it covers the page you just asked for.
+          if ((e.target as HTMLElement).closest('a')) setNavOpen(false)
+        }}
+      >
         <div className="brand">
           <img className="brand-logo" src="/admin/mizuki-logo.png" alt="" width={32} height={32} />
           <div className="brand-text">
@@ -117,7 +147,7 @@ export function App() {
           <kbd className="nav-label">⌘K</kbd>
         </button>
 
-        <div className="side-heading">Pinned</div>
+        <div className="side-heading side-heading-pinned">Pinned</div>
         {PINNED.map((item) => (
           // `title` is what makes the collapsed rail usable — an icon on its own is a guess.
           <NavLink
@@ -175,10 +205,14 @@ export function App() {
         <header className="topbar">
           <button type="button"
             className="icon-btn"
-            onClick={() => setCollapsed(!collapsed)}
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            aria-expanded={!collapsed}
-            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            onClick={() => {
+              // One button, two meanings, decided by whether the rail is on screen at all.
+              if (window.matchMedia('(max-width: 820px)').matches) setNavOpen((v) => !v)
+              else setCollapsed(!collapsed)
+            }}
+            aria-label="Menu"
+            aria-expanded={navOpen}
+            title="Menu"
           >
             <Icon name="menu" />
           </button>

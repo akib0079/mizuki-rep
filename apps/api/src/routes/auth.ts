@@ -21,7 +21,7 @@ import { requireAdmin, requireStudent } from '../middleware/auth.js'
 import { asyncRoute } from '../middleware/errorHandler.js'
 import { AppError, AuthError } from '../errors.js'
 import { summarisePackages } from '../services/packageService.js'
-import { config } from '../config.js'
+import { config, myBookingsUrl } from '../config.js'
 import { logger } from '../logger.js'
 
 export const authRouter: Router = Router()
@@ -102,7 +102,7 @@ authRouter.get(
     const jwtToken = signStudentToken({ sub: String(student._id), email: student.email })
     res.cookie(COOKIE_NAMES.student, jwtToken, cookieOptions(STUDENT_SESSION_DAYS * 24 * 3600_000))
 
-    const target = record.redirectTo || `${config.PUBLIC_SITE_URL}/my-bookings`
+    const target = record.redirectTo || myBookingsUrl()
     res.redirect(safeRedirect(target))
   }),
 )
@@ -112,10 +112,10 @@ function safeRedirect(target: string): string {
   try {
     const url = new URL(target, config.PUBLIC_SITE_URL)
     const allowed = [new URL(config.PUBLIC_SITE_URL).origin, new URL(config.PUBLIC_API_URL).origin]
-    if (!allowed.includes(url.origin)) return `${config.PUBLIC_SITE_URL}/my-bookings`
+    if (!allowed.includes(url.origin)) return myBookingsUrl()
     return url.toString()
   } catch {
-    return `${config.PUBLIC_SITE_URL}/my-bookings`
+    return myBookingsUrl()
   }
 }
 

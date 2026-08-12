@@ -11,7 +11,7 @@ import {
 import { OutboxModel, type BookingDoc, type CourseTypeDoc, type PackageDoc, type SessionDoc, type StudentDoc } from '../models/index.js'
 import { renderTemplate } from './emailTemplates.js'
 import { notificationRecipients, recordAdminNotification } from './adminNotificationService.js'
-import { config } from '../config.js'
+import { config, bookingPageUrl, myBookingsUrl } from '../config.js'
 import { logger } from '../logger.js'
 import { isDuplicateKeyError } from './transaction.js'
 
@@ -84,8 +84,8 @@ function studentVars(student: StudentDoc) {
     studentPhone: student.phone || '—',
     siteUrl: config.PUBLIC_SITE_URL,
     studioPhone: '+65 8821 9386',
-    bookingUrl: `${config.PUBLIC_SITE_URL}/book`,
-    myBookingsUrl: `${config.PUBLIC_SITE_URL}/my-bookings`,
+    bookingUrl: bookingPageUrl(),
+    myBookingsUrl: myBookingsUrl(),
   }
 }
 
