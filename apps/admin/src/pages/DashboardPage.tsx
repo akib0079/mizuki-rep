@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { DateTime } from 'luxon'
 import { STUDIO_TZ } from '@mizuki/shared'
 import { api } from '../api.js'
+import { SkeletonStats } from '../components/Skeleton.js'
 
 /**
  * The studio's landing page.
@@ -72,7 +73,7 @@ export function DashboardPage() {
         <div className="page-head">
           <div><h1>Dashboard</h1><p>Your studio at a glance.</p></div>
         </div>
-        <div className="card"><div className="empty">Loading…</div></div>
+        <SkeletonStats />
       </>
     )
   }

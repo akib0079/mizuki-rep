@@ -13,6 +13,7 @@ import { PaymentsPage } from './pages/PaymentsPage.js'
 import { TeamPage } from './pages/TeamPage.js'
 import { AcceptInvitePage } from './pages/AcceptInvitePage.js'
 import { NotificationBell } from './components/NotificationBell.js'
+import { FullScreenLoader } from './components/Spinner.js'
 import { CommandPalette } from './components/CommandPalette.js'
 import { Icon, type IconName } from './components/Icon.js'
 
@@ -52,6 +53,7 @@ export function App() {
 
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('mzk.sidebar') === 'collapsed')
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [signingOut, setSigningOut] = useState(false)
 
   useEffect(() => {
     localStorage.setItem('mzk.sidebar', collapsed ? 'collapsed' : 'open')
@@ -69,8 +71,10 @@ export function App() {
     return () => document.removeEventListener('keydown', onKey)
   }, [])
 
+  // The very first thing the console shows. A blank page with the word "Loading" is the least
+  // reassuring possible first impression of a system that holds the studio's bookings.
   if (isLoading) {
-    return <div className="login-wrap"><p className="muted">Loading…</p></div>
+    return <FullScreenLoader message="Opening your studio…" />
   }
 
   /*
@@ -94,6 +98,8 @@ export function App() {
     .join('')
     .toUpperCase()
 
+  if (signingOut) return <FullScreenLoader message="Signing you out…" />
+
   return (
     <div className="shell">
       <nav className={collapsed ? 'sidebar collapsed' : 'sidebar'}>
@@ -114,7 +120,12 @@ export function App() {
         <div className="side-heading">Pinned</div>
         {PINNED.map((item) => (
           // `title` is what makes the collapsed rail usable — an icon on its own is a guess.
-          <NavLink key={`pin-${item.to}`} to={item.to} className={navClass} title={item.label}>
+          <NavLink
+            key={`pin-${item.to}`}
+            to={item.to}
+            className={(state) => `${navClass(state)} nav-pinned`}
+            title={item.label}
+          >
             <span className="nav-icon"><Icon name={item.icon} /></span>
             <span className="nav-label">{item.label}</span>
             <span className="pin nav-label"><Icon name="star" size={11} /></span>
@@ -142,12 +153,19 @@ export function App() {
             <div className="email">{data.admin.email}</div>
             <button type="button"
               className="signout"
+              disabled={signingOut}
               onClick={async () => {
-                await api.post('/api/auth/logout')
-                window.location.reload()
+                // Curtain first, then the request. A reload blanks the screen to white for as
+                // long as it takes, which reads as a crash rather than as signing out.
+                setSigningOut(true)
+                try {
+                  await api.post('/api/auth/logout')
+                } finally {
+                  window.location.reload()
+                }
               }}
             >
-              Sign out
+              {signingOut ? 'Signing out…' : 'Sign out'}
             </button>
           </div>
         </div>

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError } from '../api.js'
 import { Icon } from '../components/Icon.js'
+import { SkeletonCards } from '../components/Skeleton.js'
 
 /**
  * Places that have been paid for and are waiting on the studio's check.
@@ -77,7 +78,7 @@ export function PaymentsPage() {
       )}
 
       {isPending ? (
-        <div className="card"><p className="muted">Loading…</p></div>
+        <SkeletonCards count={2} />
       ) : rows.length === 0 ? (
         <div className="card empty-state">
           <Icon name="check" size={22} />

@@ -667,9 +667,28 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 @media (max-width: 820px) {
   .shell { flex-direction: column; }
-  .sidebar { width: 100%; height: auto; position: static; flex-direction: row; overflow-x: auto; align-items: center; padding: 10px; }
+  .sidebar {
+    width: 100%; height: auto; position: sticky; top: 0; z-index: 30;
+    flex-direction: row; overflow-x: auto; align-items: center;
+    gap: 4px; padding: 8px 10px;
+    /* Momentum scrolling, and no scrollbar eating a row of a strip this short. */
+    scrollbar-width: none;
+  }
+  .sidebar::-webkit-scrollbar { display: none; }
+
   .sidebar .side-heading, .sidebar .side-search, .sidebar-footer { display: none; }
-  .nav-link { width: auto; white-space: nowrap; }
+
+  /*
+   * The pinned shortcuts are the same two links as the main nav below them. On the desktop rail
+   * that repetition is a deliberate shortcut sitting in its own section; in a single horizontal
+   * strip it is Calendar and Students twice, pushing everything after Payments off the edge.
+   */
+  .nav-pinned { display: none; }
+
+  .nav-link { width: auto; white-space: nowrap; flex-shrink: 0; }
+  .brand { padding: 0 10px 0 0; margin: 0; min-height: 0; flex-shrink: 0; }
+  .brand-text { display: none; }
+
   .content { padding: 16px; }
   .actions-grid, .grid-2, .grid-4 { grid-template-columns: minmax(0, 1fr); }
   .field-row { grid-template-columns: 1fr; }
@@ -1039,3 +1058,169 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 /* Vertical run of cards, as on Payments. */
 .stack { display: flex; flex-direction: column; gap: 12px; }
+
+/* ===========================================================================
+ * Loading states
+ *
+ * A centred "Loading…" tells you the page is not ready and nothing else — and on a system that
+ * holds the studio's bookings, a blank screen with one word on it is the least reassuring
+ * possible first impression. Skeletons say how much is coming and where it will sit, so the page
+ * assembles instead of appearing, and nothing jumps when the data arrives.
+ * ======================================================================== */
+
+/* The wrapper each skeleton sits in. Carries the aria-busy label, so it needs to exist as an
+   element even though the geometry is on its children. */
+.sk { display: block; }
+
+@keyframes sk-sheen {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+.sk-line,
+.sk-circle,
+.sk-cal-cell {
+  display: inline-block;
+  border-radius: 6px;
+  /* A sheen travelling across, rather than a pulse. Pulsing in a list of eight rows reads as
+     the page flashing at you; a sweep reads as work happening. */
+  background: linear-gradient(
+    90deg,
+    var(--canvas) 25%,
+    #eef0f4 37%,
+    var(--canvas) 63%
+  );
+  background-size: 200% 100%;
+  animation: sk-sheen 1.4s ease-in-out infinite;
+}
+
+.sk-circle { border-radius: 50%; }
+.sk-line + .sk-line { margin-top: 8px; }
+
+.sk-table td { padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.sk-table tr:last-child td { border-bottom: none; }
+.sk-table tbody tr:hover { background: transparent; }
+
+.sk-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.sk-row-main { flex: 1; min-width: 0; }
+
+.sk-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.sk-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.sk-cal-cell { aspect-ratio: 1; width: 100%; border-radius: 10px; }
+
+/* Someone who has asked for less movement gets the shape without the sweep. */
+@media (prefers-reduced-motion: reduce) {
+  .sk-line, .sk-circle, .sk-cal-cell { animation: none; background: var(--canvas); }
+}
+
+.spinner {
+  display: inline-block;
+  vertical-align: -2px;
+  margin-right: 7px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  /* currentColor, so one spinner is legible on a teal button and on a white one. */
+  animation: spin 0.65s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.fullscreen-loader {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: var(--canvas);
+  color: var(--ink-soft);
+  z-index: 200;
+}
+.fullscreen-loader img { opacity: 0.9; }
+.fullscreen-loader .spinner { margin: 0; color: var(--accent); }
+.fullscreen-loader p { margin: 0; font-size: 14px; }
+
+/* The sign-in card's secondary action — "Forgot your password?", "Back to sign in". */
+.login-alt { display: block; margin: 16px auto 0; font-size: 13px; }
+
+/* ===========================================================================
+ * Finish
+ *
+ * The difference between a console that works and one that feels finished is almost entirely in
+ * states — what happens under the cursor, under a keyboard, and in the moment something changes.
+ * None of this alters behaviour; all of it is what makes the behaviour feel deliberate.
+ * ======================================================================== */
+
+/*
+ * One focus treatment, everywhere.
+ *
+ * :focus-visible rather than :focus, so a ring appears for keyboard users and never after a
+ * mouse click — which is the reason focus rings usually get turned off entirely, taking keyboard
+ * navigation with them.
+ */
+.btn:focus-visible,
+.btn-quiet:focus-visible,
+.link-btn:focus-visible,
+.icon-btn:focus-visible,
+.nav-link:focus-visible,
+.tpl-item:focus-visible,
+.var-chip:focus-visible,
+.notif-item:focus-visible,
+.pw-toggle:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Cards lift very slightly under the cursor — enough to say "this is a surface", not enough to
+   make a page of them feel restless. */
+.card:hover { box-shadow: 0 2px 10px rgba(16, 34, 43, 0.07); }
+
+/* Numbers line up in columns when they are tabular. Proportional digits make a column of
+   figures look ragged, which reads as careless on a page whose job is counting places. */
+.stat-card strong,
+.stat-value,
+.table td,
+.notif-badge,
+.student-ref {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Buttons acknowledge the press. 60ms, so it registers without feeling springy. */
+.btn:active:not(:disabled),
+.btn-quiet:active:not(:disabled) { transform: translateY(1px); }
+.btn, .btn-quiet { transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease, transform 0.06s ease; }
+
+/* A disabled control should look unavailable rather than broken. */
+.btn:disabled, .btn-quiet:disabled, .link-btn:disabled { cursor: not-allowed; }
+
+/* Rows that can be opened say so before they are clicked. */
+.table tbody tr { transition: background 0.12s ease; }
+
+/* Headings get slightly tighter tracking as they get larger, which is how type is normally set
+   and what stops a big heading reading as loose. */
+h1 { letter-spacing: -0.02em; }
+h2 { letter-spacing: -0.015em; }
+h3 { letter-spacing: -0.01em; }
+
+/* Content arriving after a skeleton fades in rather than snapping, so the swap reads as the
+   page finishing rather than as a flash. */
+@keyframes content-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to   { opacity: 1; transform: none; }
+}
+.content > * { animation: content-in 0.22s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .content > * { animation: none; }
+  .btn:active:not(:disabled), .btn-quiet:active:not(:disabled) { transform: none; }
+}
+
+/* The sign-in card, which is the first thing anyone sees. */
+.login-card { animation: content-in 0.3s ease-out; }
+.login-card h1 { margin: 0 0 4px; font-size: 21px; }
+.login-card p { margin: 0 0 18px; color: var(--ink-soft); font-size: 14px; }

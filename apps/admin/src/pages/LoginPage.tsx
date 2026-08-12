@@ -1,49 +1,45 @@
 import { useState, type FormEvent } from 'react'
 import { ApiError, api } from '../api.js'
 import { PasswordField } from '../components/PasswordField.js'
+import { Spinner } from '../components/Spinner.js'
+
+/**
+ * Sign in, and the two screens that hang off it.
+ *
+ * Forgetting a password is its own task, so it gets its own view rather than being a button on
+ * the sign-in form. As an action on that form it had to borrow the email box, which meant
+ * pressing it with the box empty produced "enter your email address first" — telling someone
+ * off for pressing the only thing on screen that looked like it would help.
+ */
+
+type View = 'signin' | 'forgot' | 'sent'
 
 export function LoginPage({ onSignedIn }: { onSignedIn: () => void }) {
+  const [view, setView] = useState<View>('signin')
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [totp, setTotp] = useState('')
   const [needsTotp, setNeedsTotp] = useState(false)
+
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [resetSent, setResetSent] = useState<string | null>(null)
+  const [sentTo, setSentTo] = useState('')
 
-  /*
-   * Deliberately says the same thing whether or not the address has a login. Confirming which
-   * addresses exist would turn this box into a way to find out who works at the studio.
-   */
-  async function requestReset() {
-    if (!email.trim()) {
-      setError('Enter your email address first, then ask for a reset link.')
-      return
-    }
-
-    setBusy(true)
+  function go(next: View) {
     setError(null)
-    try {
-      const res = await api.post<{ message: string }>('/api/auth/admin/forgot-password', { email })
-      setResetSent(res.message)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not send a reset link.')
-    } finally {
-      setBusy(false)
-    }
+    setView(next)
   }
 
-  async function submit(event: FormEvent) {
+  async function signIn(event: FormEvent) {
     event.preventDefault()
     setBusy(true)
     setError(null)
 
     try {
-      await api.post('/api/auth/admin/login', {
-        email,
-        password,
-        ...(totp ? { totp } : {}),
-      })
+      await api.post('/api/auth/admin/login', { email, password, ...(totp ? { totp } : {}) })
+      // Left busy on purpose: the console is about to replace this screen, and flicking the
+      // button back to "Sign in" first reads as the attempt having failed.
       onSignedIn()
     } catch (err) {
       if (err instanceof ApiError && err.code === 'totp_required') {
@@ -53,6 +49,21 @@ export function LoginPage({ onSignedIn }: { onSignedIn: () => void }) {
       } else {
         setError(err instanceof Error ? err.message : 'Sign-in failed.')
       }
+      setBusy(false)
+    }
+  }
+
+  async function requestReset(event: FormEvent) {
+    event.preventDefault()
+    setBusy(true)
+    setError(null)
+
+    try {
+      await api.post('/api/auth/admin/forgot-password', { email })
+      setSentTo(email)
+      setView('sent')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not send a reset link.')
     } finally {
       setBusy(false)
     }
@@ -60,50 +71,128 @@ export function LoginPage({ onSignedIn }: { onSignedIn: () => void }) {
 
   return (
     <div className="login-wrap">
-      <form className="login-card" onSubmit={submit}>
-        <img src="/admin/mizuki-logo.png" alt="Mizuki Flora" width={56} height={56} className="login-logo" />
-        <h1>Mizuki Studio</h1>
-        <p>Sign in to manage classes and bookings.</p>
+      <div className="login-card">
+        <img
+          src="/admin/mizuki-logo.png"
+          alt="Mizuki Flora"
+          width={56}
+          height={56}
+          className="login-logo"
+        />
 
-        {error && <div className="banner banner-danger">{error}</div>}
-        {resetSent && <div className="banner banner-ok">{resetSent}</div>}
+        {view === 'signin' && (
+          <form onSubmit={signIn}>
+            <h1>Mizuki Studio</h1>
+            <p>Sign in to manage classes and bookings.</p>
 
-        <label className="field">
-          <span>Email</span>
-          <input
-            type="email"
-            value={email}
-            autoComplete="username"
-            required
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </label>
+            {error && <div className="banner banner-danger">{error}</div>}
 
-        <PasswordField label="Password" value={password} onChange={setPassword} />
+            <label className="field">
+              <span>Email</span>
+              <input
+                type="email"
+                value={email}
+                autoComplete="username"
+                required
+                autoFocus
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </label>
 
-        {needsTotp && (
-          <label className="field">
-            <span>Authenticator code</span>
-            <input
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={6}
-              value={totp}
-              autoFocus
-              onChange={(e) => setTotp(e.target.value.replace(/\D/g, ''))}
-            />
-            <div className="field-hint">The 6-digit code from your authenticator app.</div>
-          </label>
+            <PasswordField label="Password" value={password} onChange={setPassword} />
+
+            {needsTotp && (
+              <label className="field">
+                <span>Authenticator code</span>
+                <input
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  value={totp}
+                  autoFocus
+                  onChange={(e) => setTotp(e.target.value.replace(/\D/g, ''))}
+                />
+                <div className="field-hint">The 6-digit code from your authenticator app.</div>
+              </label>
+            )}
+
+            <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
+              {busy ? (
+                <>
+                  <Spinner /> Signing in…
+                </>
+              ) : (
+                'Sign in'
+              )}
+            </button>
+
+            <button type="button" className="link-btn login-alt" onClick={() => go('forgot')}>
+              Forgot your password?
+            </button>
+          </form>
         )}
 
-        <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={busy}>
-          {busy ? 'Signing in…' : 'Sign in'}
-        </button>
+        {view === 'forgot' && (
+          <form onSubmit={requestReset}>
+            <h1>Reset your password</h1>
+            <p>
+              Enter the email address you sign in with and we will send you a link to choose a new
+              password.
+            </p>
 
-        <button type="button" className="link-btn login-forgot" onClick={requestReset} disabled={busy}>
-          Forgot your password?
-        </button>
-      </form>
+            {error && <div className="banner banner-danger">{error}</div>}
+
+            <label className="field">
+              <span>Email</span>
+              <input
+                type="email"
+                value={email}
+                autoComplete="username"
+                required
+                autoFocus
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </label>
+
+            <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
+              {busy ? (
+                <>
+                  <Spinner /> Sending…
+                </>
+              ) : (
+                'Send me a reset link'
+              )}
+            </button>
+
+            <button type="button" className="link-btn login-alt" onClick={() => go('signin')}>
+              Back to sign in
+            </button>
+          </form>
+        )}
+
+        {view === 'sent' && (
+          <div>
+            <h1>Check your email</h1>
+            <p>
+              If <strong>{sentTo}</strong> has a studio login, a reset link is on its way. It works
+              once and lasts two hours.
+            </p>
+
+            {/*
+              Says "if", and says it whether or not the address exists. Confirming which addresses
+              have a login would turn this screen into a way to find out who works at the studio.
+            */}
+            <div className="banner banner-info">
+              Not arrived after a few minutes? Check spam, or ask another admin to send you a link
+              from the Team page.
+            </div>
+
+            <button type="button" className="btn btn-block" onClick={() => go('signin')}>
+              Back to sign in
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

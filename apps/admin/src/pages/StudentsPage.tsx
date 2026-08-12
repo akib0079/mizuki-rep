@@ -5,6 +5,7 @@ import { api, type StudentSummary } from '../api.js'
 import { StudentDrawer } from '../components/StudentDrawer.js'
 import { NewStudentDialog } from '../components/NewStudentDialog.js'
 import { Icon } from './../components/Icon.js'
+import { SkeletonTable } from '../components/Skeleton.js'
 
 /** Students, their course packages, and the controls to top them up or extend them. */
 export function StudentsPage() {
@@ -73,7 +74,7 @@ export function StudentsPage() {
 
       <div className="card card-pad-0">
         {listQuery.isLoading ? (
-          <div className="empty">Loading…</div>
+          <SkeletonTable rows={6} cols={4} />
         ) : students.length === 0 ? (
           <div className="empty">
             {search ? (

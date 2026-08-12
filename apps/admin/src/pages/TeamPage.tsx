@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError } from '../api.js'
 import { Icon } from '../components/Icon.js'
+import { SkeletonTable } from '../components/Skeleton.js'
 
 /**
  * Who can run the studio, and who hears about bookings.
@@ -148,7 +149,7 @@ export function TeamPage({ currentAdminId }: { currentAdminId: string }) {
         <p className="muted">Everyone here has full access to bookings, students and settings.</p>
 
         {isPending ? (
-          <p className="muted">Loading…</p>
+          <SkeletonTable rows={3} cols={4} />
         ) : (
           <table className="table">
             <thead>
