@@ -565,3 +565,48 @@
   .mzk .mzk-panel { padding: 14px !important; }
   .mzk .mzk-day { min-height: 42px !important; }
 }
+
+/* --- Who is signed in ------------------------------------------------------
+ *
+ * Sits above everything else on the bookings tab. The sign-in link lasts ninety days, so on a
+ * shared phone the previous person's classes are still there — and cancellable — unless there
+ * is a way to say "not me".
+ */
+.mzk-whoami {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  flex-wrap: wrap !important;
+  margin-bottom: 12px !important;
+  padding: 10px 14px !important;
+  border: 1px solid var(--mzk-line) !important;
+  border-radius: 10px !important;
+  background: var(--mzk-canvas) !important;
+}
+
+.mzk-whoami-text {
+  font-size: 14px !important;
+  color: var(--mzk-soft) !important;
+  /* An email is long and must not push the sign-out button off a phone screen. */
+  min-width: 0 !important;
+  overflow-wrap: anywhere !important;
+}
+.mzk-whoami-text strong { color: var(--mzk-ink) !important; font-weight: 650 !important; }
+
+.mzk .mzk-whoami .mzk-link-btn {
+  flex-shrink: 0 !important;
+  padding: 6px 10px !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: var(--mzk-accent) !important;
+  font-size: 13.5px !important;
+  text-decoration: underline !important;
+}
+.mzk .mzk-whoami .mzk-link-btn:hover { color: var(--mzk-accent-dark) !important; }
+.mzk .mzk-whoami .mzk-link-btn:disabled { opacity: 0.55 !important; }
+
+@media (max-width: 520px) {
+  .mzk-whoami { padding: 9px 12px !important; }
+  .mzk-whoami-text { font-size: 13px !important; }
+}

@@ -30,6 +30,7 @@ export function MyBookings({ embedded = false }: { embedded?: boolean } = {}) {
   const [rescheduling, setRescheduling] = useState<MyBookingRow | null>(null)
   const [tab, setTab] = useState<PortalTab>('upcoming')
   const [profile, setProfile] = useState<StudentProfile | null>(null)
+  const [signingOut, setSigningOut] = useState(false)
 
   async function load() {
     try {
@@ -75,6 +76,41 @@ export function MyBookings({ embedded = false }: { embedded?: boolean } = {}) {
 
   return (
     <Scope embedded={embedded}>
+      {/*
+        Who is signed in, and a way out.
+        
+        Without it there was no way to tell whose bookings these are, and no way to become
+        somebody else — which matters because the sign-in link lasts ninety days. Anyone opening
+        the page on a shared phone or a studio laptop saw the previous person's classes and could
+        cancel them. The email, not the name, because the email is what they signed in with and
+        what they would have to type to get back.
+      */}
+      <div className="mzk-whoami">
+        <span className="mzk-whoami-text">
+          Hi <strong>{profile?.email ?? 'there'}</strong>
+        </span>
+        <button
+          type="button"
+          className="mzk-link-btn"
+          disabled={signingOut}
+          onClick={async () => {
+            setSigningOut(true)
+            try {
+              await widgetApi.signOut()
+            } finally {
+              // Signed out either way: if the request failed, showing them as still signed in
+              // when they have asked not to be is the worse of the two mistakes.
+              setData(null)
+              setProfile(null)
+              setSignedOut(true)
+              setSigningOut(false)
+            }
+          }}
+        >
+          {signingOut ? 'Signing out…' : 'Not you? Sign out'}
+        </button>
+      </div>
+
       {/* A short summary strip, so the answers to "when am I next in" and "how many
           sessions have I left" are visible before anything is clicked. */}
       <div className="mzk-summary">

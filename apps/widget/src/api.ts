@@ -106,6 +106,15 @@ export const widgetApi = {
 
   me: () => request<{ student: StudentProfile; packages: PackageRow[] }>('/api/auth/me'),
 
+  /**
+   * Ends the session on this device.
+   *
+   * A shared studio laptop, or a phone handed to a friend to show them a class, otherwise leaves
+   * the next person looking at someone else's bookings and able to cancel them — the sign-in
+   * link lasts ninety days, so "it will expire" is not an answer.
+   */
+  signOut: () => request<{ ok: boolean }>('/api/auth/logout', { method: 'POST' }),
+
   history: () => request<{ classes: PastClass[]; totals: { attended: number; total: number } }>('/api/bookings/history'),
 
   /** Absolute, because the browser downloads it directly rather than fetching it. */
