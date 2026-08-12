@@ -348,6 +348,10 @@ export interface EmailHealth {
 export async function checkEmailKey(): Promise<EmailHealth> {
   const from = (await getPlain(PLAIN_KEYS.mailFrom, config.MAIL_FROM)) ?? config.MAIL_FROM
   const recentFailures = await recentDeliveryFailures()
+  // Failures since the last successful send. Anything older was fixed by whatever made mail
+  // start working again, and reporting it forever makes a healthy system look broken.
+  const stillFailing = await failedMessageCount()
+  const historical = recentFailures.length - stillFailing
 
   const resend = await resendClient()
   if (!resend) {
@@ -402,11 +406,33 @@ export async function checkEmailKey(): Promise<EmailHealth> {
       }
     }
 
+    if (stillFailing > 0) {
+      return {
+        ok: false,
+        message: `Sending from ${senderDomain} is set up correctly, but ${stillFailing} message(s) have failed since the last one went out.`,
+        fix: 'See what failed below — this is happening now, not left over from an earlier problem.',
+        from,
+        verifiedDomains: verified,
+        recentFailures,
+      }
+    }
+
+    if (recentFailures.length > 0) {
+      return {
+        // Not a problem: these failed under a configuration that has since been corrected, and a
+        // permanent rejection never retries, so they stay on the record until cleared.
+        ok: true,
+        message: `Ready. Sending from ${senderDomain}, which is verified.`,
+        fix: `${recentFailures.length} older message(s) failed before this was set up correctly. Nothing has failed since — you can clear them.`,
+        from,
+        verifiedDomains: verified,
+        recentFailures,
+      }
+    }
+
     return {
-      ok: recentFailures.length === 0,
-      message: recentFailures.length
-        ? `Sending from ${senderDomain} is set up correctly, but ${recentFailures.length} recent message(s) still failed.`
-        : `Ready. Sending from ${senderDomain}, which is verified.`,
+      ok: true,
+      message: `Ready. Sending from ${senderDomain}, which is verified.`,
       from,
       verifiedDomains: verified,
       recentFailures,
@@ -424,7 +450,7 @@ export async function checkEmailKey(): Promise<EmailHealth> {
 
 /** The last few things that did not arrive, and why — the studio's only window into this. */
 export async function recentDeliveryFailures(limit = 5) {
-  const rows = await OutboxModel.find({ status: 'failed' })
+  const rows = await OutboxModel.find(FAILED_DELIVERY)
     .sort({ updatedAt: -1 })
     .limit(limit)
     .lean()
@@ -437,8 +463,47 @@ export async function recentDeliveryFailures(limit = 5) {
   }))
 }
 
-/** How many messages are stuck, for the dashboard to raise without anyone pressing a button. */
+/**
+ * What counts as a delivery failure worth telling anyone about.
+ *
+ * Email only. A web push with nobody subscribed and a Telegram message with no bot configured
+ * both park as failed, but neither is broken — they are features the studio has not switched on,
+ * and listing them as failures next to a real bounce buries the one that matters.
+ */
+const FAILED_DELIVERY = { status: 'failed', channel: 'email' } as const
+
+/**
+ * Failures that are still happening, as opposed to ones already fixed.
+ *
+ * A permanent rejection never retries, so a message that failed under a broken configuration
+ * stays failed forever — and counting it keeps a corrected system looking broken indefinitely.
+ * What matters is whether anything has failed *since* the last message went out successfully:
+ * if mail has flowed since, the problem is behind us and the rows are history.
+ */
 export async function failedMessageCount(): Promise<number> {
-  return OutboxModel.countDocuments({ status: 'failed' })
+  const lastSent = await OutboxModel.findOne({ status: 'sent' }).sort({ sentAt: -1 }).select('sentAt').lean()
+
+  return OutboxModel.countDocuments({
+    ...FAILED_DELIVERY,
+    ...(lastSent?.sentAt ? { updatedAt: { $gt: lastSent.sentAt } } : {}),
+  })
 }
+
+/** Everything that ever failed, including what has since been fixed. */
+export async function totalFailedCount(): Promise<number> {
+  return OutboxModel.countDocuments(FAILED_DELIVERY)
+}
+
+/**
+ * Forget the failures.
+ *
+ * They cannot be resent — a permanent rejection is permanent, and the booking they belonged to
+ * has long since been dealt with by other means. This only clears the record, so the console
+ * stops reporting a problem that has been fixed.
+ */
+export async function clearFailedMessages(): Promise<number> {
+  const result = await OutboxModel.deleteMany(FAILED_DELIVERY)
+  return result.deletedCount ?? 0
+}
+
 

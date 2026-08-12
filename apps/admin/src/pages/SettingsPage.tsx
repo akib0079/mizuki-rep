@@ -522,6 +522,16 @@ function IntegrationsCard({ onMessage }: { onMessage: (m: { kind: 'ok' | 'danger
     queryFn: () => api.get<EmailHealth>('/api/admin/settings/integrations/resend/check'),
   })
 
+  const clearFailures = useMutation({
+    mutationFn: () => api.post<{ cleared: number }>('/api/admin/settings/integrations/resend/clear-failures'),
+    onSuccess: (r) => {
+      onMessage({ kind: 'ok', text: `Cleared ${r.cleared} failed message(s).` })
+      void health.refetch()
+      // The dashboard raises the same count, so it has to forget them too.
+      void queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    },
+  })
+
   const check = useMutation({
     mutationFn: () => api.get<EmailHealth>('/api/admin/settings/integrations/resend/check'),
     onSuccess: (r) => {
@@ -551,21 +561,41 @@ function IntegrationsCard({ onMessage }: { onMessage: (m: { kind: 'ok' | 'danger
         </button>
       </div>
 
-      {health.data && !health.data.ok && (
-        <div className="banner banner-danger" style={{ marginTop: 14 }} role="alert">
+      {health.data && (!health.data.ok || health.data.recentFailures.length > 0) && (
+        // Danger only when mail is actually failing now. Old failures under a configuration that
+        // has since been fixed are a tidy-up, not an emergency, and colouring them red trains
+        // the studio to ignore the banner that will one day matter.
+        <div
+          className={`banner ${health.data.ok ? 'banner-info' : 'banner-danger'}`}
+          style={{ marginTop: 14 }}
+          role={health.data.ok ? undefined : 'alert'}
+        >
           <strong>{health.data.message}</strong>
           {health.data.fix && <div style={{ marginTop: 4 }}>{health.data.fix}</div>}
+
           {health.data.recentFailures.length > 0 && (
-            <details style={{ marginTop: 8 }}>
-              <summary>What failed most recently</summary>
-              <ul style={{ margin: '6px 0 0' }}>
-                {health.data.recentFailures.map((f, i) => (
-                  <li key={i} className="small">
-                    <strong>{f.type}</strong> to {f.to} — {f.error}
-                  </li>
-                ))}
-              </ul>
-            </details>
+            <>
+              <details style={{ marginTop: 8 }}>
+                <summary>What failed{health.data.ok ? ' before' : ' most recently'}</summary>
+                <ul style={{ margin: '6px 0 0' }}>
+                  {health.data.recentFailures.map((f, i) => (
+                    <li key={i} className="small">
+                      <strong>{f.type}</strong> to {f.to || '—'} — {f.error}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+
+              <button
+                type="button"
+                className="btn btn-sm"
+                style={{ marginTop: 10 }}
+                disabled={clearFailures.isPending}
+                onClick={() => clearFailures.mutate()}
+              >
+                {clearFailures.isPending ? 'Clearing…' : 'Clear these'}
+              </button>
+            </>
           )}
         </div>
       )}

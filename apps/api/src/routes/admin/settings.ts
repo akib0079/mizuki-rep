@@ -19,7 +19,7 @@ import { getSeriesAvailability } from '../../services/seriesService.js'
 import { buildDashboard } from '../../services/dashboardService.js'
 import { hoursSinceLastBackup, listBackups, readBackup, runBackup } from '../../services/backupService.js'
 import { DEFAULT_TEMPLATES, renderTemplate, resetTemplate } from '../../services/emailTemplates.js'
-import { checkEmailKey, sendDirectEmail } from '../../services/mailer.js'
+import { checkEmailKey, clearFailedMessages, sendDirectEmail } from '../../services/mailer.js'
 import {
   PLAIN_KEYS,
   SECRET_KEYS,
@@ -512,6 +512,27 @@ adminSettingsRouter.get(
   '/integrations/resend/check',
   asyncRoute(async (_req, res) => {
     res.json(await checkEmailKey())
+  }),
+)
+
+/**
+ * Forget failed messages.
+ *
+ * They cannot be resent, so this only clears the record. Offered because a permanent rejection
+ * never retries: without it, one misconfigured afternoon leaves the console reporting a mail
+ * problem forever, and an alert that is always on is an alert nobody reads.
+ */
+adminSettingsRouter.post(
+  '/integrations/resend/clear-failures',
+  asyncRoute(async (req, res) => {
+    const cleared = await clearFailedMessages()
+    await recordAudit({
+      actor: actorOf(req),
+      action: 'mail.clear_failures',
+      entity: 'Outbox',
+      reason: `Cleared ${cleared} failed message(s)`,
+    })
+    res.json({ cleared })
   }),
 )
 
