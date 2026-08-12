@@ -96,6 +96,18 @@ function packageLine(pkg: PackageDoc | null, courseName: string): string {
   return `You have ${left} of ${pkg.totalSessions} ${courseName} sessions remaining in your course package.`
 }
 
+/**
+ * The same fact told to the studio rather than to the student.
+ *
+ * The admin alerts reused the student-facing line, so the studio was emailed "You have 6 of 8
+ * IFDA sessions remaining in your course package" about somebody else's balance.
+ */
+function studioPackageLine(pkg: PackageDoc | null, courseName: string): string {
+  if (!pkg) return ''
+  const left = sessionsRemaining(pkg)
+  return `They have ${left} of ${pkg.totalSessions} ${courseName} sessions left in their course package.`
+}
+
 interface BookingContext {
   booking: BookingDoc
   session: SessionDoc
@@ -162,7 +174,7 @@ export async function queueAdminAwaitingConfirmation(ctx: BookingContext): Promi
     ...sessionVars(ctx.session, ctx.courseType),
     seatsLeft: seatsLeft(ctx.session),
     capacity: ctx.session.capacity,
-    packageLine: packageLine(ctx.pkg ?? null, ctx.courseType.name),
+    packageLine: studioPackageLine(ctx.pkg ?? null, ctx.courseType.name),
     wooOrderId: ctx.booking.wooOrderId ?? '',
     adminSessionUrl: `${config.PUBLIC_API_URL}/admin/calendar?session=${ctx.session._id}&booking=${ctx.booking._id}`,
   }
@@ -281,7 +293,7 @@ export async function queueAdminNewBooking(ctx: BookingContext): Promise<void> {
     seatsTaken: ctx.session.seatsTaken,
     seatsLeft: left,
     capacity: ctx.session.capacity,
-    packageLine: packageLine(ctx.pkg ?? null, ctx.courseType.name),
+    packageLine: studioPackageLine(ctx.pkg ?? null, ctx.courseType.name),
     adminSessionUrl: `${config.PUBLIC_API_URL}/admin/calendar?session=${ctx.session._id}`,
   }
 

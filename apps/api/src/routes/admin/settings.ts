@@ -302,7 +302,7 @@ adminSettingsRouter.post(
       })
       .parse(req.body ?? {})
 
-    const rendered = await renderTemplate(key, SAMPLE_VARS, draft)
+    const rendered = await renderTemplate(key, sampleVars(key), draft)
     res.json(rendered)
   }),
 )
@@ -313,7 +313,7 @@ adminSettingsRouter.post(
     const key = emailTemplateKeySchema.parse(req.params.key)
     const { to } = sendTestEmailSchema.parse(req.body)
 
-    const rendered = await renderTemplate(key, SAMPLE_VARS)
+    const rendered = await renderTemplate(key, sampleVars(key))
     await sendDirectEmail(to, `[Test] ${rendered.subject}`, rendered.html, rendered.text)
 
     res.json({ ok: true, sentTo: to })
@@ -352,6 +352,21 @@ const SAMPLE_VARS: Record<string, string | number> = {
   adminCalendarUrl: `${config.PUBLIC_API_URL}/admin/calendar`,
   siteUrl: config.PUBLIC_SITE_URL,
   studioPhone: '+65 8821 9386',
+}
+
+/**
+ * The one sample line that cannot be shared.
+ *
+ * `packageLine` is written to the reader, and the admin alerts have a different reader — previewing
+ * them with the student's wording showed the studio "You have 6 of 8 sessions remaining" about
+ * somebody else's balance, which is exactly the mistake the live templates used to make.
+ */
+function sampleVars(key: string): Record<string, string | number> {
+  if (!key.startsWith('admin_')) return SAMPLE_VARS
+  return {
+    ...SAMPLE_VARS,
+    packageLine: 'They have 6 of 8 IFDA sessions left in their course package.',
+  }
 }
 
 // --- Web push enrolment -----------------------------------------------------

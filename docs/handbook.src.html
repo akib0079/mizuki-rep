@@ -1,0 +1,1202 @@
+<title>Mizuki Flora — Studio Handbook</title>
+
+<style>
+  /*
+   * Palette taken from the console this documents, so the guide and the product read as one thing:
+   * the deep teal is the accent the buttons use, and the neutrals carry a slight teal cast rather
+   * than being plain grey.
+   */
+  :root {
+    --ground: #fbfcfc;
+    --surface: #ffffff;
+    --raised: #f1f5f6;
+    --line: #dde6e8;
+    --line-soft: #ebf1f2;
+
+    --ink: #16272d;
+    --ink-soft: #4d646e;
+    --ink-faint: #798d95;
+
+    --accent: #00697a;
+    --accent-soft: #e0f3f6;
+
+    /* Semantic, kept clear of the accent so "needs attention" never reads as decoration. */
+    --stem: #5c7828;
+    --stem-soft: #eef4e1;
+    --warn: #875a08;
+    --warn-soft: #fdf2de;
+    --alert: #9e3128;
+    --alert-soft: #fbebea;
+
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+    --measure: 68ch;
+  }
+
+  /* Dark is redefined at token level only, and guarded so an explicit light choice still wins. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0d191d;
+      --surface: #142329;
+      --raised: #1a2d34;
+      --line: #26404a;
+      --line-soft: #1d333a;
+
+      --ink: #e5eff1;
+      --ink-soft: #a1bac3;
+      --ink-faint: #75929f;
+
+      --accent: #56c5d7;
+      --accent-soft: #113039;
+
+      --stem: #a9c96d;
+      --stem-soft: #1d2c15;
+      --warn: #e0b160;
+      --warn-soft: #32250e;
+      --alert: #ef958c;
+      --alert-soft: #391b18;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0d191d;
+    --surface: #142329;
+    --raised: #1a2d34;
+    --line: #26404a;
+    --line-soft: #1d333a;
+
+    --ink: #e5eff1;
+    --ink-soft: #a1bac3;
+    --ink-faint: #75929f;
+
+    --accent: #56c5d7;
+    --accent-soft: #113039;
+
+    --stem: #a9c96d;
+    --stem-soft: #1d2c15;
+    --warn: #e0b160;
+    --warn-soft: #32250e;
+    --alert: #ef958c;
+    --alert-soft: #391b18;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /*
+   * Asymmetric: a narrow contents rail, a reading column held to a comfortable measure, and room
+   * for screenshots to run past the text without going full-bleed.
+   */
+  .shell {
+    display: grid;
+    grid-template-columns: 252px minmax(0, 1fr);
+    gap: 56px;
+    max-width: 1250px;
+    margin: 0 auto;
+    padding: 0 32px 120px;
+  }
+
+  /* --- Contents rail ------------------------------------------------------ */
+
+  .rail {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    max-height: 100vh;
+    overflow-y: auto;
+    padding: 44px 0;
+  }
+  .rail-mark {
+    font-size: 12.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 700;
+  }
+  .rail-title { margin: 6px 0 26px; font-size: 19px; font-weight: 720; letter-spacing: -0.02em; line-height: 1.25; }
+  .rail nav { display: flex; flex-direction: column; gap: 1px; }
+  .rail nav a {
+    display: grid;
+    grid-template-columns: 22px 1fr;
+    gap: 10px;
+    padding: 7px 10px 7px 6px;
+    border-radius: 7px;
+    color: var(--ink-soft);
+    text-decoration: none;
+    font-size: 14.5px;
+    line-height: 1.35;
+    transition: background 0.13s ease, color 0.13s ease;
+  }
+  .rail nav a:hover, .rail nav a:focus-visible { background: var(--raised); color: var(--ink); }
+  .rail nav a .n { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); padding-top: 2px; }
+
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+
+  /* --- Opening ------------------------------------------------------------ */
+
+  main { padding-top: 44px; min-width: 0; }
+
+  .lede { padding: 22px 0 14px; border-bottom: 1px solid var(--line); margin-bottom: 58px; }
+  .eyebrow { font-family: var(--mono); font-size: 12.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); }
+  h1 {
+    font-size: clamp(34px, 5vw, 46px);
+    line-height: 1.08;
+    letter-spacing: -0.035em;
+    font-weight: 760;
+    margin: 14px 0 18px;
+    text-wrap: balance;
+    max-width: 18ch;
+  }
+  .lede p { max-width: var(--measure); color: var(--ink-soft); margin: 0 0 18px; }
+  .lede p.big { font-size: 18.5px; }
+
+  /* --- Sections ----------------------------------------------------------- */
+
+  section { margin-bottom: 78px; scroll-margin-top: 24px; }
+
+  h2 {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 14px;
+    align-items: baseline;
+    font-size: 28px;
+    letter-spacing: -0.025em;
+    font-weight: 730;
+    margin: 0 0 6px;
+    text-wrap: balance;
+  }
+  h2 .num { font-family: var(--mono); font-size: 14px; font-weight: 500; color: var(--accent); letter-spacing: 0; }
+
+  /* One line naming the screen, because that is always the reader's real question. */
+  .whatfor { margin: 0 0 26px 42px; color: var(--ink-faint); font-size: 15px; max-width: var(--measure); }
+  .whatfor strong { color: var(--ink-soft); font-weight: 650; }
+
+  h3 { font-size: 19px; font-weight: 700; letter-spacing: -0.015em; margin: 38px 0 10px; text-wrap: balance; }
+
+  p, li { max-width: var(--measure); }
+  p { margin: 0 0 16px; }
+  ul { margin: 0 0 18px; padding-left: 22px; }
+  li { margin-bottom: 8px; }
+
+  a { color: var(--accent); text-underline-offset: 2px; }
+  strong { font-weight: 650; }
+
+  /*
+   * Things you click or type, so an instruction can be followed literally.
+   *
+   * These must wrap. Held on one line, a label like "Send me a reset link" ran straight off the
+   * side of a phone and printed on top of the sentence around it; box-decoration-break keeps the
+   * border and background whole across the wrap.
+   */
+  .ui {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    background: var(--raised);
+    border: 1px solid var(--line-soft);
+    border-radius: 5px;
+    padding: 1px 6px;
+    overflow-wrap: break-word;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+
+  /* --- Screenshots -------------------------------------------------------- */
+
+  figure { margin: 26px 0 30px; }
+  figure img {
+    display: block;
+    width: 100%;
+    max-width: 1000px;
+    height: auto;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+  }
+  figcaption { margin-top: 10px; font-size: 14.5px; color: var(--ink-faint); max-width: var(--measure); }
+
+  /* Emails are narrow; at full width they stop looking like email. */
+  figure.email img { max-width: 600px; }
+
+  /* --- Steps -------------------------------------------------------------- */
+
+  ol.steps {
+    list-style: none;
+    padding: 0;
+    counter-reset: step;
+    margin: 20px 0 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  /*
+   * The marker is positioned, not a grid or flex column. Laying the step out as a two-column grid
+   * made every inline element in the step its own grid item, so a <span class="ui"> landed in the
+   * 28px marker column and printed one letter per line.
+   */
+  ol.steps > li {
+    counter-increment: step;
+    position: relative;
+    padding-left: 42px;
+    margin: 0;
+    max-width: var(--measure);
+  }
+  ol.steps > li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 2px;
+    width: 28px;
+    height: 24px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 24px;
+    text-align: center;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-radius: 6px;
+  }
+
+  /* --- Callouts ----------------------------------------------------------- */
+
+  .note {
+    border-left: 3px solid var(--line);
+    background: var(--surface);
+    padding: 14px 18px;
+    margin: 22px 0;
+    border-radius: 0 8px 8px 0;
+    max-width: var(--measure);
+  }
+  .note p:last-child { margin-bottom: 0; }
+  .note .label {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 5px;
+  }
+  .note.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+  .note.warn .label { color: var(--warn); }
+  .note.alert { border-left-color: var(--alert); background: var(--alert-soft); }
+  .note.alert .label { color: var(--alert); }
+  .note.good { border-left-color: var(--stem); background: var(--stem-soft); }
+  .note.good .label { color: var(--stem); }
+  .note.quiet { border-left-color: var(--accent); background: var(--accent-soft); }
+  .note.quiet .label { color: var(--accent); }
+
+  /* --- Tables ------------------------------------------------------------- */
+
+  .table-wrap { overflow-x: auto; margin: 22px 0 26px; max-width: 1000px; }
+  table { border-collapse: collapse; width: 100%; font-size: 15.5px; min-width: 460px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  th {
+    font-size: 12.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 700;
+    border-bottom-color: var(--line);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.when { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--ink-soft); }
+
+  /* --- Closing ------------------------------------------------------------ */
+
+  .footer {
+    border-top: 1px solid var(--line);
+    padding-top: 26px;
+    margin-top: 60px;
+    color: var(--ink-faint);
+    font-size: 14.5px;
+    max-width: var(--measure);
+  }
+
+  @media (max-width: 900px) {
+    .shell { grid-template-columns: 1fr; gap: 0; padding: 0 20px 80px; }
+    .rail { position: static; max-height: none; padding: 28px 0 18px; border-bottom: 1px solid var(--line); }
+
+    /*
+     * Chips rather than a list. Fourteen stacked rows filled the whole first screen of a phone, so
+     * the handbook opened on its own table of contents and the title was below the fold.
+     */
+    .rail nav { flex-direction: row; flex-wrap: wrap; gap: 6px; }
+    .rail nav a {
+      grid-template-columns: auto auto;
+      gap: 7px;
+      padding: 5px 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      font-size: 13.5px;
+    }
+    .rail nav a .n { padding-top: 0; }
+
+    main { padding-top: 30px; }
+    body { font-size: 16.5px; }
+    h2 { font-size: 24px; }
+    .whatfor { margin-left: 0; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+
+<div class="shell">
+  <aside class="rail">
+    <div class="rail-mark">Mizuki Flora</div>
+    <div class="rail-title">Studio Handbook</div>
+    <nav>
+      <a href="#start"><span class="n">01</span><span>Start here</span></a>
+      <a href="#signin"><span class="n">02</span><span>Signing in</span></a>
+      <a href="#dashboard"><span class="n">03</span><span>Your dashboard</span></a>
+      <a href="#calendar"><span class="n">04</span><span>The calendar</span></a>
+      <a href="#classes"><span class="n">05</span><span>Managing a class</span></a>
+      <a href="#payments"><span class="n">06</span><span>Confirming payments</span></a>
+      <a href="#students"><span class="n">07</span><span>Students</span></a>
+      <a href="#closed"><span class="n">08</span><span>Days you are away</span></a>
+      <a href="#emails"><span class="n">09</span><span>Emails students get</span></a>
+      <a href="#alerts"><span class="n">10</span><span>How you are told</span></a>
+      <a href="#courses"><span class="n">11</span><span>Courses &amp; class sizes</span></a>
+      <a href="#team"><span class="n">12</span><span>Your team</span></a>
+      <a href="#student-view"><span class="n">13</span><span>What students see</span></a>
+      <a href="#questions"><span class="n">14</span><span>Common questions</span></a>
+    </nav>
+  </aside>
+
+  <main>
+    <div class="lede">
+      <div class="eyebrow">Studio handbook</div>
+      <h1>Running Mizuki Flora bookings</h1>
+      <p class="big">
+        Everything your booking system does, and how to do it. No technical knowledge needed —
+        every section starts by naming the screen you should be on and what it is for.
+      </p>
+      <p>
+        Sections are numbered so you can say <em>"section 6"</em> when you need a hand with
+        something. Keep this page bookmarked.
+      </p>
+    </div>
+
+    <!-- 01 ---------------------------------------------------------------- -->
+    <section id="start">
+      <h2><span class="num">01</span><span>Start here</span></h2>
+      <p class="whatfor">The two halves of the system, and which one is yours.</p>
+
+      <p>
+        There are two sides to this. <strong>Students</strong> use the booking page on your
+        website. <strong>You</strong> use the studio console — a separate, private site that only
+        you and your team can open.
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Where</th><th>Who uses it</th><th>What happens there</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="ui">mizuki.com.sg/book-a-class</span></td>
+              <td>Students</td>
+              <td>See your classes, book a place, change or cancel a booking</td>
+            </tr>
+            <tr>
+              <td><span class="ui">api.mizuki.com.sg/admin</span></td>
+              <td>You and your team</td>
+              <td>Everything else — classes, students, payments, emails</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>The one rule worth knowing</h3>
+      <p>
+        A class can never be overbooked by students. When someone takes the last place, that place
+        is gone the instant they take it — even if another person is halfway through booking it at
+        the same moment. You never have to check for this.
+      </p>
+
+      <h3>Two things on every screen</h3>
+      <ul>
+        <li><strong>Quick add</strong>, top right — add a class or a student from wherever you are.</li>
+        <li><strong>Search</strong>, at the top of the menu — find any student by name, email or phone.</li>
+      </ul>
+
+      <div class="note quiet">
+        <span class="label">Times</span>
+        <p>
+          Every time shown anywhere in the system is Singapore time, no matter where you or your
+          students happen to be.
+        </p>
+      </div>
+    </section>
+
+    <!-- 02 ---------------------------------------------------------------- -->
+    <section id="signin">
+      <h2><span class="num">02</span><span>Signing in</span></h2>
+      <p class="whatfor">Screen: <strong>the sign-in page</strong>. Getting into the console.</p>
+
+      <figure>
+        {{IMG:01-signin}}
+        <figcaption>Go to <span class="ui">api.mizuki.com.sg/admin</span> and sign in with your email and password.</figcaption>
+      </figure>
+
+      <p>Tap the eye icon in the password box to check what you typed before signing in.</p>
+
+      <h3>If you forget your password</h3>
+      <ol class="steps">
+        <li>Click <span class="ui">Forgot your password?</span> underneath the Sign in button.</li>
+        <li>Type the email address you sign in with, and click <span class="ui">Send me a reset link</span>.</li>
+        <li>Open the email and follow the link to choose a new password.</li>
+      </ol>
+
+      <div class="note warn">
+        <span class="label">If that email does not arrive</span>
+        <p>
+          Check your spam folder first. If it is genuinely not there, anyone else on your team can
+          send you a fresh link from the Team page — see <a href="#team">section 12</a>.
+        </p>
+      </div>
+
+      <h3>Staying signed in</h3>
+      <p>
+        You stay signed in on your own devices, so you will not be typing your password every day.
+        Use <span class="ui">Sign out</span> at the bottom of the left-hand menu if you are on a
+        shared or borrowed computer.
+      </p>
+
+      <h3>Changing your password later</h3>
+      <p>
+        <strong>Settings → Security</strong> has <span class="ui">Change password</span>, and
+        <span class="ui">Set up two-factor sign-in</span> if you want a code from your phone
+        required as well as your password.
+      </p>
+    </section>
+
+    <!-- 03 ---------------------------------------------------------------- -->
+    <section id="dashboard">
+      <h2><span class="num">03</span><span>Your dashboard</span></h2>
+      <p class="whatfor">Screen: <strong>Dashboard</strong>. What needs you today.</p>
+
+      <figure>
+        {{IMG:02-dashboard}}
+        <figcaption>The first screen after signing in. Read it top to bottom.</figcaption>
+      </figure>
+
+      <h3>Things that need you today</h3>
+      <p>
+        The box at the top is the only part you must read. It lists anything waiting on a decision
+        from you — a payment to check, a class that is overbooked, a course nobody can buy yet.
+        When this box is empty, nothing needs you.
+      </p>
+      <p>Each item is clickable and takes you straight to the screen where you deal with it.</p>
+
+      <h3>The four numbers</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Number</th><th>What it counts</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Classes today</strong></td><td>Classes you are teaching today, and how many students to expect</td></tr>
+            <tr><td><strong>Students · next 7 days</strong></td><td>People booked into the coming week, and how many places are still free</td></tr>
+            <tr><td><strong>Bookings this month</strong></td><td>Places taken this month, confirmed and held together</td></tr>
+            <tr><td><strong>Students on file</strong></td><td>Everyone who has ever booked with you</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Further down</h3>
+      <ul>
+        <li><strong>Today's classes</strong> — your teaching list for the day.</li>
+        <li><strong>How full is the week</strong> — one circle for the next seven days, booked against free.</li>
+        <li><strong>Next classes</strong> — what is coming, and how full each one is.</li>
+        <li><strong>Course packages running low</strong> — students nearly out of sessions, so you can mention it before they run out.</li>
+      </ul>
+    </section>
+
+    <!-- 04 ---------------------------------------------------------------- -->
+    <section id="calendar">
+      <h2><span class="num">04</span><span>The calendar</span></h2>
+      <p class="whatfor">Screen: <strong>Calendar</strong>. Every class you are running.</p>
+
+      <figure>
+        {{IMG:03-calendar}}
+        <figcaption>A month at a time. Each line is one class: its start time, its name, and how full it is.</figcaption>
+      </figure>
+
+      <h3>Reading a class at a glance</h3>
+      <p>
+        The small coloured bar at the left of each line tells you the course — the key along the
+        bottom of the calendar shows which colour is which. Use <span class="ui">All courses</span>
+        at the top right to show just one course at a time.
+      </p>
+      <p>The number on the right is how full a class is. Its colour is the part to notice:</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Looks like</th><th>Means</th></tr></thead>
+          <tbody>
+            <tr><td>No number at all</td><td>Nobody has booked yet</td></tr>
+            <tr><td>Blue <span class="ui">3/8</span></td><td>Filling up normally</td></tr>
+            <tr><td>Amber <span class="ui">7/8</span></td><td>Two places or fewer left</td></tr>
+            <tr><td>Grey <span class="ui">8/8</span></td><td>Full — students see it as full and cannot book</td></tr>
+            <tr><td>Red <span class="ui">9!</span></td><td>More people booked than places. Needs you.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Moving a class to another day</h3>
+      <p>
+        Drag it. Pick the class up, drop it on a different date, and the system works out who is
+        affected before anything changes.
+      </p>
+      <p>
+        If students are booked in, you get a confirmation box telling you how many, and asking
+        whether to email them about the change. Nothing moves until you say yes.
+      </p>
+
+      <h3>Adding a class</h3>
+      <ol class="steps">
+        <li>Click <span class="ui">+ Add class</span> at the top right.</li>
+        <li>Choose the course, the date and the start time.</li>
+        <li>Set how long it runs and how many places there are.</li>
+        <li>Add it. It appears on the calendar and on your website straight away.</li>
+      </ol>
+
+      <div class="note quiet">
+        <span class="label">Your weekly timetable is automatic</span>
+        <p>
+          Your regular weekly classes are created for the next three months on their own, so you
+          only add classes by hand for one-off workshops and weekend courses.
+        </p>
+      </div>
+
+      <h3>On your phone</h3>
+      <p>
+        A month grid does not fit on a phone, so the calendar opens as a list of the next fortnight
+        instead — full class names, times and how many are booked. Tap <span class="ui">month</span>
+        to switch to the grid if you need it.
+      </p>
+    </section>
+
+    <!-- 05 ---------------------------------------------------------------- -->
+    <section id="classes">
+      <h2><span class="num">05</span><span>Managing a class</span></h2>
+      <p class="whatfor">Screen: <strong>Calendar</strong>, then click any class. Who is coming, and everything about that class.</p>
+
+      <figure>
+        {{IMG:04-class-drawer}}
+        <figcaption>Click a class and this panel slides in from the right.</figcaption>
+      </figure>
+
+      <h3>The four numbers at the top</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Number</th><th>What it means</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Booked</strong></td><td>People coming</td></tr>
+            <tr><td><strong>On sale</strong></td><td>Places a student can still book on your website</td></tr>
+            <tr><td><strong>Held back</strong></td><td>Places you have kept off the website, to fill yourself</td></tr>
+            <tr><td><strong>Class size</strong></td><td>Total places in the room</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Changing the class size</h3>
+      <p>
+        Use <span class="ui">−</span> and <span class="ui">+</span> under <strong>Class size</strong>.
+        This changes this one class only, not every class of that course.
+      </p>
+
+      <h3>Keeping places for chat bookings</h3>
+      <p>
+        This is the one to know about. If someone asks for a place over WhatsApp or in person and
+        you want to keep space for them, use <span class="ui">+</span> under <strong>Held back for
+        chat bookings</strong>.
+      </p>
+      <p>
+        Held-back places disappear from your website immediately — students cannot take them — but
+        they stay yours to fill by hand. A class with 8 places and 2 held back shows 6 available
+        online.
+      </p>
+
+      <h3>Adding a student yourself</h3>
+      <ol class="steps">
+        <li>Click <span class="ui">+ Add student</span>.</li>
+        <li>Search for them if they have booked before, or type their details if they are new.</li>
+        <li>They join the list, and get the same confirmation email as an online booking.</li>
+      </ol>
+
+      <h3>Marking who turned up</h3>
+      <p>
+        Each person on the list has a tick to mark them as attended, and
+        <span class="ui">Remove</span> to take them out of the class. If someone used a course
+        session and did not come, removing them returns that session to their package automatically.
+      </p>
+
+      <h3>Cancelling a class</h3>
+      <p>
+        <span class="ui">Cancel class</span> at the bottom. You are shown exactly who is booked and
+        asked whether to email them. Anyone who used a course session gets it back.
+      </p>
+
+      <div class="note good">
+        <span class="label">You can undo this</span>
+        <p>
+          A cancelled class can be brought back for 30 days, and the students who were booked come
+          back with it — except anyone who had already cancelled themselves, who correctly stays out.
+        </p>
+      </div>
+    </section>
+
+    <!-- 06 ---------------------------------------------------------------- -->
+    <section id="payments">
+      <h2><span class="num">06</span><span>Confirming payments</span></h2>
+      <p class="whatfor">Screen: <strong>Payments</strong>. Places waiting for you to say yes.</p>
+
+      <figure>
+        {{IMG:07-payments}}
+        <figcaption>Everyone here is holding a place that is not confirmed yet.</figcaption>
+      </figure>
+
+      <p>
+        This is your daily job. Two different situations land on this screen, and the line under
+        each person's name tells you which:
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>The line says</th><th>What to do</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>paid, shop order #5241</strong></td>
+              <td>They have paid through your shop. Check the money arrived, then confirm.</td>
+            </tr>
+            <tr>
+              <td><strong>no payment yet — arrange it before confirming</strong></td>
+              <td>They asked to join but have no course package. Sort payment out with them first.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Confirming a place</h3>
+      <ol class="steps">
+        <li>Check the payment however you normally would — your bank, or your shop's orders.</li>
+        <li>Click <span class="ui">Confirm place</span>.</li>
+        <li>The student is emailed their confirmation immediately, with a calendar invitation attached.</li>
+      </ol>
+
+      <h3>If the payment never came</h3>
+      <p>
+        Click <span class="ui">No payment</span>. You are asked for a reason, and that reason goes
+        into the email to the student — so tell them something useful. Their place goes back on sale
+        straight away.
+      </p>
+
+      <div class="note quiet">
+        <span class="label">Their place is safe while you decide</span>
+        <p>
+          Nobody else can take it. There is no time limit and nothing expires — a place waiting here
+          stays held until you confirm it or release it.
+        </p>
+      </div>
+
+      <h3>Checking what you already did</h3>
+      <p>
+        The <span class="ui">History</span> tab lists everything you have confirmed or declined,
+        most recent first — so you can answer "did I already deal with Sofia?" without hunting.
+      </p>
+    </section>
+
+    <!-- 07 ---------------------------------------------------------------- -->
+    <section id="students">
+      <h2><span class="num">07</span><span>Students</span></h2>
+      <p class="whatfor">Screen: <strong>Students</strong>. Everyone who has booked, and their course packages.</p>
+
+      <figure>
+        {{IMG:05-students}}
+        <figcaption>Search by name, email or phone. <strong>Sessions left</strong> turns amber when someone is nearly out; a dash means no package.</figcaption>
+      </figure>
+
+      <div class="note quiet">
+        <span class="label">Why the reference numbers</span>
+        <p>
+          Two students can genuinely have the same name. The reference — <span class="ui">MZ-0023</span>
+          — is what tells them apart, and it is short enough to say out loud on the phone.
+        </p>
+      </div>
+
+      <h3>Opening a student</h3>
+      <figure>
+        {{IMG:06-student-drawer}}
+        <figcaption>Click any row, or <span class="ui">Open</span>. Their whole history is in the four tabs.</figcaption>
+      </figure>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Tab</th><th>Shows</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Overview</strong></td><td>Attendance, courses taken, what they have booked next</td></tr>
+            <tr><td><strong>Bookings</strong></td><td>Every class they have ever booked</td></tr>
+            <tr><td><strong>Packages</strong></td><td>Course sessions bought, used and left — and where to add more</td></tr>
+            <tr><td><strong>Details</strong></td><td>Contact details, and your private notes about them</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Course packages</h3>
+      <p>
+        IFDA and Preserved Flower are sold as a block of sessions. Booking a class uses one;
+        cancelling gives it back. You never have to count anything yourself.
+      </p>
+      <p>
+        On the <strong>Packages</strong> tab you can give a student more sessions, or extend how long
+        they have to use them. Every change is recorded with who made it and when.
+      </p>
+
+      <h3>Adding a student by hand</h3>
+      <p>
+        <span class="ui">+ Add student</span> at the top right — for someone who booked over WhatsApp
+        or walked in. Name, email and phone is all you need.
+      </p>
+
+      <h3>Duplicate accounts</h3>
+      <p>
+        If the same person books twice with slightly different details — a typo in their email, say —
+        a <strong>Possible duplicate accounts</strong> panel appears at the top of this page.
+      </p>
+      <p>
+        Click <span class="ui">Join into the one above</span> and their bookings and course sessions
+        move onto a single account. Nothing is deleted.
+      </p>
+
+      <div class="note good">
+        <span class="label">Mostly prevented already</span>
+        <p>
+          When someone tries to book with an email or phone number you already have on file, they are
+          asked to sign in instead of making a second account. This panel is for the ones that
+          slipped through before.
+        </p>
+      </div>
+    </section>
+
+    <!-- 08 ---------------------------------------------------------------- -->
+    <section id="closed">
+      <h2><span class="num">08</span><span>Days you are away</span></h2>
+      <p class="whatfor">Screen: <strong>Closed dates</strong>. Closing the studio for a day or a fortnight.</p>
+
+      <figure>
+        {{IMG:12-closed}}
+        <figcaption>Mark a single day or a range. The reason is for your records only — students never see it.</figcaption>
+      </figure>
+
+      <ol class="steps">
+        <li>Choose the first and last day you are closed.</li>
+        <li>Add a short reason for yourself.</li>
+        <li>Click <span class="ui">Check what this affects</span> — nothing has changed yet.</li>
+        <li>You are shown every class in that range and every student booked into them.</li>
+        <li>Then decide: cancel those classes and email everyone, or close only the empty ones.</li>
+      </ol>
+
+      <p>Closed days vanish from your website the moment you save, so nobody can book into them.</p>
+
+      <div class="note warn">
+        <span class="label">Always look at the preview</span>
+        <p>
+          The preview exists so you never cancel a class without knowing who was in it. It costs one
+          click, and it is the difference between closing a quiet week and cancelling on eleven
+          people by accident.
+        </p>
+      </div>
+    </section>
+
+    <!-- 09 ---------------------------------------------------------------- -->
+    <section id="emails">
+      <h2><span class="num">09</span><span>Emails students get</span></h2>
+      <p class="whatfor">Screen: <strong>Emails</strong>. Every message the system sends, and how to reword it.</p>
+
+      <p>All of these send themselves. You never have to write one.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Called, in the Emails list</th><th class="when">Sent when</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Booking confirmation</strong></td><td class="when">A place is confirmed</td></tr>
+            <tr><td><strong>Place reserved — payment to arrange</strong></td><td class="when">They booked, payment still to sort out</td></tr>
+            <tr><td><strong>Payment received — awaiting confirmation</strong></td><td class="when">They paid, you are checking it</td></tr>
+            <tr><td><strong>Class reminder (2 days before)</strong></td><td class="when">Two days before the class, in the morning</td></tr>
+            <tr><td><strong>Class time changed</strong></td><td class="when">You move a class they are in</td></tr>
+            <tr><td><strong>Class cancelled by the studio</strong></td><td class="when">You cancel a class they are in</td></tr>
+            <tr><td><strong>Booking cancelled</strong></td><td class="when">A single booking is cancelled</td></tr>
+            <tr><td><strong>Reschedule confirmation</strong></td><td class="when">They move themselves to another date</td></tr>
+            <tr><td><strong>Course package running low</strong></td><td class="when">Their sessions are nearly used up</td></tr>
+            <tr><td><strong>Course package expiring</strong></td><td class="when">Before a package runs out of time</td></tr>
+            <tr><td><strong>Sign-in link</strong></td><td class="when">They ask to see their bookings</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        The rest of that list — the ones beginning <strong>Admin</strong> — come to you, not to
+        students. Those are covered in <a href="#alerts">section 10</a>.
+      </p>
+
+      <h3>What a confirmation looks like</h3>
+      <figure class="email">
+        {{IMG:14-email-confirmation}}
+        <figcaption>Sent the moment a place is confirmed. A calendar invitation is attached, so it lands in the student's own calendar.</figcaption>
+      </figure>
+
+      <h3>When payment is still to be arranged</h3>
+      <figure class="email">
+        {{IMG:16-email-pending}}
+        <figcaption>Written carefully so it cannot be mistaken for a confirmation — their place is held, but not yet confirmed.</figcaption>
+      </figure>
+
+      <h3>The reminder</h3>
+      <figure class="email">
+        {{IMG:17-email-reminder}}
+        <figcaption>Two days before, with your address. Sends itself; there is nothing for you to do.</figcaption>
+      </figure>
+
+      <h3>Changing the wording</h3>
+      <figure>
+        {{IMG:09-emails}}
+        <figcaption>Pick a message on the left. What the student receives is shown on the right, updating as you type.</figcaption>
+      </figure>
+
+      <ol class="steps">
+        <li>Choose the message you want to change from the list on the left.</li>
+        <li>Edit it. The preview on the right updates as you type.</li>
+        <li>Click <span class="ui">Save changes</span>.</li>
+        <li>Click <span class="ui">Send test to me</span> to see it arrive in your own inbox.</li>
+      </ol>
+
+      <div class="note warn">
+        <span class="label">Which box to edit</span>
+        <p>
+          <strong>Subject</strong> is plain text — change it freely. <strong>Email body</strong> is
+          written in web code, so change the words and leave the bits inside angle brackets alone.
+          Watch the preview as you go: if it still looks right, you are fine.
+        </p>
+      </div>
+
+      <div class="note quiet">
+        <span class="label">The chips marked studentName, sessionDate…</span>
+        <p>
+          These fill themselves in for each student. Click one to drop it into your text. Leave them
+          as they are and every person gets their own name, class and date.
+        </p>
+      </div>
+
+      <div class="note good">
+        <span class="label">Nothing here you can break</span>
+        <p>
+          <span class="ui">Reset to original</span> puts any message back exactly as it started.
+        </p>
+      </div>
+    </section>
+
+    <!-- 10 ---------------------------------------------------------------- -->
+    <section id="alerts">
+      <h2><span class="num">10</span><span>How you are told</span></h2>
+      <p class="whatfor">Where booking alerts reach you, and why there are three places.</p>
+
+      <p>
+        When something happens you are told in up to three ways at once. Three, because email alone
+        gets missed.
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Where</th><th>Good for</th></tr></thead>
+          <tbody>
+            <tr><td><strong>The bell in the console</strong></td><td>Always there, never lost — the reliable one</td></tr>
+            <tr><td><strong>Email</strong></td><td>A record you can search and forward</td></tr>
+            <tr><td><strong>Telegram</strong></td><td>Your phone buzzing within seconds</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>The bell</h3>
+      <figure>
+        {{IMG:08-notifications}}
+        <figcaption>A red number means something needs you. Click any line to go straight to it.</figcaption>
+      </figure>
+
+      <p>
+        The red strip at the top of the panel is for payments waiting on you. That count does not
+        disappear when you look at it — it clears when the work is actually done.
+      </p>
+
+      <h3>The email you get</h3>
+      <figure class="email">
+        {{IMG:15-email-admin}}
+        <figcaption>Every new booking, with the student's contact details and how full the class now is.</figcaption>
+      </figure>
+
+      <p>
+        These go to everyone on your team, plus any extra addresses you add on the Team page. You
+        also get one when a payment needs checking, and a short summary each morning.
+      </p>
+
+      <h3>Telegram on your phone</h3>
+      <ol class="steps">
+        <li>Open Telegram and find your studio bot.</li>
+        <li>Press <span class="ui">Start</span>. This step is required — a bot cannot message you until you have opened a conversation with it.</li>
+        <li>In <strong>Settings → Connected services</strong>, click <span class="ui">Find my chat</span> and pick your chat.</li>
+        <li>Click <span class="ui">Send a test message</span> to prove it works.</li>
+      </ol>
+
+      <h3>Where all of this is set up</h3>
+      <figure>
+        {{IMG:13-connected}}
+        <figcaption><strong>Settings → Connected services.</strong> The banner tells you in plain words whether email is working.</figcaption>
+      </figure>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Setting</th><th>What it is</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Send from</strong></td><td>The address students see your emails come from</td></tr>
+            <tr><td><strong>Replies go to</strong></td><td>Where a student's reply lands</td></tr>
+            <tr><td><strong>Resend API key</strong></td><td>What actually posts the email. Already set up.</td></tr>
+            <tr><td><strong>Telegram bot token</strong> and <strong>chat ID</strong></td><td>Optional — alerts on your phone</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note warn">
+        <span class="label">If emails stop arriving</span>
+        <p>
+          Your dashboard will say so, and this panel names both the problem and the fix. If it
+          mentions older messages that failed before a setting was corrected,
+          <span class="ui">Clear these</span> dismisses that count once you are happy.
+        </p>
+      </div>
+    </section>
+
+    <!-- 11 ---------------------------------------------------------------- -->
+    <section id="courses">
+      <h2><span class="num">11</span><span>Courses &amp; class sizes</span></h2>
+      <p class="whatfor">Screen: <strong>Settings</strong>. Your courses, their rules, and what connects to your shop.</p>
+
+      <figure>
+        {{IMG:11-settings}}
+        <figcaption>One row per course. Everything here can be changed at any time.</figcaption>
+      </figure>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Column</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Booked with</strong></td><td>Course package, shop payment, or free</td></tr>
+            <tr><td><strong>Shop product</strong></td><td>Which product in your shop sells this course. Empty says <em>Not on sale yet</em> — buying it books nothing.</td></tr>
+            <tr><td><strong>Confirm by hand</strong></td><td>Ticked: you approve every place. Unticked: paying confirms it automatically.</td></tr>
+            <tr><td><strong>Notice to change</strong></td><td>How late a student may move their own booking</td></tr>
+            <tr><td><strong>Default class size</strong></td><td>Places in new classes of this course</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note alert">
+        <span class="label">Set your real class sizes</span>
+        <p>
+          Courses start out with a placeholder of 8 places. Change these to your real numbers before
+          students start booking, or you will end up with classes sized wrongly.
+        </p>
+        <p>
+          Changing it here affects classes created from now on. To change one that already exists,
+          open it on the calendar — see <a href="#classes">section 5</a>.
+        </p>
+      </div>
+
+      <h3>Adding a course</h3>
+      <ol class="steps">
+        <li>Click <span class="ui">+ Add a course</span> under the table.</li>
+        <li>Give it a name, and choose how it is paid for.</li>
+        <li>If it is sold in your shop, paste the product ID from WooCommerce → Products.</li>
+        <li>Set the class size, and how much notice students need to change a booking.</li>
+        <li>Pick a colour — that is how it appears on your calendar.</li>
+      </ol>
+
+      <h3>Set courses</h3>
+      <p>
+        Underneath is <strong>Set courses</strong> — courses booked as a whole run rather than one
+        date at a time, like the Autumn Ikebana Course. One purchase books every date in the run,
+        and each date is listed with how many places are left in it.
+      </p>
+
+      <h3>Retiring a course</h3>
+      <p>
+        Use <span class="ui">Archive</span>. It disappears from your website, but every past class
+        and student record stays intact. <span class="ui">Restore</span> brings it back.
+      </p>
+    </section>
+
+    <!-- 12 ---------------------------------------------------------------- -->
+    <section id="team">
+      <h2><span class="num">12</span><span>Your team</span></h2>
+      <p class="whatfor">Screen: <strong>Team</strong>. Who can sign in, and where booking alerts go.</p>
+
+      <figure>
+        {{IMG:10-team}}
+        <figcaption>Everyone listed here has full access to bookings, students and settings.</figcaption>
+      </figure>
+
+      <h3>Adding someone</h3>
+      <ol class="steps">
+        <li>Type their name and email at the bottom, and click <span class="ui">+ Add admin</span>.</li>
+        <li>You are given a link. Copy it and send it to them however you like.</li>
+        <li>They open it, choose their own password, and they are in.</li>
+      </ol>
+
+      <p>
+        The link works once and expires after 72 hours. If they miss it, click
+        <span class="ui">New link</span> to issue another.
+      </p>
+
+      <div class="note quiet">
+        <span class="label">Why a link and not a password</span>
+        <p>
+          A password sent by email sits in two inboxes forever. A link that expires and works once
+          does not — and they choose their own password at the end of it.
+        </p>
+      </div>
+
+      <h3>Helping a colleague who is locked out</h3>
+      <p>
+        <span class="ui">Reset password</span> next to their name sends them a fresh link. This is
+        also how you get back in yourself if your own reset email never arrives — ask someone else
+        on the team to do it for you.
+      </p>
+
+      <h3>Removing someone</h3>
+      <p>
+        <span class="ui">Remove access</span> signs them out everywhere immediately. Their record
+        stays, so anything they did is still accounted for. You cannot remove your own access — ask
+        a colleague to.
+      </p>
+
+      <h3>Where booking alerts go</h3>
+      <p>
+        Everyone on this page is emailed automatically. Use <span class="ui">Edit extra
+        addresses</span> to add anyone else who should hear about bookings without needing to sign in.
+      </p>
+    </section>
+
+    <!-- 13 ---------------------------------------------------------------- -->
+    <section id="student-view">
+      <h2><span class="num">13</span><span>What students see</span></h2>
+      <p class="whatfor">Your website. Worth knowing, so you can talk someone through it on the phone.</p>
+
+      <p>
+        On <span class="ui">mizuki.com.sg/book-a-class</span> there are two tabs:
+        <strong>Book a class</strong> and <strong>My bookings</strong>.
+      </p>
+
+      <h3>Booking</h3>
+      <ol class="steps">
+        <li>They see three months of classes, with dates that have classes highlighted.</li>
+        <li>They click a date and see every class that day — time, length, places left. Full classes are marked and cannot be clicked.</li>
+        <li>They click a class, fill in their details, and book.</li>
+      </ol>
+
+      <p>
+        If they are already signed in, the form asks only for a message — their name, email and
+        phone come from their account, so their details can never drift.
+      </p>
+
+      <h3>Booking for someone else</h3>
+      <p>
+        A parent booking for a child ticks <strong>This place is for someone else</strong> and gives
+        that person's name. Your class list shows the child; the booking stays on the parent's account.
+      </p>
+
+      <h3>My bookings</h3>
+      <p>
+        Students sign in with a link emailed to them — there is no password to forget. They can see
+        what they have booked, how many course sessions they have left, change a booking, cancel one,
+        and download a calendar invitation.
+      </p>
+
+      <div class="note quiet">
+        <span class="label">Changing a booking</span>
+        <p>
+          Each booking shows its own deadline in plain words — "You can change this until Wed 19 Aug,
+          10:00 AM". After that the button stops working and they need to call you. You can always
+          move someone yourself, whatever the deadline says.
+        </p>
+      </div>
+    </section>
+
+    <!-- 14 ---------------------------------------------------------------- -->
+    <section id="questions">
+      <h2><span class="num">14</span><span>Common questions</span></h2>
+      <p class="whatfor">The things most likely to come up.</p>
+
+      <h3>A student says they did not get their confirmation</h3>
+      <p>
+        Open them on the <strong>Students</strong> page and check the email address is right — a typo
+        is the usual cause. Ask them to check spam. Their booking is safe either way; the email is
+        only a copy.
+      </p>
+
+      <h3>Someone wants a place in a full class</h3>
+      <p>
+        Open the class on the calendar and click <span class="ui">+ Add student</span>. You are
+        warned it is full and asked to confirm. It is recorded as your decision, so later you can see
+        why that class went over its size.
+      </p>
+
+      <h3>I need to cancel tomorrow's class</h3>
+      <p>
+        Open it on the calendar, click <span class="ui">Cancel class</span>, and choose to email the
+        students. Anyone who used a course session gets it back automatically.
+      </p>
+
+      <h3>Two students have the same name</h3>
+      <p>Use their reference — <span class="ui">MZ-0023</span> — shown next to every name.</p>
+
+      <h3>A student booked twice by mistake</h3>
+      <p>
+        Open the class, find them on the list, and click <span class="ui">Remove</span>. Their course
+        session is returned.
+      </p>
+
+      <h3>I want to stop taking online bookings for one class</h3>
+      <p>
+        Open it and raise <strong>Held back for chat bookings</strong> until the places on sale reach
+        zero. The class stays on your calendar and stays visible, but nobody can book it online.
+      </p>
+
+      <h3>A course says "Not on sale yet"</h3>
+      <p>
+        Its shop product has not been linked. Open <strong>Settings</strong> and paste the product ID
+        from WooCommerce → Products into that course's row — see <a href="#courses">section 11</a>.
+      </p>
+
+      <h3>Nothing is arriving by email at all</h3>
+      <p>
+        Your dashboard will say so. Open <strong>Settings → Connected services</strong> — the reason
+        is written there in plain words, with exactly what to change.
+      </p>
+
+      <div class="footer">
+        <p>
+          <strong>Mizuki Flora Studio Handbook.</strong> The screenshots come from a demonstration
+          copy using made-up students, so no real student's details appear anywhere in this
+          document. Everything shown works exactly the same on yours.
+        </p>
+      </div>
+    </section>
+  </main>
+</div>
