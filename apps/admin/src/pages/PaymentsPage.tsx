@@ -16,7 +16,8 @@ interface AwaitingRow {
   id: string
   waitingSince: string
   wooOrderId: number | null
-  student: { id: string; name: string; email: string; phone: string }
+  student: { id: string; reference: string; name: string; email: string; phone: string }
+  paid: boolean
   session: { id: string; title: string; startAt: string; when: string; courseName: string }
 }
 
@@ -62,8 +63,9 @@ export function PaymentsPage() {
         <div>
           <h1>Payments to check</h1>
           <p className="muted">
-            These students have paid. Check the money arrived, then confirm their place — their
-            seat is held until you do.
+            Everyone here is holding a place that is not confirmed yet. Some have paid and need
+            the money checked; others asked to join and still need payment arranging. Their seats
+            are held either way, so nobody else can take them while you sort it out.
           </p>
         </div>
       </header>
@@ -81,7 +83,8 @@ export function PaymentsPage() {
           <Icon name="check" size={22} />
           <p><strong>Nothing waiting.</strong></p>
           <p className="muted">
-            When someone pays for a course you confirm by hand, it appears here.
+            Places waiting on a payment check, or on a student who has no course package yet,
+            appear here.
           </p>
         </div>
       ) : (
@@ -89,14 +92,20 @@ export function PaymentsPage() {
           {rows.map((row) => (
             <article className="card payment-row" key={row.id}>
               <div className="payment-main">
-                <h3>{row.student.name}</h3>
+                <h3>
+                  {row.student.name}
+                  {/* Two students can share a name — this is what separates them. */}
+                  {row.student.reference && <span className="student-ref">{row.student.reference}</span>}
+                </h3>
                 <p className="muted">
                   {row.session.title} · {row.session.when}
                 </p>
                 <p className="muted small">
                   {row.student.email}
                   {row.student.phone && ` · ${row.student.phone}`}
-                  {row.wooOrderId ? ` · shop order #${row.wooOrderId}` : ' · no shop order recorded'}
+                  {row.paid
+                    ? ` · paid, shop order #${row.wooOrderId}`
+                    : ' · no payment yet — arrange it before confirming'}
                 </p>
                 <p className="small waiting-since">Waiting {waitedFor(row.waitingSince)}</p>
               </div>

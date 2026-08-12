@@ -100,7 +100,11 @@ export function StudentsPage() {
             <tbody>
               {students.map((s) => (
                 <tr key={s.id} style={{ cursor: 'pointer' }} onClick={() => setSelectedId(s.id)}>
-                  <td className="row-title">{s.name}</td>
+                  <td className="row-title">
+                    {s.name}
+                    {/* Two students can share a name; the reference is what separates them. */}
+                    {s.reference && <span className="student-ref">{s.reference}</span>}
+                  </td>
                   <td className="small muted">
                     {s.email}
                     {s.phone ? <><br />{s.phone}</> : null}

@@ -356,3 +356,32 @@ export async function queueMagicLink(student: StudentDoc, url: string, tokenId: 
     bodyText: rendered.text,
   })
 }
+
+/**
+ * The reset link for a studio login.
+ *
+ * Deliberately not queued behind a dedupe key tied to the admin: someone asking twice because
+ * the first email has not arrived should get a second one, and the previous link has already
+ * been invalidated by the time this is called.
+ */
+export async function queueAdminPasswordReset(
+  to: string,
+  name: string,
+  resetUrl: string,
+  expiryHours: number,
+): Promise<void> {
+  const rendered = await renderTemplate('admin_password_reset', {
+    studentName: name,
+    resetUrl,
+    expiryHours,
+    siteUrl: config.PUBLIC_SITE_URL,
+  })
+
+  await queueMessage('admin_password_reset', {
+    dedupeKey: `admin_password_reset:${to}:${Date.now()}`,
+    to,
+    subject: rendered.subject,
+    bodyHtml: rendered.html,
+    bodyText: rendered.text,
+  })
+}

@@ -121,6 +121,12 @@ export const widgetApi = {
 export type StartBookingResult =
   | { outcome: 'booked'; booking: { id: string; session: PublicSession }; packageRemaining: number | null }
   | { outcome: 'verify_email'; message: string }
+  /**
+   * The place is held while the studio arranges payment — a student on a course-package course
+   * who does not have a package yet. Not a confirmation, but not a refusal either: they have a
+   * seat, and the studio has been told to get in touch.
+   */
+  | { outcome: 'awaiting_confirmation'; booking: { id: string; session: PublicSession }; message: string }
   | {
       outcome: 'checkout_required'
       message: string

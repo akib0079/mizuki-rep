@@ -4,6 +4,7 @@ import { studioInstant } from '@mizuki/shared'
 import { createApp } from '../app.js'
 import { runSeed } from '../scripts/seed.js'
 import {
+  AdminNotificationModel,
   BookingModel,
   ClosedDateModel,
   CourseTypeModel,
@@ -125,16 +126,52 @@ describe('booking endpoint', () => {
     expect(await BookingModel.countDocuments({ sessionId: session!._id })).toBe(0)
   })
 
-  it('turns away an IFDA booking with no course package', async () => {
+  /*
+   * This used to assert a 422 refusal, which is what the endpoint did: someone ready to pay was
+   * turned away by a sentence telling them to "get in touch", with no booking, no place held,
+   * and nobody at the studio told they had tried. Holding the place and raising it is the point.
+   */
+  it('holds a place for an IFDA booking with no course package, rather than refusing it', async () => {
     const ifda = await CourseTypeModel.findOne({ slug: 'ifda' })
     const session = await SessionModel.findOne({ courseTypeId: ifda!._id, dateKey: '2026-09-05' })
+    const before = session!.seatsTaken
 
     const res = await request(app)
       .post('/api/bookings/start')
       .send({ sessionId: String(session!._id), email: 'nobody@example.com', name: 'Nobody', phone: '+65 9123 4567' })
-      .expect(422)
+      .expect(201)
 
-    expect(res.body.error.code).toBe('no_package')
+    expect(res.body.outcome).toBe('awaiting_confirmation')
+
+    const booking = await BookingModel.findOne({ sessionId: session!._id }).sort({ createdAt: -1 })
+    expect(booking!.status).toBe('awaiting_confirmation')
+    // No package existed, so nothing may have been spent from one.
+    expect(booking!.packageId).toBeNull()
+
+    // The place is genuinely taken, not merely recorded.
+    const after = await SessionModel.findById(session!._id)
+    expect(after!.seatsTaken).toBe(before + 1)
+
+    // And the studio has something to act on, rather than only the student knowing.
+    const alert = await AdminNotificationModel.findOne({ relatedBookingId: booking!._id })
+    expect(alert?.severity).toBe('action')
+  })
+
+  it('tells the student their place is held, without calling it confirmed', async () => {
+    const ifda = await CourseTypeModel.findOne({ slug: 'ifda' })
+    const session = await SessionModel.findOne({ courseTypeId: ifda!._id, dateKey: '2026-09-06' })
+
+    await request(app)
+      .post('/api/bookings/start')
+      .send({ sessionId: String(session!._id), email: 'waiting@example.com', name: 'Waiting', phone: '+65 9123 4567' })
+      .expect(201)
+
+    const booking = await BookingModel.findOne({ sessionId: session!._id }).sort({ createdAt: -1 })
+    const mail = await OutboxModel.find({ relatedBookingId: booking!._id }).lean()
+    const types = mail.map((m) => m.type)
+
+    expect(types).toContain('booking_pending_confirmation')
+    expect(types).not.toContain('booking_confirmation')
   })
 
   it('rejects a malformed request with field-level detail', async () => {

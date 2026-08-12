@@ -123,6 +123,8 @@ export interface AwayPreview {
 
 export interface StudentSummary {
   id: string
+  /** Short spoken label, e.g. MZ-0042 — what tells two students with the same name apart. */
+  reference: string
   name: string
   email: string
   phone: string

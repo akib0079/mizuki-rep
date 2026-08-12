@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { createHash } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import rateLimit from 'express-rate-limit'
 import argon2 from 'argon2'
 import { authenticator } from 'otplib'
@@ -16,7 +16,7 @@ import {
   signAdminToken,
   signStudentToken,
 } from '../auth/tokens.js'
-import { queueMagicLink } from '../services/notificationService.js'
+import { queueAdminPasswordReset, queueMagicLink } from '../services/notificationService.js'
 import { requireAdmin, requireStudent } from '../middleware/auth.js'
 import { asyncRoute } from '../middleware/errorHandler.js'
 import { AppError, AuthError } from '../errors.js'
@@ -205,6 +205,54 @@ authRouter.post(
     })
   }),
 )
+
+/**
+ * Forgot your password.
+ *
+ * A studio with one admin has nobody to reset it for them, so without this a forgotten password
+ * means shell access to the server. It reuses the invite mechanism — a hashed, single-use,
+ * expiring link — rather than inventing a second one.
+ *
+ * Always answers the same way whether or not the address has a login, so this cannot be used to
+ * discover who works here. Rate limited for the same reason the magic-link endpoint is: it sends
+ * mail on demand.
+ */
+authRouter.post(
+  '/admin/forgot-password',
+  magicLinkLimiter,
+  asyncRoute(async (req, res) => {
+    const { email } = z.object({ email: emailSchema }).parse(req.body)
+
+    const admin = await AdminUserModel.findOne({ email, active: true })
+    if (admin) {
+      await AdminInviteModel.deleteMany({ adminUserId: admin._id, usedAt: null })
+
+      const raw = randomBytes(32).toString('base64url')
+      await AdminInviteModel.create({
+        adminUserId: admin._id,
+        tokenHash: createHash('sha256').update(raw).digest('hex'),
+        expiresAt: new Date(Date.now() + ADMIN_RESET_TTL_HOURS * 3600_000),
+        invitedBy: 'self-service',
+      })
+
+      await queueAdminPasswordReset(
+        admin.email,
+        admin.name,
+        `${config.PUBLIC_API_URL}/admin/accept-invite?token=${raw}`,
+        ADMIN_RESET_TTL_HOURS,
+      )
+    } else {
+      logger.debug({ email }, 'Password reset requested for an unknown admin address')
+    }
+
+    res.json({
+      ok: true,
+      message: 'If that address has a studio login, a reset link is on its way.',
+    })
+  }),
+)
+
+const ADMIN_RESET_TTL_HOURS = 2
 
 /**
  * A new admin setting their own password from an invite link.

@@ -121,6 +121,52 @@ adminAdminsRouter.post(
   }),
 )
 
+/**
+ * Reset another admin's password.
+ *
+ * Issues the same kind of single-use link as an invitation rather than setting a password on
+ * their behalf. One admin knowing another's password is the thing worth avoiding here — it
+ * makes the audit log a guess about who actually did something.
+ *
+ * Every existing session for that account ends immediately. If the reason for the reset is that
+ * the password leaked, leaving those sessions alive defeats the point of resetting it.
+ */
+adminAdminsRouter.post(
+  '/:id/reset-password',
+  asyncRoute(async (req, res) => {
+    const admin = await AdminUserModel.findById(req.params.id)
+    if (!admin) throw new NotFoundError('Admin')
+
+    admin.tokenVersion += 1
+    admin.failedLoginCount = 0
+    admin.lockedUntil = null
+    await admin.save()
+
+    await AdminInviteModel.deleteMany({ adminUserId: admin._id, usedAt: null })
+
+    const raw = randomBytes(32).toString('base64url')
+    await AdminInviteModel.create({
+      adminUserId: admin._id,
+      tokenHash: hashToken(raw),
+      expiresAt: new Date(Date.now() + INVITE_TTL_HOURS * 3600_000),
+      invitedBy: actorOf(req),
+    })
+
+    await recordAudit({
+      action: 'admin.reset_password',
+      entity: 'AdminUser',
+      entityId: admin._id,
+      actor: actorOf(req),
+      reason: `Issued a password reset link for ${admin.email} and signed out their sessions`,
+    })
+
+    res.json({
+      resetUrl: `${config.PUBLIC_API_URL}/admin/accept-invite?token=${raw}`,
+      expiresInHours: INVITE_TTL_HOURS,
+    })
+  }),
+)
+
 /** Fresh link for someone who lost theirs or let it expire. */
 adminAdminsRouter.post(
   '/:id/reinvite',

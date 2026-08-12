@@ -95,10 +95,18 @@ adminNotificationsRouter.get(
             wooOrderId: b.wooOrderId,
             student: {
               id: String(student._id),
+              reference: student.reference ?? '',
               name: student.name,
               email: student.email,
               phone: student.phone,
             },
+            /*
+             * Whether money has actually changed hands. Two different situations land in this
+             * queue — a shop payment awaiting a check, and someone with no package asking to
+             * join — and telling the studio to "check the payment" for the second sends them
+             * looking for money that was never sent.
+             */
+            paid: Boolean(b.wooOrderId),
             session: {
               id: String(session._id),
               title: session.title,

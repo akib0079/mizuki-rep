@@ -88,12 +88,39 @@ bookingRouter.post(
 
     if (courseType.bookingMode === 'package') {
       const pkg = await findUsablePackage(student._id, courseType._id)
+
+      /*
+       * No course package yet.
+       *
+       * This used to be a dead end: a 422 telling the student to "get in touch", with no booking
+       * made, no place held and nobody at the studio told it had happened. Someone ready to hand
+       * over money was turned away by a sentence, and the studio never learned they existed.
+       *
+       * So take the booking. The place is held, the student is told their place is reserved while
+       * payment is arranged, and the studio gets it as something to action — the same queue as a
+       * paid place awaiting a payment check, because it is the same job: confirm the money, then
+       * confirm the place. Nothing is spent, since there is no package to spend from; the studio
+       * grants one when they take payment.
+       */
       if (!pkg) {
-        throw new AppError(
-          422,
-          'no_package',
-          `We could not find an active ${courseType.name} course package for that email. Please get in touch and we will sort it out.`,
-        )
+        const result = await createBooking({
+          sessionId: session._id,
+          studentId: student._id,
+          status: 'awaiting_confirmation',
+          source: 'student_web',
+          usePackage: false,
+          actor: `student:${student.email}`,
+          studentNotes: input.notes,
+        })
+
+        res.status(201).json({
+          outcome: 'awaiting_confirmation',
+          booking: serialiseBooking(result.booking, result.session, result.courseType),
+          message:
+            `Thank you — your place on ${courseType.name} is reserved. ` +
+            `We will be in touch shortly to arrange payment and confirm it.`,
+        })
+        return
       }
 
       // Spending someone's course credits needs proof of the inbox, not just knowledge of it.

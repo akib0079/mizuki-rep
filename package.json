@@ -15,7 +15,7 @@
     "dev:api": "npm run dev -w @mizuki/api",
     "dev:admin": "npm run dev -w @mizuki/admin",
     "dev:widget": "npm run dev -w @mizuki/widget",
-    "test": "npm run test -w @mizuki/shared && npm run test -w @mizuki/api",
+    "test": "npm run test -w @mizuki/shared && npm run test -w @mizuki/api && npm run test -w @mizuki/admin",
     "seed": "npm run seed -w @mizuki/api",
     "create-admin": "npm run create-admin -w @mizuki/api",
     "package:wp": "npm run build -w @mizuki/widget && node scripts/package-wp-plugin.mjs",

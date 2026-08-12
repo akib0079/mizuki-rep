@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { ApiError, api } from '../api.js'
+import { PasswordField } from '../components/PasswordField.js'
 
 export function LoginPage({ onSignedIn }: { onSignedIn: () => void }) {
   const [email, setEmail] = useState('')
@@ -8,6 +9,29 @@ export function LoginPage({ onSignedIn }: { onSignedIn: () => void }) {
   const [needsTotp, setNeedsTotp] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [resetSent, setResetSent] = useState<string | null>(null)
+
+  /*
+   * Deliberately says the same thing whether or not the address has a login. Confirming which
+   * addresses exist would turn this box into a way to find out who works at the studio.
+   */
+  async function requestReset() {
+    if (!email.trim()) {
+      setError('Enter your email address first, then ask for a reset link.')
+      return
+    }
+
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await api.post<{ message: string }>('/api/auth/admin/forgot-password', { email })
+      setResetSent(res.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not send a reset link.')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -42,6 +66,7 @@ export function LoginPage({ onSignedIn }: { onSignedIn: () => void }) {
         <p>Sign in to manage classes and bookings.</p>
 
         {error && <div className="banner banner-danger">{error}</div>}
+        {resetSent && <div className="banner banner-ok">{resetSent}</div>}
 
         <label className="field">
           <span>Email</span>
@@ -54,16 +79,7 @@ export function LoginPage({ onSignedIn }: { onSignedIn: () => void }) {
           />
         </label>
 
-        <label className="field">
-          <span>Password</span>
-          <input
-            type="password"
-            value={password}
-            autoComplete="current-password"
-            required
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </label>
+        <PasswordField label="Password" value={password} onChange={setPassword} />
 
         {needsTotp && (
           <label className="field">
@@ -82,6 +98,10 @@ export function LoginPage({ onSignedIn }: { onSignedIn: () => void }) {
 
         <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={busy}>
           {busy ? 'Signing in…' : 'Sign in'}
+        </button>
+
+        <button type="button" className="link-btn login-forgot" onClick={requestReset} disabled={busy}>
+          Forgot your password?
         </button>
       </form>
     </div>

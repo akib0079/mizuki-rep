@@ -40,6 +40,9 @@ adminStudentsRouter.get(
             { name: { $regex: escapeRegex(search), $options: 'i' } },
             { email: { $regex: escapeRegex(search), $options: 'i' } },
             { phone: { $regex: escapeRegex(search), $options: 'i' } },
+            // Searchable by reference, since that is the thing the studio will be given when
+            // someone rings up about "MZ-0042" rather than a name that matches three people.
+            { reference: { $regex: escapeRegex(search), $options: 'i' } },
           ],
         }
       : {}
@@ -74,6 +77,7 @@ adminStudentsRouter.get(
     res.json({
       students: students.map((s) => ({
         id: String(s._id),
+        reference: s.reference ?? '',
         name: s.name,
         email: s.email,
         phone: s.phone,
@@ -133,6 +137,7 @@ adminStudentsRouter.get(
     res.json({
       student: {
         id: String(student._id),
+        reference: student.reference ?? '',
         name: student.name,
         email: student.email,
         phone: student.phone,

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { DateTime } from 'luxon'
 import { STUDIO_TZ } from '@mizuki/shared'
 import { ApiError, api, type Course } from '../api.js'
+import { PasswordField } from '../components/PasswordField.js'
 
 interface SeatDrift {
   sessionId: string
@@ -807,36 +808,27 @@ function ChangePassword({ onMessage }: { onMessage: (m: { kind: 'ok' | 'danger';
 
   return (
     <div style={{ maxWidth: 360 }}>
-      <label className="field">
-        <span>Current password</span>
-        <input
-          type="password"
-          autoFocus
-          autoComplete="current-password"
-          value={form.currentPassword}
-          onChange={(e) => setForm({ ...form, currentPassword: e.target.value })}
-        />
-      </label>
-      <label className="field">
-        <span>New password</span>
-        <input
-          type="password"
-          autoComplete="new-password"
-          value={form.newPassword}
-          onChange={(e) => setForm({ ...form, newPassword: e.target.value })}
-        />
-        <div className="field-hint">At least 12 characters.</div>
-      </label>
-      <label className="field">
-        <span>Confirm new password</span>
-        <input
-          type="password"
-          autoComplete="new-password"
-          value={form.confirm}
-          onChange={(e) => setForm({ ...form, confirm: e.target.value })}
-        />
-        {mismatch && <div className="field-hint" style={{ color: 'var(--danger)' }}>These do not match.</div>}
-      </label>
+      <PasswordField
+        label="Current password"
+        value={form.currentPassword}
+        onChange={(v) => setForm({ ...form, currentPassword: v })}
+        autoFocus
+      />
+      <PasswordField
+        label="New password"
+        value={form.newPassword}
+        onChange={(v) => setForm({ ...form, newPassword: v })}
+        autoComplete="new-password"
+        minLength={12}
+        hint="At least 12 characters."
+      />
+      <PasswordField
+        label="Confirm new password"
+        value={form.confirm}
+        onChange={(v) => setForm({ ...form, confirm: v })}
+        autoComplete="new-password"
+        hint={mismatch ? 'These do not match.' : undefined}
+      />
 
       <div className="row">
         <button

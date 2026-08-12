@@ -208,6 +208,18 @@ export const DEFAULT_TEMPLATES: Record<EmailTemplateKey, TemplateDefinition> = {
     ],
   },
 
+  admin_password_reset: {
+    label: 'Admin password reset',
+    description: 'Sent when someone with a studio login asks to reset their password.',
+    subject: 'Reset your Mizuki Flora studio password',
+    bodyHtml: layout(`<p>Hello {{studentName}},</p>
+      <p>Someone asked to reset the password on your studio login. This link works once and expires in {{expiryHours}} hours.</p>
+      ${button('Choose a new password', '{{resetUrl}}')}
+      <p style="color:#8b7f86;font-size:13px;">If that was not you, you can ignore this email — your password has not changed.</p>`),
+    bodyText: `Hello {{studentName}},\n\nSomeone asked to reset the password on your studio login. This link works once and expires in {{expiryHours}} hours:\n{{resetUrl}}\n\nIf that was not you, you can ignore this email — your password has not changed.\n\nMizuki Flora`,
+    variables: ['studentName', 'resetUrl', 'expiryHours', 'siteUrl'],
+  },
+
   admin_new_booking: {
     label: 'Admin alert — new booking',
     description: 'Sent to the studio the moment someone books.',

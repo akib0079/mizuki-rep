@@ -51,7 +51,7 @@ export interface CreateBookingInput {
   sessionId: Types.ObjectId | string
   studentId: Types.ObjectId | string
   source?: BookingSource
-  status?: 'hold' | 'confirmed'
+  status?: 'hold' | 'awaiting_confirmation' | 'confirmed'
   /** Spend a course credit when the course works that way and the student has one. */
   usePackage?: boolean
   /** Studio-only: seat someone in a class that is already full. Always audited. */
@@ -196,6 +196,9 @@ export async function createBooking(input: CreateBookingInput): Promise<BookingR
 
   if (notify && status === 'confirmed') {
     await notifyBookingCreated(result)
+  } else if (notify && status === 'awaiting_confirmation') {
+    // The place is real and held; only the money is outstanding. Both sides hear about it.
+    await notifyAwaitingConfirmation(result)
   }
 
   return result
@@ -218,14 +221,26 @@ async function notifyAwaitingConfirmation(result: BookingResult): Promise<void> 
     pkg: result.pkg,
   }
 
+  /*
+   * Two different situations end up here and they need different words. One student has paid
+   * through the shop and is waiting on a check; the other has asked for a place with no payment
+   * arranged at all. Telling the studio the second one "paid" would send them looking for money
+   * that was never sent.
+   */
+  const hasPaid = Boolean(result.booking.wooOrderId)
+
   try {
     await queueBookingPendingConfirmation(ctx)
     await queueAdminAwaitingConfirmation(ctx)
     await recordAdminNotification({
       type: 'awaiting_confirmation',
       severity: 'action',
-      title: `${result.student.name} paid for ${result.session.title}`,
-      body: `${formatSessionDateTime(result.session.startAt)} · check the payment, then confirm their place.`,
+      title: hasPaid
+        ? `${result.student.name} paid for ${result.session.title}`
+        : `${result.student.name} asked to join ${result.session.title}`,
+      body: hasPaid
+        ? `${formatSessionDateTime(result.session.startAt)} · check the payment, then confirm their place.`
+        : `${formatSessionDateTime(result.session.startAt)} · no ${result.courseType.name} package yet — arrange payment, then confirm.`,
       url: `/calendar?session=${result.session._id}&booking=${result.booking._id}`,
       bookingId: result.booking._id,
       sessionId: result.session._id,

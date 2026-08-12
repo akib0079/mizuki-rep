@@ -220,6 +220,7 @@ export const emailTemplateKeySchema = z.enum([
   'session_cancelled',
   'package_low',
   'package_expiring',
+  'admin_password_reset',
   'admin_new_booking',
   /** A paid place is waiting for the studio to check the money arrived. */
   'admin_awaiting_confirmation',

@@ -204,8 +204,16 @@ export function BookingCalendar({
           onClose={() => setBooking(null)}
           onSeeBookings={onSeeBookings}
           onBooked={() => {
-            setBooking(null)
-            // Reload so the places-left counts reflect the booking just made.
+            /*
+             * Refresh the counts, but leave the dialog open.
+             *
+             * This used to close it, which unmounted the dialog the instant the booking
+             * succeeded — so the confirmation it had just rendered was never on screen. From the
+             * student's side a successful booking and a form that silently vanished look
+             * identical, and the natural response to that is to book again.
+             *
+             * The dialog closes when they close it.
+             */
             void widgetApi.calendar().then((c) => setDays(c.days))
           }}
         />

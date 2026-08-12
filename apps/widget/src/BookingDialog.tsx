@@ -57,7 +57,9 @@ export function BookingDialog({
         notes: form.notes.trim(),
       })
       setResult(outcome)
-      if (outcome.outcome === 'booked') onBooked()
+      // Both of these take a real place, so the calendar's counts are now stale either way.
+      // A held place is as unavailable to the next student as a confirmed one.
+      if (outcome.outcome === 'booked' || outcome.outcome === 'awaiting_confirmation') onBooked()
     } catch (err) {
       const message = err instanceof ApiError ? err.message : 'Something went wrong. Please try again.'
       setError(message)
@@ -223,6 +225,29 @@ function BookingOutcome({
           )}
           <button type="button" className="mzk-btn" style={{ flex: 1 }} onClick={onClose}>
             Book another
+          </button>
+        </div>
+      </>
+    )
+  }
+
+  if (result.outcome === 'awaiting_confirmation') {
+    return (
+      <>
+        <h3>Your place is reserved</h3>
+        <div className="mzk-note mzk-note-ok">{result.message}</div>
+        <p className="mzk-small">
+          We have held this place for you. Nobody else can take it while we sort out your course
+          package — you do not need to book again.
+        </p>
+        <div className="mzk-row" style={{ marginTop: 14 }}>
+          {onSeeBookings && (
+            <button className="mzk-btn" onClick={onSeeBookings}>
+              See my bookings
+            </button>
+          )}
+          <button className="mzk-btn mzk-btn-primary" onClick={onClose}>
+            Done
           </button>
         </div>
       </>

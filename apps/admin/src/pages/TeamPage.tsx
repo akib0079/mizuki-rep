@@ -68,6 +68,18 @@ export function TeamPage({ currentAdminId }: { currentAdminId: string }) {
     onError: (err) => setError(err instanceof ApiError ? err.message : 'That did not work.'),
   })
 
+  const resetPassword = useMutation({
+    mutationFn: (row: AdminRow) =>
+      api
+        .post<{ resetUrl: string; expiresInHours: number }>(`/api/admin/admins/${row.id}/reset-password`)
+        .then((r) => ({ ...r, name: row.name })),
+    onSuccess: (r) => {
+      setInvite({ name: r.name, url: r.resetUrl, hours: r.expiresInHours })
+      setCopied(false)
+    },
+    onError: (err) => setError(err instanceof ApiError ? err.message : 'That did not work.'),
+  })
+
   const setActive = useMutation({
     mutationFn: ({ id, active }: { id: string; active: boolean }) =>
       api.patch(`/api/admin/admins/${id}`, { active }),
@@ -165,15 +177,29 @@ export function TeamPage({ currentAdminId }: { currentAdminId: string }) {
                     )}
                   </td>
                   <td className="row-actions">
-                    {row.active && row.invitePending && (
-                      <button
-                        type="button"
-                        className="link-btn"
-                        onClick={() => reinvite.mutate(row)}
-                      >
-                        New link
-                      </button>
-                    )}
+                    {row.active &&
+                      (row.invitePending ? (
+                        <button type="button" className="link-btn" onClick={() => reinvite.mutate(row)}>
+                          New link
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="link-btn"
+                          onClick={() => {
+                            // Ends their sessions, so make sure that is what was meant.
+                            if (
+                              confirm(
+                                `Reset ${row.name}'s password? They will be signed out everywhere and need the new link to get back in.`,
+                              )
+                            ) {
+                              resetPassword.mutate(row)
+                            }
+                          }}
+                        >
+                          Reset password
+                        </button>
+                      ))}
                     {row.id !== currentAdminId &&
                       (row.active ? (
                         <button

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { api, ApiError } from '../api.js'
+import { PasswordField } from '../components/PasswordField.js'
 
 /**
  * Where an invited admin sets their own password.
@@ -68,30 +69,23 @@ export function AcceptInvitePage({ onSignedIn }: { onSignedIn: () => void }) {
           </div>
         )}
 
-        <label className="field">
-          <span>Password</span>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="new-password"
-            required
-            autoFocus
-          />
-          <span className="field-hint">At least 12 characters.</span>
-        </label>
+        <PasswordField
+          label="Password"
+          value={password}
+          onChange={setPassword}
+          autoComplete="new-password"
+          minLength={12}
+          autoFocus
+          hint="At least 12 characters."
+        />
 
-        <label className="field">
-          <span>Password again</span>
-          <input
-            type="password"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            autoComplete="new-password"
-            required
-          />
-          {mismatch && <span className="field-hint field-hint-error">These do not match yet.</span>}
-        </label>
+        <PasswordField
+          label="Password again"
+          value={confirm}
+          onChange={setConfirm}
+          autoComplete="new-password"
+          hint={mismatch ? 'These do not match yet.' : undefined}
+        />
 
         <button
           type="submit"
