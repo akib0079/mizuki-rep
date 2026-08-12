@@ -5,6 +5,7 @@ import {
   evaluateReschedule,
   rescheduleBookingSchema,
   startBookingSchema,
+  startBookingSignedInSchema,
   studentSelfUpdateSchema,
 } from '@mizuki/shared'
 import { buildIcs } from '../services/mailer.js'
@@ -43,6 +44,33 @@ import { config } from '../config.js'
  */
 export const bookingRouter: Router = Router()
 
+/**
+ * Find an account by phone, comparing digits only.
+ *
+ * "+65 9123 4567" and "6591234567" are the same number to everyone except a string comparison,
+ * and matching literally would miss exactly the duplicate this is meant to catch.
+ */
+async function findStudentByPhone(phone: string) {
+  const digits = phone.replace(/\D/g, '')
+  if (digits.length < 8) return null
+
+  /*
+   * Matched on the last eight digits, so a country code written on one booking and left off the
+   * next still finds the same person. Anchored at the end of the stored digits, which is why the
+   * comparison runs against `phoneDigits` rather than the number as typed — "+65 9333 4444" has
+   * spaces in it and would never match a digits-only pattern.
+   */
+  const tail = digits.slice(-8)
+  return StudentModel.findOne({ phoneDigits: { $regex: `${tail}$` } })
+}
+
+/** a•••a@gmail.com — enough to recognise your own address, not enough to learn someone else's. */
+function maskEmail(email: string): string {
+  const [local = '', domain = ''] = email.split('@')
+  if (local.length <= 2) return `${local[0] ?? ''}•••@${domain}`
+  return `${local[0]}•••${local[local.length - 1]}@${domain}`
+}
+
 const bookingLimiter = rateLimit({
   windowMs: 10 * 60_000,
   limit: 20,
@@ -62,7 +90,19 @@ bookingRouter.post(
   bookingLimiter,
   optionalStudent,
   asyncRoute(async (req, res) => {
-    const input = startBookingSchema.parse(req.body)
+    /*
+     * Who is booking is decided by the session, never by the form.
+     *
+     * A signed-in student's identity fields are not even read: accepting them let the same person
+     * arrive on the register under a different name each time, and let anyone who knew an address
+     * book against that account and spend its course credits. Signed in, the account is the
+     * answer and the form only says what is different about this booking.
+     */
+    const signedIn = req.student ?? null
+
+    const input = signedIn
+      ? { ...startBookingSignedInSchema.parse(req.body), marketingOptIn: undefined }
+      : startBookingSchema.parse(req.body)
 
     const session = await SessionModel.findById(input.sessionId)
     if (!session) throw new NotFoundError('Class')
@@ -70,21 +110,60 @@ bookingRouter.post(
     const courseType = await CourseTypeModel.findById(session.courseTypeId)
     if (!courseType) throw new NotFoundError('Course')
 
-    // Find or create the student. Creating on first booking is what keeps the flow to one form.
-    let student = await StudentModel.findOne({ email: input.email })
+    let student = signedIn
+
     if (!student) {
+      const visitor = input as z.infer<typeof startBookingSchema>
+      const existing = await StudentModel.findOne({ email: visitor.email })
+
+      /*
+       * The address is already ours. Do not book.
+       *
+       * Booking anyway would attach this to their record on nothing more than knowing their email
+       * — no proof of the inbox, their package credits spent by a stranger, and a name on the
+       * register that may not be theirs. Proving the inbox is exactly what the sign-in link is
+       * for, so send them there.
+       */
+      if (existing) {
+        res.json({
+          outcome: 'sign_in_required',
+          reason: 'email_known',
+          email: existing.email,
+          message:
+            'This email has booked with us before. Sign in and your place will be added to your ' +
+            'existing bookings, with your course package if you have one.',
+        })
+        return
+      }
+
+      /*
+       * The number is ours but the address is not — almost always the same person with a typo,
+       * or a second address. Naming the account they already have is the only way they can find
+       * it; masked, because this endpoint is unauthenticated and must not confirm to a stranger
+       * which address goes with a phone number.
+       */
+      const byPhone = await findStudentByPhone(visitor.phone)
+      if (byPhone) {
+        res.json({
+          outcome: 'sign_in_required',
+          reason: 'phone_known',
+          email: maskEmail(byPhone.email),
+          message:
+            `This phone number is already registered to ${maskEmail(byPhone.email)}. Sign in with ` +
+            'that address to keep your bookings and course package together.',
+        })
+        return
+      }
+
       student = await StudentModel.create({
-        name: input.name,
-        email: input.email,
-        phone: input.phone,
-        marketingOptIn: input.marketingOptIn,
+        name: visitor.name,
+        email: visitor.email,
+        phone: visitor.phone,
+        marketingOptIn: visitor.marketingOptIn,
       })
-    } else if (input.phone && !student.phone) {
-      student.phone = input.phone
-      await student.save()
     }
 
-    const isSignedIn = req.student && String(req.student._id) === String(student._id)
+    const isSignedIn = Boolean(signedIn)
 
     if (courseType.bookingMode === 'package') {
       const pkg = await findUsablePackage(student._id, courseType._id)
@@ -111,6 +190,7 @@ bookingRouter.post(
           usePackage: false,
           actor: `student:${student.email}`,
           studentNotes: input.notes,
+      attendeeName: input.attendeeName,
         })
 
         res.status(201).json({
@@ -148,6 +228,7 @@ bookingRouter.post(
         source: 'student_web',
         actor: `student:${student.email}`,
         studentNotes: input.notes,
+      attendeeName: input.attendeeName,
       })
 
       res.status(201).json({
@@ -166,6 +247,7 @@ bookingRouter.post(
         usePackage: false,
         actor: `student:${student.email}`,
         studentNotes: input.notes,
+      attendeeName: input.attendeeName,
       })
       res.status(201).json({
         outcome: 'booked',
@@ -195,6 +277,7 @@ bookingRouter.post(
       holdExpiresAt,
       actor: `student:${student.email}`,
       studentNotes: input.notes,
+      attendeeName: input.attendeeName,
       // Nothing is confirmed yet — telling them now would be a lie, and telling the studio
       // now would mean an alert for every abandoned cart.
       notify: false,

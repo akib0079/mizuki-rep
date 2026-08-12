@@ -18,6 +18,15 @@ const studentSchema = new Schema(
      * backfill has reached them.
      */
     reference: { type: String, default: null, trim: true, uppercase: true },
+
+    /**
+     * The phone number reduced to digits, for matching.
+     *
+     * "+65 9333 4444" and "93334444" are the same number to everyone except a string comparison,
+     * so the number as typed cannot be searched on. This is derived, never entered: `phone` stays
+     * exactly as the student wrote it, because that is what the studio dials.
+     */
+    phoneDigits: { type: String, default: '', index: true },
     phone: { type: String, default: '', trim: true },
 
     wooCustomerId: { type: Number, default: null, index: true },
@@ -63,6 +72,14 @@ studentSchema.pre('save', async function assignReference(next) {
     this.reference = null
   }
 
+  next()
+})
+
+/** Derived on every save, so no code path can set a phone and forget this. */
+studentSchema.pre('save', function (next) {
+  if (this.isModified('phone')) {
+    this.phoneDigits = (this.phone ?? '').replace(/\D/g, '')
+  }
   next()
 })
 

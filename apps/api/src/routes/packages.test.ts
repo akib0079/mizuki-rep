@@ -159,8 +159,12 @@ describe('the package is immediately usable', () => {
       .send({ sessionId: String(session._id), email: 'mei@example.com', name: 'Mei Lin', phone: '+65 9123 4567' })
       .expect(200)
 
-    // A package exists, so the student is asked to confirm by email rather than turned away.
-    expect(res.body.outcome).toBe('verify_email')
+    /*
+     * The account exists, so the student is asked to sign in rather than turned away — and rather
+     * than having their newly bought credits spent by whoever typed the address.
+     */
+    expect(res.body.outcome).toBe('sign_in_required')
+    expect(res.body.reason).toBe('email_known')
     expect(student).toBeTruthy()
   })
 })

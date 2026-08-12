@@ -49,6 +49,12 @@ export const calendarQuerySchema = z.object({
   courseTypeId: objectIdSchema.optional(),
 })
 
+/**
+ * Booking as a visitor: everything about you, because we do not know you yet.
+ *
+ * The identity fields are only trusted on this path. Once someone is signed in the server uses
+ * their account and ignores whatever the form sends — see `startBookingSignedInSchema`.
+ */
 export const startBookingSchema = z.object({
   sessionId: objectIdSchema,
   email: emailSchema,
@@ -56,6 +62,23 @@ export const startBookingSchema = z.object({
   phone: phoneSchema,
   notes: z.string().trim().max(500).default(''),
   marketingOptIn: z.boolean().default(false),
+  /** Who is actually attending, when it is not the person booking. */
+  attendeeName: z.string().trim().max(120).default(''),
+})
+
+/**
+ * Booking while signed in.
+ *
+ * Deliberately has no email, name or phone. Accepting them would let the form quietly disagree
+ * with the account it is booking into — which is how one person ended up on the register under
+ * three different names — and would let anyone who knows an address book against it. The account
+ * is the identity; the form only says what is different about this booking.
+ */
+export const startBookingSignedInSchema = z.object({
+  sessionId: objectIdSchema,
+  notes: z.string().trim().max(500).default(''),
+  /** A place for someone else — a child, a friend — on the account holder's booking. */
+  attendeeName: z.string().trim().max(120).default(''),
 })
 
 export const requestMagicLinkSchema = z.object({

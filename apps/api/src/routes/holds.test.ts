@@ -24,9 +24,16 @@ beforeEach(async () => {
 })
 
 function startBooking(sessionId: string, email = 'aiko@example.com') {
+  /*
+   * A phone derived from the address, so two different students are two different people. Sharing
+   * one number made them look like the same person booking twice, which the duplicate-account
+   * guard now stops before capacity is ever reached — masking the very thing these tests check.
+   */
+  const digits = String(Math.abs([...email].reduce((h, c) => h * 31 + c.charCodeAt(0), 7)) % 90000000 + 10000000)
+
   return request(app)
     .post('/api/bookings/start')
-    .send({ sessionId, email, name: 'Aiko Tan', phone: '+65 9123 4567' })
+    .send({ sessionId, email, name: 'Aiko Tan', phone: `+65 ${digits}` })
 }
 
 function wooCallback(payload: unknown) {

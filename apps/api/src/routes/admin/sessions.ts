@@ -128,7 +128,13 @@ adminSessionsRouter.get(
         return {
           bookingId: String(b._id),
           studentId: String(b.studentId),
-          name: student?.name ?? 'Unknown',
+          /*
+           * The person in the room, which is not always the person who booked. A parent booking
+           * for a child would otherwise put the parent on the register and the teacher would call
+           * for the wrong name.
+           */
+          name: b.attendeeName || student?.name || 'Unknown',
+          bookedBy: b.attendeeName ? (student?.name ?? '') : '',
           email: student?.email ?? '',
           phone: student?.phone ?? '',
           status: b.status,

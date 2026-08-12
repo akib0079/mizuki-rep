@@ -3,7 +3,7 @@ import { DateTime } from 'luxon'
 import { formatDuration, formatTimeRange, type PublicSession,
   toStudio,
 } from '@mizuki/shared'
-import { ApiError, widgetApi, type StartBookingResult } from './api.js'
+import { ApiError, widgetApi, type StartBookingResult, type StudentProfile } from './api.js'
 
 /**
  * The booking form.
@@ -25,8 +25,31 @@ export function BookingDialog({
   /** Offered after a successful booking, so the next step is one click rather than a hunt. */
   onSeeBookings?: () => void
 }) {
-  const [form, setForm] = useState({ name: '', email: '', phone: '', notes: '' })
+  const [form, setForm] = useState({ name: '', email: '', phone: '', notes: '', attendeeName: '' })
+  const [bookingForSomeoneElse, setBookingForSomeoneElse] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [linkSent, setLinkSent] = useState(false)
+
+  /*
+   * Whether this person is already signed in.
+   *
+   * It changes the form completely: a signed-in student is asked only what is different about
+   * this booking, because the server takes their identity from the session and ignores anything
+   * the form sends. Asking again would be a chance for the two to disagree — which is how one
+   * person ended up on the register under three names.
+   */
+  const [account, setAccount] = useState<StudentProfile | null | undefined>(undefined)
+
+  useEffect(() => {
+    let cancelled = false
+    widgetApi
+      .me()
+      .then((r) => !cancelled && setAccount(r.student))
+      .catch(() => !cancelled && setAccount(null))
+    return () => {
+      cancelled = true
+    }
+  }, [])
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<StartBookingResult | null>(null)
   const [alternatives, setAlternatives] = useState<PublicSession[] | null>(null)
@@ -49,13 +72,20 @@ export function BookingDialog({
     setError(null)
 
     try {
-      const outcome = await widgetApi.startBooking({
-        sessionId: session.id,
-        name: form.name.trim(),
-        email: form.email.trim(),
-        phone: form.phone.trim(),
-        notes: form.notes.trim(),
-      })
+      const attendeeName = bookingForSomeoneElse ? form.attendeeName.trim() : ''
+
+      const outcome = await widgetApi.startBooking(
+        account
+          ? { sessionId: session.id, notes: form.notes.trim(), attendeeName }
+          : {
+              sessionId: session.id,
+              name: form.name.trim(),
+              email: form.email.trim(),
+              phone: form.phone.trim(),
+              notes: form.notes.trim(),
+              attendeeName,
+            },
+      )
       setResult(outcome)
       // Both of these take a real place, so the calendar's counts are now stale either way.
       // A held place is as unavailable to the next student as a confirmed one.
@@ -116,42 +146,83 @@ export function BookingDialog({
             )}
 
             <div style={{ marginTop: 16 }}>
-              <label className="mzk-field">
-                <span>Your name</span>
+              {account ? (
+                /*
+                 * Signed in, so we already know who they are. Asking again would only invite the
+                 * form and the account to disagree — and the server ignores these fields anyway.
+                 */
+                <div className="mzk-note mzk-note-info" style={{ marginBottom: 12 }}>
+                  Booking as <strong>{account.name}</strong> ({account.email})
+                </div>
+              ) : (
+                <>
+                  <label className="mzk-field">
+                    <span>Your name</span>
+                    <input
+                      value={form.name}
+                      required
+                      autoComplete="name"
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    />
+                  </label>
+
+                  <label className="mzk-field">
+                    <span>Email</span>
+                    <input
+                      type="email"
+                      value={form.email}
+                      required
+                      autoComplete="email"
+                      onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    />
+                    <span className="mzk-muted mzk-small">Your confirmation and reminder go here.</span>
+                  </label>
+
+                  <label className="mzk-field">
+                    <span>Phone</span>
+                    <input
+                      type="tel"
+                      inputMode="tel"
+                      value={form.phone}
+                      required
+                      autoComplete="tel"
+                      onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    />
+                    <span className="mzk-muted mzk-small">
+                      So we can reach you quickly if a class changes at short notice.
+                    </span>
+                  </label>
+                </>
+              )}
+
+              {/*
+                One account per email, so a parent booking for a child would otherwise put the
+                parent's name on the register. This keeps the account whole and still gets the
+                right name onto the day's list.
+              */}
+              <label className="mzk-check">
                 <input
-                  value={form.name}
-                  required
-                  autoComplete="name"
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  type="checkbox"
+                  checked={bookingForSomeoneElse}
+                  onChange={(e) => setBookingForSomeoneElse(e.target.checked)}
                 />
+                <span>This place is for someone else</span>
               </label>
 
-              <label className="mzk-field">
-                <span>Email</span>
-                <input
-                  type="email"
-                  value={form.email}
-                  required
-                  autoComplete="email"
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                />
-                <span className="mzk-muted mzk-small">Your confirmation and reminder go here.</span>
-              </label>
-
-              <label className="mzk-field">
-                <span>Phone</span>
-                <input
-                  type="tel"
-                  inputMode="tel"
-                  value={form.phone}
-                  required
-                  autoComplete="tel"
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                />
-                <span className="mzk-muted mzk-small">
-                  So we can reach you quickly if a class changes at short notice.
-                </span>
-              </label>
+              {bookingForSomeoneElse && (
+                <label className="mzk-field">
+                  <span>Who is coming?</span>
+                  <input
+                    value={form.attendeeName}
+                    required
+                    placeholder="Their name"
+                    onChange={(e) => setForm({ ...form, attendeeName: e.target.value })}
+                  />
+                  <span className="mzk-muted mzk-small">
+                    We will put this name on the class list. The booking stays on your account.
+                  </span>
+                </label>
+              )}
 
               <label className="mzk-field">
                 <span>Anything we should know? (optional)</span>
@@ -254,6 +325,10 @@ function BookingOutcome({
     )
   }
 
+  if (result.outcome === 'sign_in_required') {
+    return <SignInRequired result={result} onClose={onClose} />
+  }
+
   if (result.outcome === 'verify_email') {
     return (
       <>
@@ -345,6 +420,86 @@ function CheckoutHandoff({
       <button className="mzk-btn mzk-btn-block" style={{ marginTop: 8 }} onClick={abandon} disabled={leaving}>
         {expired ? 'Close' : leaving ? 'Releasing…' : "I'll book later"}
       </button>
+    </>
+  )
+}
+
+/**
+ * The address or number is already ours.
+ *
+ * Not an error, and deliberately not a dead end: the reason we stopped is that we cannot prove
+ * this is their inbox, and the sign-in link is exactly how they prove it. Sending it from here
+ * means the way out is one press rather than "go and find the other tab".
+ */
+function SignInRequired({
+  result,
+  onClose,
+}: {
+  result: Extract<StartBookingResult, { outcome: 'sign_in_required' }>
+  onClose: () => void
+}) {
+  const [sending, setSending] = useState(false)
+  const [sent, setSent] = useState(false)
+  const [failed, setFailed] = useState(false)
+
+  // Only offered when we know the real address. On a phone match it is masked, and a masked
+  // address cannot be emailed — they have to type the one they remember.
+  const canSend = result.reason === 'email_known'
+
+  async function send() {
+    setSending(true)
+    setFailed(false)
+    try {
+      await widgetApi.requestMagicLink(result.email, `${window.location.origin}${window.location.pathname}?tab=bookings`)
+      setSent(true)
+    } catch {
+      setFailed(true)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <>
+      <h3>You have booked with us before</h3>
+      <p className="mzk-muted mzk-small">{result.message}</p>
+
+      {sent ? (
+        <div className="mzk-note mzk-note-ok">
+          Check your email — we have sent a sign-in link to <strong>{result.email}</strong>. Open it
+          and you can finish booking straight away.
+        </div>
+      ) : (
+        <>
+          {failed && (
+            <div className="mzk-note mzk-note-error">
+              We could not send that link just now. Please try again shortly.
+            </div>
+          )}
+
+          {canSend ? (
+            <button
+              type="button"
+              className="mzk-btn mzk-btn-primary mzk-btn-block"
+              onClick={send}
+              disabled={sending}
+            >
+              {sending && <span className="mzk-spinner" />}
+              {sending ? 'Sending…' : `Email a sign-in link to ${result.email}`}
+            </button>
+          ) : (
+            <div className="mzk-note mzk-note-info">
+              Open <strong>My bookings</strong> and sign in with that address to carry on.
+            </div>
+          )}
+        </>
+      )}
+
+      <div className="mzk-row" style={{ justifyContent: 'flex-end', marginTop: 12 }}>
+        <button type="button" className="mzk-btn" onClick={onClose}>
+          Close
+        </button>
+      </div>
     </>
   )
 }

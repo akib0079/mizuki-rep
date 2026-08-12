@@ -61,6 +61,8 @@ export interface CreateBookingInput {
   holdExpiresAt?: Date | null
   wooOrderId?: number | null
   studentNotes?: string
+  /** Who is coming, when that is not the account holder — a child, a friend. */
+  attendeeName?: string
   actor?: string
   notify?: boolean
   now?: Date
@@ -155,6 +157,7 @@ export async function createBooking(input: CreateBookingInput): Promise<BookingR
       holdExpiresAt: input.holdExpiresAt ?? null,
       wooOrderId: input.wooOrderId ?? null,
       studentNotes: input.studentNotes ?? '',
+      attendeeName: input.attendeeName ?? '',
       capacityOverridden: overrideCapacity,
       confirmedAt: status === 'confirmed' ? now : null,
     })

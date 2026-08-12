@@ -233,7 +233,15 @@ export function SessionDrawer({
                       {liveRoster.map((entry) => (
                         <tr key={entry.bookingId}>
                           <td>
-                            <div style={{ fontWeight: 600 }}>{entry.name}</div>
+                            <div style={{ fontWeight: 600 }}>
+                              {entry.name}
+                              {/* Whose account this sits on, when the attendee is someone else. */}
+                              {entry.bookedBy && (
+                                <span className="small muted" style={{ marginLeft: 6, fontWeight: 400 }}>
+                                  booked by {entry.bookedBy}
+                                </span>
+                              )}
+                            </div>
                             <div className="muted small">{entry.email}{entry.phone ? ` · ${entry.phone}` : ''}</div>
                             <div style={{ marginTop: 4, display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                               {entry.status === 'hold' && <span className="pill pill-warn">Awaiting payment</span>}

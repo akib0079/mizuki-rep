@@ -37,6 +37,15 @@ const bookingSchema = new Schema(
     /** Set on the new booking when a student moves, so the studio can see the history. */
     rescheduledFrom: { type: Schema.Types.ObjectId, ref: 'Booking', default: null },
 
+    /**
+     * Who is actually coming, when that is not the account holder.
+     *
+     * One account per email, so a parent booking for a child would otherwise put the parent's
+     * name on the register and the teacher would call for the wrong person. The account keeps
+     * the history, the packages and the sign-in; this is only what to write on the day's list.
+     */
+    attendeeName: { type: String, default: '', maxlength: 120 },
+
     studentNotes: { type: String, default: '', maxlength: 500 },
     adminNotes: { type: String, default: '', maxlength: 2000 },
 

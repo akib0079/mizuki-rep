@@ -109,7 +109,7 @@ describe('booking endpoint', () => {
     expect(res.body.outcome).toBe('checkout_required')
   })
 
-  it('emails a confirmation link before spending an IFDA course session', async () => {
+  it('refuses to spend an IFDA course session for someone who has not proved the inbox', async () => {
     const ifda = await CourseTypeModel.findOne({ slug: 'ifda' })
     const session = await SessionModel.findOne({ courseTypeId: ifda!._id, dateKey: '2026-09-05' })
     const student = await makeStudent({ email: 'mei@example.com', name: 'Mei' })
@@ -120,10 +120,20 @@ describe('booking endpoint', () => {
       .send({ sessionId: String(session!._id), email: 'mei@example.com', name: 'Mei', phone: '+65 9123 4567' })
       .expect(200)
 
-    // Knowing an address must not be enough to burn someone's paid-for sessions.
-    expect(res.body.outcome).toBe('verify_email')
-    expect(await OutboxModel.exists({ type: 'magic_link', to: 'mei@example.com' })).toBeTruthy()
+    /*
+     * Knowing an address must not be enough to burn someone's paid-for sessions. This used to be
+     * a package-only check; it is now the same rule for every course, so a known address always
+     * has to prove the inbox before anything is booked against it.
+     */
+    expect(res.body.outcome).toBe('sign_in_required')
+    expect(res.body.reason).toBe('email_known')
     expect(await BookingModel.countDocuments({ sessionId: session!._id })).toBe(0)
+
+    /*
+     * And no email goes out on its own. The student asks for the link from the next screen, so
+     * typing a stranger's address into the booking form cannot be used to send them mail.
+     */
+    expect(await OutboxModel.exists({ type: 'magic_link', to: 'mei@example.com' })).toBeFalsy()
   })
 
   /*

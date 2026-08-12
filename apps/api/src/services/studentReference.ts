@@ -26,3 +26,35 @@ export async function backfillReferences(): Promise<number> {
   logger.info({ assigned }, 'Assigned student references')
   return assigned
 }
+
+/**
+ * Fill in the normalised phone for students who registered before it existed.
+ *
+ * Without this the duplicate-account guard silently misses every student already on file — the
+ * one group it most needs to catch, because they are the people most likely to book again and
+ * type their address slightly differently. Runs at startup, safe to repeat.
+ */
+export async function backfillPhoneDigits(): Promise<number> {
+  const missing = await StudentModel.find({
+    phone: { $ne: '' },
+    $or: [{ phoneDigits: '' }, { phoneDigits: { $exists: false } }],
+  }).limit(5000)
+
+  if (missing.length === 0) return 0
+
+  let filled = 0
+  for (const student of missing) {
+    try {
+      // Assigned directly rather than relying on the save hook, which only fires when `phone`
+      // itself changed — and here it has not.
+      student.phoneDigits = (student.phone ?? '').replace(/\D/g, '')
+      await student.save()
+      filled++
+    } catch (err) {
+      logger.error({ err, studentId: String(student._id) }, 'Could not normalise a student phone number')
+    }
+  }
+
+  logger.info({ filled }, 'Normalised student phone numbers')
+  return filled
+}

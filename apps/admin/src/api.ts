@@ -85,7 +85,10 @@ export interface AdminSession {
 export interface RosterEntry {
   bookingId: string
   studentId: string
+  /** Who is attending — the attendee's name when a booking was made for someone else. */
   name: string
+  /** Set only when the attendee is not the account holder: who made the booking. */
+  bookedBy: string
   email: string
   phone: string
   status: string

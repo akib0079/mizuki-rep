@@ -94,6 +94,14 @@ export function AcceptInvitePage({ onSignedIn }: { onSignedIn: () => void }) {
         >
           {busy ? 'Setting it up…' : 'Set password and sign in'}
         </button>
+
+        {/*
+          A way out. Someone who already has a password — or who opened an old link by mistake —
+          otherwise has nothing to press but the back button, on a page reached from an email.
+        */}
+        <a className="link-btn login-alt" href="/admin/">
+          Back to sign in
+        </a>
       </form>
     </div>
   )

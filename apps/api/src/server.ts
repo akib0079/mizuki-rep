@@ -2,7 +2,7 @@ import { createApp } from './app.js'
 import { connectDb, disconnectDb } from './db.js'
 import { config } from './config.js'
 import { startScheduler, stopScheduler } from './scheduler.js'
-import { backfillReferences } from './services/studentReference.js'
+import { backfillPhoneDigits, backfillReferences } from './services/studentReference.js'
 import { logger } from './logger.js'
 import mongoose from 'mongoose'
 import './models/index.js'
@@ -16,6 +16,9 @@ async function main(): Promise<void> {
   logger.info('Indexes synchronised')
 
   // Students who registered before references existed. No-op once it has run.
+  await backfillPhoneDigits().catch((err) =>
+    logger.error({ err }, 'Could not normalise student phone numbers'),
+  )
   await backfillReferences().catch((err) =>
     logger.error({ err }, 'Student reference backfill failed — the API is still fine to serve'),
   )

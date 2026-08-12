@@ -73,13 +73,19 @@ export const widgetApi = {
   alternatives: (sessionId: string) =>
     request<{ alternatives: PublicSession[] }>(`/api/public/sessions/${sessionId}/alternatives`),
 
+  /*
+   * Identity is optional here because a signed-in student must not send it: the server takes
+   * who they are from their session and ignores the rest, so sending a name would only be a
+   * chance for the two to disagree.
+   */
   startBooking: (body: {
     sessionId: string
-    email: string
-    name: string
+    email?: string
+    name?: string
     phone?: string
     notes?: string
     marketingOptIn?: boolean
+    attendeeName?: string
   }) => request<StartBookingResult>('/api/bookings/start', { method: 'POST', body: JSON.stringify(body) }),
 
   myBookings: () => request<MyBookings>('/api/bookings/mine'),
@@ -130,6 +136,8 @@ export const widgetApi = {
 export type StartBookingResult =
   | { outcome: 'booked'; booking: { id: string; session: PublicSession }; packageRemaining: number | null }
   | { outcome: 'verify_email'; message: string }
+  /** The address or number already belongs to an account — sign in rather than book blind. */
+  | { outcome: 'sign_in_required'; reason: 'email_known' | 'phone_known'; email: string; message: string }
   /**
    * The place is held while the studio arranges payment — a student on a course-package course
    * who does not have a package yet. Not a confirmation, but not a refusal either: they have a
