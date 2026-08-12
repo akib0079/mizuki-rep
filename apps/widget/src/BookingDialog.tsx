@@ -27,6 +27,8 @@ export function BookingDialog({
 }) {
   const [form, setForm] = useState({ name: '', email: '', phone: '', notes: '', attendeeName: '' })
   const [bookingForSomeoneElse, setBookingForSomeoneElse] = useState(false)
+  /** Set when they have seen a possible duplicate and told us it is not them. */
+  const [confirmedNewAccount, setConfirmedNewAccount] = useState(false)
   const [busy, setBusy] = useState(false)
   const [linkSent, setLinkSent] = useState(false)
 
@@ -84,6 +86,7 @@ export function BookingDialog({
               phone: form.phone.trim(),
               notes: form.notes.trim(),
               attendeeName,
+              confirmedNewAccount,
             },
       )
       setResult(outcome)
@@ -110,7 +113,17 @@ export function BookingDialog({
     <div className="mzk-modal-backdrop" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
       <div className="mzk mzk-modal" role="dialog" aria-modal="true" aria-label="Book this class">
         {result ? (
-          <BookingOutcome result={result} session={session} onClose={onClose} onSeeBookings={onSeeBookings} />
+          <BookingOutcome
+            result={result}
+            session={session}
+            onClose={onClose}
+            onSeeBookings={onSeeBookings}
+            onNotMe={() => {
+              // Only a near miss can be got past this way; an exact match ignores the flag.
+              setConfirmedNewAccount(true)
+              setResult(null)
+            }}
+          />
         ) : (
           <form onSubmit={submit}>
             <h3>{session.title}</h3>
@@ -256,11 +269,14 @@ function BookingOutcome({
   session,
   onClose,
   onSeeBookings,
+  onNotMe,
 }: {
   result: StartBookingResult
   session: PublicSession
   onClose: () => void
   onSeeBookings?: () => void
+  /** "That is not me" — go back to the form and book a genuinely new account. */
+  onNotMe: () => void
 }) {
   const start = toStudio(session.startAt)
 
@@ -327,6 +343,12 @@ function BookingOutcome({
 
   if (result.outcome === 'sign_in_required') {
     return <SignInRequired result={result} onClose={onClose} />
+  }
+
+  if (result.outcome === 'possible_duplicate') {
+    return (
+      <PossibleDuplicate result={result} onClose={onClose} onNotMe={onNotMe} />
+    )
   }
 
   if (result.outcome === 'verify_email') {
@@ -500,6 +522,51 @@ function SignInRequired({
           Close
         </button>
       </div>
+    </>
+  )
+}
+
+/**
+ * We think they already have an account, but we are guessing.
+ *
+ * This is the case that actually creates duplicates: gmal for gmail, a letter dropped from the
+ * address, the same name typed again. Every field differs, so nothing exact catches it, and the
+ * studio ends up with one person spread across three accounts and three course balances.
+ *
+ * It asks rather than decides, because two people genuinely do share a name. Signing in is the
+ * prominent option; carrying on is available and quiet, so the easy path is the right one.
+ */
+function PossibleDuplicate({
+  result,
+  onClose,
+  onNotMe,
+}: {
+  result: Extract<StartBookingResult, { outcome: 'possible_duplicate' }>
+  onClose: () => void
+  onNotMe: () => void
+}) {
+  return (
+    <>
+      <h3>You may already have an account</h3>
+      <p className="mzk-muted mzk-small">{result.message}</p>
+
+      <div className="mzk-note mzk-note-info">
+        Signing in keeps your bookings and any course package together. Booking again under a new
+        account splits them, and the studio has to join them back up by hand.
+      </div>
+
+      <button
+        type="button"
+        className="mzk-btn mzk-btn-primary mzk-btn-block"
+        onClick={onClose}
+        style={{ marginTop: 4 }}
+      >
+        I will sign in from My bookings
+      </button>
+
+      <button type="button" className="mzk-link-btn mzk-block-link" onClick={onNotMe}>
+        That is not me — this is my first booking
+      </button>
     </>
   )
 }

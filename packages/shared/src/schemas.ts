@@ -64,6 +64,12 @@ export const startBookingSchema = z.object({
   marketingOptIn: z.boolean().default(false),
   /** Who is actually attending, when it is not the person booking. */
   attendeeName: z.string().trim().max(120).default(''),
+  /*
+   * Set only after the student has been shown a possible duplicate and said it is not them.
+   * An exact match ignores this — that one is certain — so it can never be used to book against
+   * an address or number that is definitely someone else's.
+   */
+  confirmedNewAccount: z.boolean().default(false),
 })
 
 /**

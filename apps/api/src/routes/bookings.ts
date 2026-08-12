@@ -32,6 +32,7 @@ import { AppError, ForbiddenError, NotFoundError } from '../errors.js'
 import { LoginTokenModel } from '../models/index.js'
 import { generateHoldToken, generateMagicToken } from '../auth/tokens.js'
 import { z } from 'zod'
+import { findExistingStudent } from '../services/studentMatch.js'
 import { config } from '../config.js'
 
 /**
@@ -50,19 +51,7 @@ export const bookingRouter: Router = Router()
  * "+65 9123 4567" and "6591234567" are the same number to everyone except a string comparison,
  * and matching literally would miss exactly the duplicate this is meant to catch.
  */
-async function findStudentByPhone(phone: string) {
-  const digits = phone.replace(/\D/g, '')
-  if (digits.length < 8) return null
 
-  /*
-   * Matched on the last eight digits, so a country code written on one booking and left off the
-   * next still finds the same person. Anchored at the end of the stored digits, which is why the
-   * comparison runs against `phoneDigits` rather than the number as typed — "+65 9333 4444" has
-   * spaces in it and would never match a digits-only pattern.
-   */
-  const tail = digits.slice(-8)
-  return StudentModel.findOne({ phoneDigits: { $regex: `${tail}$` } })
-}
 
 /** a•••a@gmail.com — enough to recognise your own address, not enough to learn someone else's. */
 function maskEmail(email: string): string {
@@ -114,43 +103,55 @@ bookingRouter.post(
 
     if (!student) {
       const visitor = input as z.infer<typeof startBookingSchema>
-      const existing = await StudentModel.findOne({ email: visitor.email })
+      const match = await findExistingStudent(visitor)
 
       /*
-       * The address is already ours. Do not book.
+       * Already ours, and we are sure of it.
        *
-       * Booking anyway would attach this to their record on nothing more than knowing their email
-       * — no proof of the inbox, their package credits spent by a stranger, and a name on the
-       * register that may not be theirs. Proving the inbox is exactly what the sign-in link is
-       * for, so send them there.
+       * Booking anyway would attach this to their record on nothing more than knowing an address
+       * or a number — no proof of the inbox, their course credits spent by a stranger, and a name
+       * on the register that may not be theirs. Proving the inbox is what the sign-in link is for.
        */
-      if (existing) {
+      if (match?.certain) {
         res.json({
           outcome: 'sign_in_required',
-          reason: 'email_known',
-          email: existing.email,
+          reason: match.kind,
+          certain: true,
+          email: match.kind === 'email_known' ? match.student.email : maskEmail(match.student.email),
           message:
-            'This email has booked with us before. Sign in and your place will be added to your ' +
-            'existing bookings, with your course package if you have one.',
+            match.kind === 'email_known'
+              ? 'This email has booked with us before. Sign in and your place will be added to your ' +
+                'existing bookings, with your course package if you have one.'
+              : `This phone number is already registered to ${maskEmail(match.student.email)}. Sign in ` +
+                'with that address to keep your bookings and course package together.',
         })
         return
       }
 
       /*
-       * The number is ours but the address is not — almost always the same person with a typo,
-       * or a second address. Naming the account they already have is the only way they can find
-       * it; masked, because this endpoint is unauthenticated and must not confirm to a stranger
-       * which address goes with a phone number.
+       * Nearly ours. Not certain, so not refused outright.
+       *
+       * This is what actually creates duplicates: gmal for gmail, a missing letter, the same name
+       * typed twice. Every field differs, so nothing exact catches it, and the studio ends up with
+       * one person spread across three accounts and three separate course balances.
+       *
+       * Two people can genuinely share a name, though, so this asks rather than decides — and the
+       * answer comes back as `confirmedNewAccount`, which only ever gets past a near miss.
        */
-      const byPhone = await findStudentByPhone(visitor.phone)
-      if (byPhone) {
+      if (match && !visitor.confirmedNewAccount) {
         res.json({
-          outcome: 'sign_in_required',
-          reason: 'phone_known',
-          email: maskEmail(byPhone.email),
+          outcome: 'possible_duplicate',
+          reason: match.kind,
+          certain: false,
+          email: maskEmail(match.student.email),
+          name: match.student.name,
           message:
-            `This phone number is already registered to ${maskEmail(byPhone.email)}. Sign in with ` +
-            'that address to keep your bookings and course package together.',
+            match.kind === 'email_similar'
+              ? `We already have an account at ${maskEmail(match.student.email)}, which looks very ` +
+                'like the address you typed. If that is you, sign in — otherwise your bookings and ' +
+                'course package will end up split across two accounts.'
+              : `We already have a student called ${match.student.name}. If that is you, sign in so ` +
+                'this booking joins your others.',
         })
         return
       }

@@ -27,6 +27,22 @@ const studentSchema = new Schema(
      * exactly as the student wrote it, because that is what the studio dials.
      */
     phoneDigits: { type: String, default: '', index: true },
+
+    /**
+     * The name reduced to lowercase words, for matching.
+     *
+     * Same reasoning as `phoneDigits`: "Ayesha  Akter" and "ayesha akter" are one person typing,
+     * and only a normalised copy can be indexed and compared. `name` keeps what they wrote.
+     */
+    nameNormalised: { type: String, default: '', index: true },
+
+    /**
+     * Set when this record turned out to be the same person as another, and was merged into it.
+     *
+     * The row is kept rather than deleted: audit entries point at it, and a record that vanishes
+     * is one nobody can check afterwards. Every list filters these out.
+     */
+    mergedInto: { type: Schema.Types.ObjectId, ref: 'Student', default: null, index: true },
     phone: { type: String, default: '', trim: true },
 
     wooCustomerId: { type: Number, default: null, index: true },
@@ -79,6 +95,9 @@ studentSchema.pre('save', async function assignReference(next) {
 studentSchema.pre('save', function (next) {
   if (this.isModified('phone')) {
     this.phoneDigits = (this.phone ?? '').replace(/\D/g, '')
+  }
+  if (this.isModified('name')) {
+    this.nameNormalised = (this.name ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
   }
   next()
 })

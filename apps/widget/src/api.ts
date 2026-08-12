@@ -86,6 +86,8 @@ export const widgetApi = {
     notes?: string
     marketingOptIn?: boolean
     attendeeName?: string
+    /** Sent only after they have been shown a possible duplicate and said it is not them. */
+    confirmedNewAccount?: boolean
   }) => request<StartBookingResult>('/api/bookings/start', { method: 'POST', body: JSON.stringify(body) }),
 
   myBookings: () => request<MyBookings>('/api/bookings/mine'),
@@ -136,8 +138,23 @@ export const widgetApi = {
 export type StartBookingResult =
   | { outcome: 'booked'; booking: { id: string; session: PublicSession }; packageRemaining: number | null }
   | { outcome: 'verify_email'; message: string }
-  /** The address or number already belongs to an account — sign in rather than book blind. */
-  | { outcome: 'sign_in_required'; reason: 'email_known' | 'phone_known'; email: string; message: string }
+  /** The address or number definitely belongs to an account — sign in rather than book blind. */
+  | {
+      outcome: 'sign_in_required'
+      reason: 'email_known' | 'phone_known'
+      certain: true
+      email: string
+      message: string
+    }
+  /** It looks like an account they already have, but we are guessing — so they get to decide. */
+  | {
+      outcome: 'possible_duplicate'
+      reason: 'email_similar' | 'name_known'
+      certain: false
+      email: string
+      name: string
+      message: string
+    }
   /**
    * The place is held while the studio arranges payment — a student on a course-package course
    * who does not have a package yet. Not a confirmation, but not a refusal either: they have a

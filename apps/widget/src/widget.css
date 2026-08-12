@@ -622,3 +622,14 @@
   color: var(--mzk-ink) !important;
 }
 .mzk-check input { width: 17px !important; height: 17px !important; min-width: 17px !important; accent-color: var(--mzk-accent) !important; margin: 0 !important; }
+
+/* The quiet second option under a primary action. */
+.mzk .mzk-block-link {
+  display: block !important;
+  width: 100% !important;
+  margin-top: 10px !important;
+  padding: 8px !important;
+  background: transparent !important;
+  text-align: center !important;
+  font-size: 13.5px !important;
+}

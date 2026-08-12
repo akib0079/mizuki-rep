@@ -6,11 +6,13 @@ import {
   packageGrantSchema,
   sessionsRemaining,
   studentInputSchema,
+  objectIdSchema,
 } from '@mizuki/shared'
 import { BookingModel, CourseTypeModel, PackageModel, SessionModel, StudentModel } from '../../models/index.js'
 import { cancelBooking, createBooking } from '../../services/bookingService.js'
 import { adjustPackage, grantSessions, summarisePackages } from '../../services/packageService.js'
 import { recordAudit } from '../../services/auditService.js'
+import { findDuplicateGroups, mergeStudents } from '../../services/mergeStudents.js'
 import { actorOf } from '../../middleware/auth.js'
 import { asyncRoute } from '../../middleware/errorHandler.js'
 import { AppError, NotFoundError } from '../../errors.js'
@@ -60,7 +62,14 @@ adminStudentsRouter.get(
         : noPhone
       : query
 
-    const students = await StudentModel.find(filter).sort({ name: 1 }).limit(limit).lean()
+    /*
+     * Merged records are kept so the audit trail resolves, but they are not people any more —
+     * showing them here would put the duplicates straight back in front of the studio.
+     */
+    const students = await StudentModel.find({ $and: [filter, { mergedInto: null }] })
+      .sort({ name: 1 })
+      .limit(limit)
+      .lean()
 
     // One aggregate rather than a query per student — the list must stay fast as the studio grows.
     const packages = await PackageModel.find({
@@ -371,3 +380,33 @@ adminStudentsRouter.get(
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
+
+/**
+ * Accounts that look like one person.
+ *
+ * Offered as a screen rather than left to be noticed, because the studio only found their three
+ * copies of one student by scrolling the list and recognising the name.
+ */
+adminStudentsRouter.get(
+  '/duplicates',
+  asyncRoute(async (_req, res) => {
+    res.json({ groups: await findDuplicateGroups() })
+  }),
+)
+
+/**
+ * Join two accounts.
+ *
+ * Bookings and course credits move to the account being kept. Nothing is deleted — the other
+ * record is emptied and marked, so the audit trail still resolves.
+ */
+adminStudentsRouter.post(
+  '/merge',
+  asyncRoute(async (req, res) => {
+    const { keepId, mergeId } = z
+      .object({ keepId: objectIdSchema, mergeId: objectIdSchema })
+      .parse(req.body)
+
+    res.json(await mergeStudents(keepId, mergeId, actorOf(req)))
+  }),
+)

@@ -180,3 +180,80 @@ describe('booking while signed in', () => {
     expect(booking!.attendeeName).toBe('Their Child')
   })
 })
+
+describe('the three accounts that were really one person', () => {
+  /*
+   * Reproduced from the studio's own student list. Nothing exact matched any of these, which is
+   * why they became three students with three separate course balances.
+   */
+  it('stops a mistyped domain becoming a second account', async () => {
+    await makeStudent({ name: 'Ayesha Akter', email: 'ayeshaakter6100@gmail.com', phone: '0130187508' })
+
+    const res = await request(app)
+      .post('/api/bookings/start')
+      .send({
+        sessionId: String(session._id),
+        name: 'Akib Zawayed',
+        email: 'ayeshaakter6100@gmal.com',
+        phone: '019 0418 7508',
+      })
+      .expect(200)
+
+    expect(res.body.outcome).toBe('possible_duplicate')
+    expect(res.body.reason).toBe('email_similar')
+    expect(await StudentModel.countDocuments()).toBe(1)
+  })
+
+  it('stops a dropped letter becoming a third account', async () => {
+    await makeStudent({ name: 'Ayesha Akter', email: 'ayeshaakter6100@gmail.com', phone: '0130187508' })
+
+    const res = await request(app)
+      .post('/api/bookings/start')
+      .send({
+        sessionId: String(session._id),
+        name: 'Ayesha',
+        email: 'ayeshaaker6100@gmail.com',
+        phone: '08689699',
+      })
+      .expect(200)
+
+    expect(res.body.outcome).toBe('possible_duplicate')
+    expect(await StudentModel.countDocuments()).toBe(1)
+  })
+
+  it('lets someone through when they say it is genuinely not them', async () => {
+    await makeStudent({ name: 'Ayesha Akter', email: 'ayeshaakter6100@gmail.com', phone: '0130187508' })
+
+    await request(app)
+      .post('/api/bookings/start')
+      .send({
+        sessionId: String(session._id),
+        name: 'Ayesha',
+        email: 'ayeshaaker6100@gmail.com',
+        phone: '08689699',
+        confirmedNewAccount: true,
+      })
+      .expect(201)
+
+    expect(await StudentModel.countDocuments()).toBe(2)
+  })
+
+  it('never lets that answer get past an address we are certain about', async () => {
+    await makeStudent({ name: 'Ayesha Akter', email: 'ayeshaakter6100@gmail.com', phone: '0130187508' })
+
+    const res = await request(app)
+      .post('/api/bookings/start')
+      .send({
+        sessionId: String(session._id),
+        name: 'Someone',
+        email: 'ayeshaakter6100@gmail.com',
+        phone: '0999888777',
+        // Claiming to be new cannot override an exact match — that one is not a guess.
+        confirmedNewAccount: true,
+      })
+      .expect(200)
+
+    expect(res.body.outcome).toBe('sign_in_required')
+    expect(await StudentModel.countDocuments()).toBe(1)
+  })
+})

@@ -36,8 +36,12 @@ export async function backfillReferences(): Promise<number> {
  */
 export async function backfillPhoneDigits(): Promise<number> {
   const missing = await StudentModel.find({
-    phone: { $ne: '' },
-    $or: [{ phoneDigits: '' }, { phoneDigits: { $exists: false } }],
+    $or: [
+      { phone: { $ne: '' }, phoneDigits: '' },
+      { phoneDigits: { $exists: false } },
+      { nameNormalised: '' },
+      { nameNormalised: { $exists: false } },
+    ],
   }).limit(5000)
 
   if (missing.length === 0) return 0
@@ -48,6 +52,7 @@ export async function backfillPhoneDigits(): Promise<number> {
       // Assigned directly rather than relying on the save hook, which only fires when `phone`
       // itself changed — and here it has not.
       student.phoneDigits = (student.phone ?? '').replace(/\D/g, '')
+      student.nameNormalised = (student.name ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
       await student.save()
       filled++
     } catch (err) {
@@ -55,6 +60,6 @@ export async function backfillPhoneDigits(): Promise<number> {
     }
   }
 
-  logger.info({ filled }, 'Normalised student phone numbers')
+  logger.info({ filled }, 'Normalised student names and phone numbers')
   return filled
 }

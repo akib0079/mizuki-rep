@@ -31,9 +31,13 @@ function startBooking(sessionId: string, email = 'aiko@example.com') {
    */
   const digits = String(Math.abs([...email].reduce((h, c) => h * 31 + c.charCodeAt(0), 7)) % 90000000 + 10000000)
 
+  // The name has to differ too, for the same reason the number does: two students who share
+  // both look like one person booking twice, which is now caught before capacity is reached.
+  const who = email.split('@')[0] ?? 'student'
+
   return request(app)
     .post('/api/bookings/start')
-    .send({ sessionId, email, name: 'Aiko Tan', phone: `+65 ${digits}` })
+    .send({ sessionId, email, name: `Aiko ${who}`, phone: `+65 ${digits}` })
 }
 
 function wooCallback(payload: unknown) {

@@ -1440,3 +1440,15 @@ h3 { letter-spacing: -0.01em; }
 .query-error h3 { margin: 0 0 4px; font-size: 15px; }
 .query-error p { margin: 0 0 12px; }
 .query-error .row { margin-bottom: 4px; }
+
+/* Possible duplicate accounts, grouped so the studio sees "these are one person". */
+.dupe-group { padding: 12px 0; border-top: 1px solid var(--line); }
+.dupe-group:first-of-type { border-top: none; }
+.dupe-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  flex-wrap: wrap;
+}
