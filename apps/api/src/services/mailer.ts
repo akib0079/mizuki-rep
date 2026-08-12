@@ -175,14 +175,25 @@ function isPermanentRejection(message: string): boolean {
 
 /** Say what to do about it, not just what happened. */
 function explain(message: string): string {
-  if (message.toLowerCase().includes('you can only send testing emails')) {
+  const text = message.toLowerCase()
+
+  if (text.includes('you can only send testing emails')) {
     return (
-      'Not delivered: the sender is still Resend\'s test address, which only reaches the Resend ' +
-      'account owner. Verify mizuki.com.sg at resend.com/domains and set the from address to ' +
-      'that domain, and student email will start arriving. ' +
+      'Not delivered: the "Send from" address is still Resend\'s shared test address, which only ' +
+      'ever reaches the Resend account owner — so nobody else gets anything, students or studio. ' +
+      'Set it to an address at a domain verified in Resend. ' +
       `(Resend said: ${message})`
     )
   }
+
+  if (text.includes('domain is not verified')) {
+    return (
+      'Not delivered: the "Send from" address uses a domain that is not verified in Resend. ' +
+      'Either verify that domain at resend.com/domains, or send from one that already is. ' +
+      `(Resend said: ${message})`
+    )
+  }
+
   return `Not delivered, and retrying will not help: ${message}`
 }
 
@@ -313,21 +324,121 @@ export async function sendDirectEmail(to: string, subject: string, html: string,
  * Listing domains is a read-only call, so the studio can check a key they have just pasted
  * without spending quota or emailing a real person to find out.
  */
-export async function checkEmailKey(): Promise<{ ok: boolean; message: string; domains?: string[] }> {
+export interface EmailHealth {
+  ok: boolean
+  message: string
+  /** What to change, in the studio's words, when something is wrong. */
+  fix?: string
+  from: string
+  verifiedDomains: string[]
+  recentFailures: { type: string; to: string; error: string; at: Date }[]
+}
+
+/**
+ * Can this system actually deliver email right now?
+ *
+ * The old version answered "is the API key accepted", which is a much smaller question and the
+ * reason a total outage looked healthy: the key was fine, the sender was not, and every message
+ * was rejected at the door. A key that works is not the same as mail that arrives.
+ *
+ * The sender is the part that catches people out. Resend will only send from a domain verified
+ * on that account, and its shared test address only ever reaches the account owner — so a studio
+ * that sets a real key and leaves the test sender in place gets silence, for everybody.
+ */
+export async function checkEmailKey(): Promise<EmailHealth> {
+  const from = (await getPlain(PLAIN_KEYS.mailFrom, config.MAIL_FROM)) ?? config.MAIL_FROM
+  const recentFailures = await recentDeliveryFailures()
+
   const resend = await resendClient()
-  if (!resend) return { ok: false, message: 'No API key is set.' }
+  if (!resend) {
+    return {
+      ok: false,
+      message: 'No API key is set, so nothing can be sent.',
+      fix: 'Add your Resend API key below.',
+      from,
+      verifiedDomains: [],
+      recentFailures,
+    }
+  }
 
   try {
     const { data, error } = await resend.domains.list()
-    if (error) return { ok: false, message: error.message }
+    if (error) {
+      return {
+        ok: false,
+        message: `Resend rejected the key: ${error.message}`,
+        fix: 'Check the API key below, or create a new one at resend.com/api-keys.',
+        from,
+        verifiedDomains: [],
+        recentFailures,
+      }
+    }
 
-    const domains = (data?.data ?? []).map((d) => `${d.name} (${d.status})`)
+    const all = data?.data ?? []
+    const verified = all.filter((d) => d.status === 'verified').map((d) => d.name)
+    const senderDomain = from.match(/@([^\s>]+)/)?.[1]?.toLowerCase() ?? ''
+
+    if (!verified.length) {
+      return {
+        ok: false,
+        message: 'No domain is verified in Resend, so mail can only reach your own address.',
+        fix: all.length
+          ? `${all[0]!.name} is added but not verified — finish its DNS records at resend.com/domains.`
+          : 'Add and verify a domain at resend.com/domains.',
+        from,
+        verifiedDomains: [],
+        recentFailures,
+      }
+    }
+
+    if (!verified.some((d) => senderDomain === d || senderDomain.endsWith(`.${d}`))) {
+      return {
+        ok: false,
+        message: `Nothing is being delivered: mail is sent from ${senderDomain || 'an unset address'}, which is not verified in Resend.`,
+        fix: `Change "Send from" to an address at ${verified.join(' or ')} — for example bookings@${verified[0]}.`,
+        from,
+        verifiedDomains: verified,
+        recentFailures,
+      }
+    }
+
     return {
-      ok: true,
-      message: domains.length ? 'Key accepted.' : 'Key accepted, but no domain has been added in Resend yet.',
-      domains,
+      ok: recentFailures.length === 0,
+      message: recentFailures.length
+        ? `Sending from ${senderDomain} is set up correctly, but ${recentFailures.length} recent message(s) still failed.`
+        : `Ready. Sending from ${senderDomain}, which is verified.`,
+      from,
+      verifiedDomains: verified,
+      recentFailures,
     }
   } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : 'Could not reach Resend.' }
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : 'Could not reach Resend.',
+      from,
+      verifiedDomains: [],
+      recentFailures,
+    }
   }
 }
+
+/** The last few things that did not arrive, and why — the studio's only window into this. */
+export async function recentDeliveryFailures(limit = 5) {
+  const rows = await OutboxModel.find({ status: 'failed' })
+    .sort({ updatedAt: -1 })
+    .limit(limit)
+    .lean()
+
+  return rows.map((m) => ({
+    type: m.type,
+    to: m.to,
+    error: m.lastError,
+    at: m.updatedAt as Date,
+  }))
+}
+
+/** How many messages are stuck, for the dashboard to raise without anyone pressing a button. */
+export async function failedMessageCount(): Promise<number> {
+  return OutboxModel.countDocuments({ status: 'failed' })
+}
+

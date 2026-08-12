@@ -12,6 +12,7 @@ import {
 import { findSeatDrift } from './seatService.js'
 import { hoursSinceLastBackup } from './backupService.js'
 import { config } from '../config.js'
+import { failedMessageCount } from './mailer.js'
 
 /**
  * Everything the studio's landing page shows, in one query pass.
@@ -170,6 +171,25 @@ async function buildActions(
       title: `${session.title} is over capacity`,
       subtitle: `${session.seatsTaken} booked into ${session.capacity} places — someone needs moving`,
       href: `/calendar?session=${session._id}`,
+    })
+  }
+
+  /*
+   * Email that is not arriving.
+   *
+   * The most important alert on this page, because it is the only failure that is completely
+   * invisible from inside the system: bookings still work, the queue still drains, the key still
+   * reports as valid, and every confirmation is rejected at the door. The studio found out by
+   * noticing that nobody had replied to anything.
+   */
+  const failedMail = await failedMessageCount()
+  if (failedMail > 0) {
+    actions.push({
+      kind: 'mail_failing',
+      severity: 'urgent',
+      title: `${failedMail} email${failedMail === 1 ? ' has' : 's have'} failed to send`,
+      subtitle: 'Students are not receiving confirmations — open Settings to see why',
+      href: '/settings',
     })
   }
 

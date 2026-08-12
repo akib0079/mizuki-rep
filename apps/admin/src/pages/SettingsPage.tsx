@@ -5,6 +5,15 @@ import { STUDIO_TZ } from '@mizuki/shared'
 import { ApiError, api, type Course } from '../api.js'
 import { PasswordField } from '../components/PasswordField.js'
 
+interface EmailHealth {
+  ok: boolean
+  message: string
+  fix?: string
+  from: string
+  verifiedDomains: string[]
+  recentFailures: { type: string; to: string; error: string; at: string }[]
+}
+
 interface SeatDrift {
   sessionId: string
   dateKey: string
@@ -501,13 +510,24 @@ function IntegrationsCard({ onMessage }: { onMessage: (m: { kind: 'ok' | 'danger
     onError: (err) => onMessage({ kind: 'danger', text: err instanceof ApiError ? err.message : 'Could not save.' }),
   })
 
+  /*
+   * Checked on load, not only when a button is pressed.
+   *
+   * "Test email key" was opt-in, so a total outage sat here looking healthy — the key was valid,
+   * which is what it reported, while every message was rejected for using a sender that could
+   * not deliver. Nobody presses a test button on a screen that appears to be fine.
+   */
+  const health = useQuery({
+    queryKey: ['email-health'],
+    queryFn: () => api.get<EmailHealth>('/api/admin/settings/integrations/resend/check'),
+  })
+
   const check = useMutation({
-    mutationFn: () => api.post<{ ok: boolean; message: string; domains?: string[] }>('/api/admin/settings/integrations/resend/check'),
-    onSuccess: (r) =>
-      onMessage({
-        kind: r.ok ? 'ok' : 'danger',
-        text: r.domains?.length ? `${r.message} Domains: ${r.domains.join(', ')}` : r.message,
-      }),
+    mutationFn: () => api.get<EmailHealth>('/api/admin/settings/integrations/resend/check'),
+    onSuccess: (r) => {
+      void queryClient.setQueryData(['email-health'], r)
+      onMessage({ kind: r.ok ? 'ok' : 'danger', text: r.message })
+    },
   })
 
   const rows: { name: string; label: string; hint: string; status?: SecretStatus }[] = [
@@ -531,13 +551,39 @@ function IntegrationsCard({ onMessage }: { onMessage: (m: { kind: 'ok' | 'danger
         </button>
       </div>
 
+      {health.data && !health.data.ok && (
+        <div className="banner banner-danger" style={{ marginTop: 14 }} role="alert">
+          <strong>{health.data.message}</strong>
+          {health.data.fix && <div style={{ marginTop: 4 }}>{health.data.fix}</div>}
+          {health.data.recentFailures.length > 0 && (
+            <details style={{ marginTop: 8 }}>
+              <summary>What failed most recently</summary>
+              <ul style={{ margin: '6px 0 0' }}>
+                {health.data.recentFailures.map((f, i) => (
+                  <li key={i} className="small">
+                    <strong>{f.type}</strong> to {f.to} — {f.error}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
+      )}
+
       <div className="field-row" style={{ marginTop: 14 }}>
         <MailField
           label="Send from"
           name="mail-from"
           value={data?.mailFrom ?? ''}
-          hint="Resend will refuse this until your domain is verified. Use onboarding@resend.dev to test before then."
-          onSaved={() => void queryClient.invalidateQueries({ queryKey: ['integrations'] })}
+          hint={
+            health.data?.verifiedDomains.length
+              ? `Must be an address at a domain verified in Resend: ${health.data.verifiedDomains.join(', ')}.`
+              : 'Must be an address at a domain verified in Resend. Resend\'s own test address only ever reaches the Resend account owner.'
+          }
+          onSaved={() => {
+            void queryClient.invalidateQueries({ queryKey: ['integrations'] })
+            void health.refetch()
+          }}
           onMessage={onMessage}
         />
         <MailField

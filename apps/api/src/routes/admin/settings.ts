@@ -34,7 +34,7 @@ import { findSeatDrift, repairSeatDrift } from '../../services/seatService.js'
 import { recordAudit } from '../../services/auditService.js'
 import { actorOf } from '../../middleware/auth.js'
 import { asyncRoute } from '../../middleware/errorHandler.js'
-import { NotFoundError } from '../../errors.js'
+import { AppError, NotFoundError } from '../../errors.js'
 import { config, bookingPageUrl, myBookingsUrl } from '../../config.js'
 
 /** Courses, recurring timetable rules, message wording, and the maintenance levers. */
@@ -407,6 +407,29 @@ adminSettingsRouter.get(
 
 const secretInputSchema = z.object({ value: z.string().trim().min(1, 'Paste the key') })
 
+/**
+ * Why this address will not work, or null if it will.
+ *
+ * Deliberately permissive when Resend cannot be reached: refusing to save because a third party
+ * is briefly unavailable would be worse than the mistake this guards against.
+ */
+async function senderProblem(from: string): Promise<string | null> {
+  const domain = from.match(/@([^\s>]+)/)?.[1]?.toLowerCase()
+  if (!domain) return 'That does not look like an email address. Use a form like Mizuki Flora <bookings@yourdomain.com>.'
+
+  if (domain === 'resend.dev') {
+    return 'That is Resend\'s shared test address — it only ever reaches the Resend account owner, so students and other admins get nothing. Use an address at a domain you have verified in Resend.'
+  }
+
+  const health = await checkEmailKey()
+  if (!health.verifiedDomains.length) return null
+
+  const usable = health.verifiedDomains.some((d) => domain === d || domain.endsWith(`.${d}`))
+  if (usable) return null
+
+  return `${domain} is not verified in Resend, so nothing sent from it will arrive. Verified right now: ${health.verifiedDomains.join(', ')} — for example bookings@${health.verifiedDomains[0]}.`
+}
+
 const PLAIN_SETTINGS: Record<string, (typeof PLAIN_KEYS)[keyof typeof PLAIN_KEYS]> = {
   'mail-from': PLAIN_KEYS.mailFrom,
   'mail-reply-to': PLAIN_KEYS.mailReplyTo,
@@ -426,6 +449,21 @@ adminSettingsRouter.put(
     if (!key) throw new NotFoundError('Setting')
 
     const { value } = z.object({ value: z.string().trim().max(200) }).parse(req.body)
+
+    /*
+     * Refuse a sending address that cannot deliver.
+     *
+     * Getting this wrong is silent and total: mail from an unverified domain, or from Resend's
+     * shared test address, is rejected for every recipient except the Resend account owner. The
+     * console reports the key as fine, the queue drains, and nobody hears anything — which is
+     * exactly what happened here, for days. Checking at the moment of saving is the only point
+     * where someone is present to be told.
+     */
+    if (key === PLAIN_KEYS.mailFrom) {
+      const problem = await senderProblem(value)
+      if (problem) throw new AppError(400, 'unusable_sender', problem)
+    }
+
     await setPlain(key, value, actorOf(req))
 
     await recordAudit({ actor: actorOf(req), action: 'mail.update', entity: 'Setting', reason: `${req.params.name} = ${value}` })
@@ -470,7 +508,7 @@ adminSettingsRouter.delete(
 )
 
 /** Check a key works without sending anything or spending quota. */
-adminSettingsRouter.post(
+adminSettingsRouter.get(
   '/integrations/resend/check',
   asyncRoute(async (_req, res) => {
     res.json(await checkEmailKey())
