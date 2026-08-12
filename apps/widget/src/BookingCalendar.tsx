@@ -8,6 +8,7 @@ import {
   type PublicSession,
   toStudio,
 } from '@mizuki/shared'
+import { Scope } from './Scope.js'
 import { widgetApi } from './api.js'
 import { BookingDialog } from './BookingDialog.js'
 
@@ -82,26 +83,24 @@ export function BookingCalendar({
 
   const selectedDay = selectedDate ? byDate.get(selectedDate) : null
 
-  const Root = embedded ? EmbeddedRoot : StandaloneRoot
-
   if (error) {
     return (
-      <Root>
+      <Scope embedded={embedded}>
         <div className="mzk-note mzk-note-error">{error}</div>
-      </Root>
+      </Scope>
     )
   }
 
   if (!days) {
     return (
-      <Root>
+      <Scope embedded={embedded}>
         <div className="mzk-panel"><div className="mzk-empty">Loading classes…</div></div>
-      </Root>
+      </Scope>
     )
   }
 
   return (
-    <Root>
+    <Scope embedded={embedded}>
       {/* Optional: the page usually has the studio's branding already, so this is off by default. */}
       {logoUrl && (
         <div className="mzk-brandbar">
@@ -218,17 +217,10 @@ export function BookingCalendar({
           }}
         />
       )}
-    </Root>
+    </Scope>
   )
 }
 
-/** Standalone use still needs the scope class; inside MizukiApp it is already there. */
-function StandaloneRoot({ children }: { children: React.ReactNode }) {
-  return <div className="mzk">{children}</div>
-}
-function EmbeddedRoot({ children }: { children: React.ReactNode }) {
-  return <>{children}</>
-}
 
 function SessionRow({ session, onBook }: { session: PublicSession; onBook: () => void }) {
   const start = toStudio(session.startAt)

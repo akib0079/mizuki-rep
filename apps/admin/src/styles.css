@@ -205,7 +205,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .sidebar-footer {
   margin-top: auto;
   border-top: 1px solid #222a36;
-  padding: 12px 8px 4px;
+  /* Was 4px at the bottom, which put "Sign out" hard against the edge of the viewport and
+     made it look clipped. Enough room to read as the end of the rail. */
+  padding: 12px 8px 14px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -274,7 +276,14 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .menu-item:hover { background: var(--accent-soft); color: var(--accent-deep); }
 
-.content { padding: 24px; max-width: 1320px; }
+/*
+ * Centred, not left-aligned against a cap.
+ *
+ * A max-width is right — a dashboard table stretched across a 2560px monitor is unreadable —
+ * but pinning it to the left leaves a dead column on the right that reads as a broken layout
+ * rather than as a deliberate measure. `margin-inline: auto` balances it.
+ */
+.content { padding: 24px; max-width: 1480px; margin-inline: auto; width: 100%; }
 
 .page-head {
   display: flex; align-items: flex-start; justify-content: space-between;

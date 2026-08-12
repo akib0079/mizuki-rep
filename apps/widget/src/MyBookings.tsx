@@ -3,6 +3,7 @@ import { DateTime } from 'luxon'
 import { formatDuration, formatTimeRange, type PublicSession,
   toStudio,
 } from '@mizuki/shared'
+import { Scope } from './Scope.js'
 import {
   ApiError,
   widgetApi,
@@ -49,23 +50,21 @@ export function MyBookings({ embedded = false }: { embedded?: boolean } = {}) {
     void load()
   }, [])
 
-  const Root = embedded ? ({ children }: { children: React.ReactNode }) => <>{children}</> : ({ children }: { children: React.ReactNode }) => <div className="mzk">{children}</div>
-
-  if (signedOut) return <Root><SignInPanel embedded /></Root>
+  if (signedOut) return <Scope embedded={embedded}><SignInPanel embedded /></Scope>
 
   if (error) {
     return (
-      <Root>
+      <Scope embedded={embedded}>
         <div className="mzk-note mzk-note-error">{error}</div>
-      </Root>
+      </Scope>
     )
   }
 
   if (!data) {
     return (
-      <Root>
+      <Scope embedded={embedded}>
         <div className="mzk-panel"><div className="mzk-empty">Loading your bookings…</div></div>
-      </Root>
+      </Scope>
     )
   }
 
@@ -75,7 +74,7 @@ export function MyBookings({ embedded = false }: { embedded?: boolean } = {}) {
   const sessionsLeft = activePackages.reduce((sum, p) => sum + p.remaining, 0)
 
   return (
-    <Root>
+    <Scope embedded={embedded}>
       {/* A short summary strip, so the answers to "when am I next in" and "how many
           sessions have I left" are visible before anything is clicked. */}
       <div className="mzk-summary">
@@ -159,7 +158,7 @@ export function MyBookings({ embedded = false }: { embedded?: boolean } = {}) {
           }}
         />
       )}
-    </Root>
+    </Scope>
   )
 }
 
@@ -495,12 +494,8 @@ function SignInPanel({ embedded = false }: { embedded?: boolean }) {
     }
   }
 
-  const Wrap = embedded
-    ? ({ children }: { children: React.ReactNode }) => <>{children}</>
-    : ({ children }: { children: React.ReactNode }) => <div className="mzk">{children}</div>
-
   return (
-    <Wrap>
+    <Scope embedded={embedded}>
       <div className="mzk-panel">
         {sent ? (
           <>
@@ -537,6 +532,6 @@ function SignInPanel({ embedded = false }: { embedded?: boolean }) {
           </form>
         )}
       </div>
-    </Wrap>
+    </Scope>
   )
 }
