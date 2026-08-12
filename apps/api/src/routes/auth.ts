@@ -44,6 +44,8 @@ const loginLimiter = rateLimit({
 })
 
 const MAGIC_LINK_TTL_MS = 30 * 60_000
+/** How long after the first use a link keeps working — enough to outlast a provider's scan. */
+const MAGIC_LINK_GRACE_MS = 10 * 60_000
 
 /**
  * Request a sign-in link.
@@ -84,9 +86,30 @@ authRouter.get(
   asyncRoute(async (req, res) => {
     const token = z.string().min(10).parse(req.query.token)
 
+    /*
+     * Redeemable more than once, for a few minutes after the first use.
+     *
+     * Strictly single-use looks safer and is worse in practice: mail providers fetch the links in
+     * a message to scan them for phishing, and that fetch spends the token before the person has
+     * touched it. The student then taps Sign in and is told their brand new link has already been
+     * used — which is what happened here, and is unfixable from their end because requesting
+     * another one produces another link that is scanned in exactly the same way.
+     *
+     * The grace window does not widen the exposure: `expiresAt` is unchanged, so the link still
+     * dies thirty minutes after it was issued whether or not anyone used it.
+     */
+    const now = new Date()
+    const graceFrom = new Date(now.getTime() - MAGIC_LINK_GRACE_MS)
+
     const record = await LoginTokenModel.findOneAndUpdate(
-      { tokenHash: hashToken(token), usedAt: null, expiresAt: { $gt: new Date() } },
-      { $set: { usedAt: new Date() } },
+      {
+        tokenHash: hashToken(token),
+        expiresAt: { $gt: now },
+        $or: [{ usedAt: null }, { usedAt: { $gte: graceFrom } }],
+      },
+      // Stamped on first use only, so the grace window runs from the scan rather than
+      // being pushed forward by every subsequent request.
+      [{ $set: { usedAt: { $ifNull: ['$usedAt', now] } } }],
       { new: true },
     )
     if (!record) {

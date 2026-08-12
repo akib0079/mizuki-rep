@@ -170,8 +170,18 @@ describe('booking endpoint', () => {
     const mail = await OutboxModel.find({ relatedBookingId: booking!._id }).lean()
     const types = mail.map((m) => m.type)
 
-    expect(types).toContain('booking_pending_confirmation')
+    /*
+     * Nobody has paid here — this student has no package and asked to join. So they get the
+     * "place reserved, payment to arrange" wording, not the "we are checking your payment" one,
+     * which would have them waiting for a confirmation nobody is going to send.
+     */
+    expect(types).toContain('booking_pending_payment')
+    expect(types).not.toContain('booking_pending_confirmation')
     expect(types).not.toContain('booking_confirmation')
+
+    // And the studio is asked to arrange payment rather than told the student has paid.
+    expect(types).toContain('admin_awaiting_payment')
+    expect(types).not.toContain('admin_awaiting_confirmation')
   })
 
   it('rejects a malformed request with field-level detail', async () => {

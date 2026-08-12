@@ -213,6 +213,13 @@ export const emailTemplateKeySchema = z.enum([
    * confirmation is coming, so `booking_confirmation` still means what it says.
    */
   'booking_pending_confirmation',
+  /*
+   * The other half of the same queue: a student who asked for a place on a course they have no
+   * package for. Nothing has been paid, so telling them their payment is being checked — which
+   * the confirmation-pending wording does — is simply untrue, and invites them to wait for a
+   * confirmation that will not come until somebody asks them for money.
+   */
+  'booking_pending_payment',
   'reminder_2day',
   'reschedule_confirmed',
   'booking_cancelled',
@@ -224,6 +231,8 @@ export const emailTemplateKeySchema = z.enum([
   'admin_new_booking',
   /** A paid place is waiting for the studio to check the money arrived. */
   'admin_awaiting_confirmation',
+  /** The same queue, but nobody has paid — the studio has to ask for the money first. */
+  'admin_awaiting_payment',
   'admin_daily_digest',
 ])
 

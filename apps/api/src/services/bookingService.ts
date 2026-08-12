@@ -30,6 +30,7 @@ import {
   queueBookingCancelled,
   queueBookingConfirmation,
   queueBookingPendingConfirmation,
+  queueBookingPendingPayment,
   queueRescheduleConfirmation,
 } from './notificationService.js'
 import { recordAdminNotification, resolveForBooking } from './adminNotificationService.js'
@@ -230,7 +231,12 @@ async function notifyAwaitingConfirmation(result: BookingResult): Promise<void> 
   const hasPaid = Boolean(result.booking.wooOrderId)
 
   try {
-    await queueBookingPendingConfirmation(ctx)
+    /*
+     * Which of the two situations this is. A shop order means money has arrived and is being
+     * checked; without one, nothing has been paid and the studio has to ask for it.
+     */
+    if (result.booking.wooOrderId) await queueBookingPendingConfirmation(ctx)
+    else await queueBookingPendingPayment(ctx)
     await queueAdminAwaitingConfirmation(ctx)
     await recordAdminNotification({
       type: 'awaiting_confirmation',

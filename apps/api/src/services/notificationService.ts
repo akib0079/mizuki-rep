@@ -146,6 +146,15 @@ export async function queueBookingPendingConfirmation(ctx: BookingContext): Prom
   await queueStudentEmail('booking_pending_confirmation', ctx)
 }
 
+/**
+ * Sent when the place is held but nothing has been paid — a student who asked to join a course
+ * they have no package for. Says the place is reserved and that payment is still to be arranged,
+ * rather than implying money has already changed hands.
+ */
+export async function queueBookingPendingPayment(ctx: BookingContext): Promise<void> {
+  await queueStudentEmail('booking_pending_payment', ctx)
+}
+
 /** The studio's copy: a place is paid for and waiting on their check. */
 export async function queueAdminAwaitingConfirmation(ctx: BookingContext): Promise<void> {
   const vars = {
@@ -158,9 +167,16 @@ export async function queueAdminAwaitingConfirmation(ctx: BookingContext): Promi
     adminSessionUrl: `${config.PUBLIC_API_URL}/admin/calendar?session=${ctx.session._id}&booking=${ctx.booking._id}`,
   }
 
-  const rendered = await renderTemplate('admin_awaiting_confirmation', vars)
+  /*
+   * Two situations reach this queue and they need opposite words. With a shop order the money is
+   * in and the job is to check it; without one nothing has been paid and the job is to ask for
+   * it. Sending "has paid" to the studio about someone who has not sends them looking through
+   * their bank for a payment that was never made.
+   */
+  const key = ctx.booking.wooOrderId ? 'admin_awaiting_confirmation' : 'admin_awaiting_payment'
+  const rendered = await renderTemplate(key, vars)
 
-  await queueAdminEmail('admin_awaiting_confirmation', {
+  await queueAdminEmail(key, {
     dedupeSuffix: String(ctx.booking._id),
     subject: rendered.subject,
     html: rendered.html,

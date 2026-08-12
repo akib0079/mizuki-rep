@@ -186,6 +186,20 @@ export const DEFAULT_TEMPLATES: Record<EmailTemplateKey, TemplateDefinition> = {
     variables: [...COMMON_VARS],
   },
 
+  booking_pending_payment: {
+    label: 'Place reserved — payment to arrange',
+    description:
+      'Sent when someone books a course they have no package for. Their place is held; the studio still needs to arrange payment with them.',
+    subject: 'Your place is reserved — {{sessionTitle}}, {{sessionDate}}',
+    bodyHtml: layout(`<p>Hello {{studentName}},</p>
+      <p>Thank you for booking. <strong>Your place is reserved and is being held for you.</strong></p>
+      ${sessionCard}
+      <p>It is not confirmed yet — we will be in touch shortly to arrange payment, and your place is confirmed as soon as that is settled. Nobody else can take it in the meantime.</p>
+      <p style="color:#5c5257;">If you would rather sort it out now, just reply to this email or call us on {{studioPhone}}.</p>`),
+    bodyText: `Hello {{studentName}},\n\nThank you for booking. Your place is reserved and is being held for you.\n\n{{sessionTitle}}\n{{sessionDate}} · {{sessionTimeRange}}\n\nIt is not confirmed yet — we will be in touch shortly to arrange payment, and your place is confirmed as soon as that is settled. Nobody else can take it in the meantime.\n\nIf you would rather sort it out now, reply to this email or call {{studioPhone}}.`,
+    variables: [...COMMON_VARS, ...SESSION_VARS],
+  },
+
   admin_awaiting_confirmation: {
     label: 'Admin alert — payment to check',
     description: 'Sent when a student has paid for a course you confirm by hand.',
@@ -218,6 +232,19 @@ export const DEFAULT_TEMPLATES: Record<EmailTemplateKey, TemplateDefinition> = {
       <p style="color:#8b7f86;font-size:13px;">If that was not you, you can ignore this email — your password has not changed.</p>`),
     bodyText: `Hello {{studentName}},\n\nSomeone asked to reset the password on your studio login. This link works once and expires in {{expiryHours}} hours:\n{{resetUrl}}\n\nIf that was not you, you can ignore this email — your password has not changed.\n\nMizuki Flora`,
     variables: ['studentName', 'resetUrl', 'expiryHours', 'siteUrl'],
+  },
+
+  admin_awaiting_payment: {
+    label: 'Admin alert — payment to arrange',
+    description: 'Sent when someone books a course they have no package for. Nothing has been paid yet.',
+    subject: 'New request: {{studentName}} — {{sessionTitle}}, {{sessionDate}}',
+    bodyHtml: layout(`<p><strong>{{studentName}}</strong> has asked for a place and needs payment arranging.</p>
+      ${sessionCard}
+      <p style="color:#5c5257;">Email: {{studentEmail}}<br />Phone: {{studentPhone}}</p>
+      <p style="color:#5c5257;">They have no {{courseName}} package yet, so nothing has been paid. Their place is held in the meantime, so nobody else can take it.</p>
+      ${button('Arrange payment and confirm', '{{adminSessionUrl}}')}`),
+    bodyText: `{{studentName}} has asked for a place and needs payment arranging.\n\n{{sessionTitle}}\n{{sessionDate}} · {{sessionTimeRange}}\n\nEmail: {{studentEmail}}\nPhone: {{studentPhone}}\n\nThey have no {{courseName}} package yet, so nothing has been paid. Their place is held in the meantime.\n\n{{adminSessionUrl}}`,
+    variables: [...SESSION_VARS, 'studentName', 'studentEmail', 'studentPhone', 'adminSessionUrl'],
   },
 
   admin_new_booking: {
