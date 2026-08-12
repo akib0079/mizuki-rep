@@ -586,6 +586,16 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .tab:hover { color: var(--ink); }
 .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 
+/* `.tabs` is built to sit flush inside a card. Standing on the page background it needs its own
+   rounded top and a little breathing room, or it reads as a strip that came loose. */
+.tabs-standalone {
+  border-radius: var(--radius) var(--radius) 0 0;
+  padding-inline: 12px;
+  margin-bottom: 16px;
+  border: 1px solid var(--line);
+  border-bottom-color: var(--line);
+}
+
 .mini-stat { background: var(--canvas); border-radius: var(--radius-sm); padding: 12px 14px; }
 .mini-stat-value { font-size: 21px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
 .mini-stat-label { font-size: 12px; color: var(--ink-soft); margin-top: 1px; }
@@ -623,15 +633,71 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .fc .fc-button:hover { background: var(--canvas); }
 .fc .fc-button-primary:not(:disabled).fc-button-active { background: var(--accent); border-color: var(--accent); color: #fff; }
-.fc-event { border: none; cursor: pointer; padding: 1px 3px; }
-.fc-event.is-full { opacity: 0.62; }
-.fc-event.is-cancelled { text-decoration: line-through; opacity: 0.45; }
-.fc-event.is-over { outline: 2px solid var(--danger); }
+/*
+ * A class in the grid.
+ *
+ * FullCalendar paints the course colour as the whole event background by default, which at three
+ * classes a day turns the month into blocks of colour with text on top and no room for anything
+ * else. The colour moves to a 3px bar instead: still identifies the course at a glance, leaves
+ * the row white, and lets the occupancy pill be the only coloured thing — so red means one thing
+ * and one thing only.
+ */
+.fc-event {
+  border: none !important;
+  background: transparent !important;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 2px;
+}
+.fc-event .fc-event-main { color: var(--ink); padding: 0; }
+
+.ev {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 3px 5px 3px 0;
+  border-radius: 5px;
+  transition: background 0.12s ease;
+}
+.fc-event:hover .ev { background: var(--canvas); }
+
+.ev-bar { width: 3px; align-self: stretch; min-height: 15px; border-radius: 2px; flex-shrink: 0; }
+.ev-time { font-variant-numeric: tabular-nums; color: var(--ink-soft); flex-shrink: 0; font-size: 11.5px; }
+/* Clip rather than wrap, so a long title shortens instead of making the whole month taller.
+   The full text is on the title attribute for anyone who needs it. */
+.ev-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+
+.ev-count {
+  flex-shrink: 0;
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+}
+/* Nobody booked yet is not a problem, so it stays quiet. */
+.ev-empty { background: var(--canvas); color: var(--ink-faint); }
+.ev-ok    { background: var(--accent-soft); color: var(--accent-deep); }
+/* Two places or fewer — worth noticing before it sells out. */
+.ev-low   { background: var(--warn-soft); color: var(--warn); }
+.ev-full  { background: var(--canvas); color: var(--ink-soft); }
+/* More booked than there are places. The only genuinely urgent state on this screen. */
+.ev-over  { background: var(--danger); color: #fff; }
+.ev-off   { background: transparent; color: var(--ink-faint); }
+
+/* Places deliberately withheld from public booking — the studio's minus button. */
+.ev-held { flex-shrink: 0; font-size: 10.5px; font-weight: 700; color: var(--ink-faint); }
+
+.fc-event.is-cancelled .ev-title { text-decoration: line-through; }
+.fc-event.is-cancelled { opacity: 0.5; }
+.fc-event.is-over .ev { box-shadow: inset 0 0 0 1px var(--danger); }
+
 .fc-daygrid-day.is-closed { background: repeating-linear-gradient(45deg, #f2f3f6, #f2f3f6 6px, #e9ebef 6px, #e9ebef 12px); }
-/* Clip rather than wrap, so a long class title on a narrow screen shortens instead of
-   pushing the whole month grid taller. */
-.event-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.event-sub { font-size: 11px; opacity: 0.85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Today should be findable without hunting for it. */
+.fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number { color: var(--accent); font-weight: 700; }
 .fc-daygrid-event-harness { overflow: hidden; }
 .fc .fc-daygrid-more-link { font-size: 11px; font-weight: 600; color: var(--accent); }
 

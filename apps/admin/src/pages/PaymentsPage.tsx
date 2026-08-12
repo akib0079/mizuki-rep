@@ -22,8 +22,30 @@ interface AwaitingRow {
   session: { id: string; title: string; startAt: string; when: string; courseName: string }
 }
 
+interface HistoryRow {
+  id: string
+  outcome: 'confirmed' | 'declined'
+  at: string | null
+  reason: string
+  wooOrderId: number | null
+  student: { id: string; reference: string; name: string; email: string }
+  session: { id: string; title: string; startAt: string; when: string }
+}
+
+/** "3 hours ago" reads faster than a timestamp when scanning a list of decisions. */
+function relative(iso: string): string {
+  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60_000)
+  if (mins < 60) return `${Math.max(mins, 1)} min ago`
+  const hours = Math.round(mins / 60)
+  if (hours < 24) return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`
+  const days = Math.round(hours / 24)
+  if (days < 7) return `${days} ${days === 1 ? 'day' : 'days'} ago`
+  return new Date(iso).toLocaleDateString('en-SG', { day: 'numeric', month: 'short' })
+}
+
 export function PaymentsPage() {
   const queryClient = useQueryClient()
+  const [tab, setTab] = useState<'waiting' | 'history'>('waiting')
   const [declining, setDeclining] = useState<AwaitingRow | null>(null)
   const [reason, setReason] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -37,6 +59,8 @@ export function PaymentsPage() {
     void queryClient.invalidateQueries({ queryKey: ['awaiting-confirmation'] })
     void queryClient.invalidateQueries({ queryKey: ['notifications'] })
     void queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    // The decision that just left the queue is the newest row in the history.
+    void queryClient.invalidateQueries({ queryKey: ['payments-history'] })
   }
 
   const approve = useMutation({
@@ -58,18 +82,51 @@ export function PaymentsPage() {
 
   const rows = data?.bookings ?? []
 
+  /*
+   * Loaded alongside the queue rather than on demand, because the question it answers — "did I
+   * already deal with this person?" — comes up while looking at the queue, not instead of it.
+   */
+  const history = useQuery({
+    queryKey: ['payments-history'],
+    queryFn: () => api.get<{ bookings: HistoryRow[] }>('/api/admin/notifications/history'),
+  })
+  const past = history.data?.bookings ?? []
+
   return (
     <div className="page">
       <header className="page-head">
         <div>
-          <h1>Payments to check</h1>
+          <h1>Payments</h1>
+          {/* The description follows the tab: describing the queue while showing the history is
+              a small lie that makes the screen harder to trust. */}
           <p className="muted">
-            Everyone here is holding a place that is not confirmed yet. Some have paid and need
-            the money checked; others asked to join and still need payment arranging. Their seats
-            are held either way, so nobody else can take them while you sort it out.
+            {tab === 'waiting'
+              ? 'Everyone here is holding a place that is not confirmed yet. Some have paid and need the money checked; others asked to join and still need payment arranging. Their seats are held either way, so nobody else can take them while you sort it out.'
+              : 'Places you have already confirmed or turned down, most recent first.'}
           </p>
         </div>
       </header>
+
+      <div className="tabs tabs-standalone" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'waiting'}
+          className={tab === 'waiting' ? 'tab active' : 'tab'}
+          onClick={() => setTab('waiting')}
+        >
+          Waiting{rows.length > 0 && <span className="pill pill-warn" style={{ marginLeft: 7 }}>{rows.length}</span>}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'history'}
+          className={tab === 'history' ? 'tab active' : 'tab'}
+          onClick={() => setTab('history')}
+        >
+          History
+        </button>
+      </div>
 
       {error && (
         <div className="note note-error" role="alert">
@@ -77,7 +134,7 @@ export function PaymentsPage() {
         </div>
       )}
 
-      {isPending ? (
+      {tab === 'waiting' && (isPending ? (
         <SkeletonCards count={2} />
       ) : rows.length === 0 ? (
         <div className="card empty-state">
@@ -137,7 +194,54 @@ export function PaymentsPage() {
             </article>
           ))}
         </div>
-      )}
+      ))}
+
+      {tab === 'history' &&
+        (history.isPending ? (
+          <SkeletonCards count={3} />
+        ) : past.length === 0 ? (
+          <div className="card empty-state">
+            <p className="muted">Nothing has been confirmed or declined yet.</p>
+          </div>
+        ) : (
+          <div className="card card-pad-0">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Class</th>
+                  <th>Outcome</th>
+                  <th>When</th>
+                </tr>
+              </thead>
+              <tbody>
+                {past.map((row) => (
+                  <tr key={row.id}>
+                    <td>
+                      <strong>{row.student.name}</strong>
+                      {row.student.reference && <span className="student-ref">{row.student.reference}</span>}
+                      <div className="small muted">{row.student.email}</div>
+                    </td>
+                    <td className="small">
+                      {row.session.title}
+                      <div className="muted">{row.session.when}</div>
+                    </td>
+                    <td>
+                      {row.outcome === 'confirmed' ? (
+                        <span className="pill pill-ok">Confirmed</span>
+                      ) : (
+                        <span className="pill pill-danger">Declined</span>
+                      )}
+                      {/* Why it was declined matters later, when the student asks. */}
+                      {row.reason && <div className="small muted">{row.reason}</div>}
+                    </td>
+                    <td className="small muted">{row.at ? relative(row.at) : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
 
       {declining && (
         <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && setDeclining(null)}>

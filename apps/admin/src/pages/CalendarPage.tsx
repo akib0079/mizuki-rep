@@ -210,22 +210,16 @@ export function CalendarPage() {
             const key = DateTime.fromJSDate(arg.date).setZone(STUDIO_TZ).toFormat('yyyy-MM-dd')
             return closedKeys.has(key) ? ['is-closed'] : []
           }}
-          eventContent={(arg) => {
-            const s = arg.event.extendedProps as AdminSession
-            return (
-              <div>
-                <div className="event-title">{arg.timeText} {s.title}</div>
-                <div className="event-sub">
-                  {s.status === 'cancelled'
-                    ? 'Cancelled'
-                    : s.seatsLeft === 0
-                      ? `Full · ${s.seatsTaken}/${s.capacity}`
-                      : `${s.seatsTaken}/${s.capacity} booked`}
-                  {s.heldBack > 0 ? ` · ${s.heldBack} held` : ''}
-                </div>
-              </div>
-            )
-          }}
+          /*
+           * One line per class, not two.
+           *
+           * Every entry used to spell out "0/8 booked" on a second line, which doubled the height
+           * of a month that already runs three classes a day and pushed the titles into "2:30p
+           * IFDA Trial & Regular — Aftern…". The count is the same information in a quarter of the
+           * space, and colouring it means how full a class is can be read without reading at all:
+           * the studio scans for red, not for numbers.
+           */
+          eventContent={(arg) => <CalendarEvent session={arg.event.extendedProps as AdminSession} timeText={arg.timeText} />}
         />
 
         <div className="legend">
@@ -316,4 +310,66 @@ function monthWindow(now: DateTime) {
     from: now.startOf('month').minus({ days: 7 }).toFormat('yyyy-MM-dd'),
     to: now.endOf('month').plus({ days: 7 }).toFormat('yyyy-MM-dd'),
   }
+}
+
+/**
+ * How one class looks in the grid.
+ *
+ * The occupancy pill carries the meaning: grey when nobody has booked, teal while filling, amber
+ * at one place left, red when full or oversubscribed. Those are the only states worth interrupting
+ * someone for, and they are the ones that change what the studio does next.
+ */
+function CalendarEvent({ session, timeText }: { session: AdminSession; timeText: string }) {
+  const cancelled = session.status === 'cancelled'
+  const left = session.seatsLeft
+
+  const tone = cancelled
+    ? 'off'
+    : session.overCapacity
+      ? 'over'
+      : left === 0
+        ? 'full'
+        : left <= 2
+          ? 'low'
+          : session.seatsTaken === 0
+            ? 'empty'
+            : 'ok'
+
+  /*
+   * An empty class shows no count at all.
+   *
+   * Most classes are empty most of the time, so "0/8" was repeated down every column — the least
+   * useful thing on the screen, taking the space that was truncating the titles into "IFDA …".
+   * Leaving it out means a pill appears only where somebody has actually booked, which turns
+   * "who has students?" from reading every row into glancing at the month. The full numbers are
+   * on the tooltip and in the class itself.
+   */
+  const showCount = cancelled || session.seatsTaken > 0 || session.heldBack > 0
+
+  return (
+    <div
+      className="ev"
+      title={`${timeText} ${session.title} — ${session.seatsTaken} of ${session.capacity} booked${
+        session.heldBack > 0 ? `, ${session.heldBack} held back` : ''
+      }`}
+    >
+      <span className="ev-bar" style={{ background: session.colour }} aria-hidden />
+      <span className="ev-time">{timeText}</span>
+      <span className="ev-title">{session.title}</span>
+      {showCount && (
+        <span className={`ev-count ev-${tone}`}>
+          {cancelled
+            ? 'Off'
+            : session.overCapacity
+              ? `${session.seatsTaken}!`
+              : `${session.seatsTaken}/${session.capacity}`}
+        </span>
+      )}
+      {session.heldBack > 0 && !cancelled && (
+        <span className="ev-held" title={`${session.heldBack} place(s) held back from public booking`}>
+          −{session.heldBack}
+        </span>
+      )}
+    </div>
+  )
 }
