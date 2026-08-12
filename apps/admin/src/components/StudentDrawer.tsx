@@ -4,6 +4,8 @@ import { DateTime } from 'luxon'
 import { STUDIO_TZ } from '@mizuki/shared'
 import { ApiError, api, type Course, type PackageSummary } from '../api.js'
 import { Icon } from './Icon.js'
+import { QueryState } from './QueryState.js'
+import { SkeletonBlock, SkeletonLine } from './Skeleton.js'
 
 /**
  * Everything the studio knows about one student.
@@ -71,7 +73,7 @@ export function StudentDrawer({ studentId, onClose }: { studentId: string; onClo
   const [tab, setTab] = useState<Tab>('overview')
   const [message, setMessage] = useState<{ kind: 'ok' | 'danger'; text: string } | null>(null)
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['student', studentId],
     queryFn: () => api.get<StudentDetail>(`/api/admin/students/${studentId}`),
   })
@@ -81,11 +83,28 @@ export function StudentDrawer({ studentId, onClose }: { studentId: string; onClo
     void queryClient.invalidateQueries({ queryKey: ['students'] })
   }
 
-  if (isLoading || !data) {
+  // Same shape as the dashboard had: without the error branch, a failed request leaves the
+  // drawer open on a loading message that never resolves, and the only way out is Escape.
+  if (error || isLoading || !data) {
     return (
       <>
         <div className="drawer-backdrop" onClick={onClose} />
-        <aside className="drawer"><div className="drawer-body"><p className="muted">Loading…</p></div></aside>
+        <aside className="drawer">
+          <div className="drawer-body">
+            {error ? (
+              <QueryState isLoading={false} error={error} data={undefined} skeleton={null} onRetry={() => void refetch()}>
+                {null}
+              </QueryState>
+            ) : (
+              <SkeletonBlock label="Loading this student">
+                <SkeletonLine w="55%" h={18} />
+                <SkeletonLine w="70%" />
+                <SkeletonLine w="40%" />
+                <SkeletonLine w="85%" />
+              </SkeletonBlock>
+            )}
+          </div>
+        </aside>
       </>
     )
   }

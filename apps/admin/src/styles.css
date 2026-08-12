@@ -1368,3 +1368,9 @@ h3 { letter-spacing: -0.01em; }
   .invite-row { flex-direction: column; }
   .row-actions { flex-wrap: wrap; justify-content: flex-start; }
 }
+
+/* A failure that says so, rather than a skeleton that never finishes. */
+.query-error { border-color: var(--danger-soft); }
+.query-error h3 { margin: 0 0 4px; font-size: 15px; }
+.query-error p { margin: 0 0 12px; }
+.query-error .row { margin-bottom: 4px; }

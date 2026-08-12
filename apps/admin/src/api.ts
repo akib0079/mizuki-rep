@@ -26,6 +26,18 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const body = await response.json().catch(() => null)
 
   if (!response.ok) {
+    /*
+     * A session that has ended is not a per-page problem, so it is not handled per page.
+     *
+     * Without this, an expired cookie shows up as whatever each screen does with a failed
+     * request — an error card here, an endless skeleton there — and the studio is left guessing
+     * why the console has stopped working when the answer is simply "sign in again". One event,
+     * announced once, and the shell takes them back to sign-in.
+     */
+    if (response.status === 401 && !path.includes('/auth/admin/login')) {
+      window.dispatchEvent(new CustomEvent('mizuki:session-ended'))
+    }
+
     const error = body?.error
     throw new ApiError(
       response.status,

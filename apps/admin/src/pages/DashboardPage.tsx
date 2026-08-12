@@ -5,6 +5,7 @@ import { DateTime } from 'luxon'
 import { STUDIO_TZ } from '@mizuki/shared'
 import { api } from '../api.js'
 import { SkeletonStats } from '../components/Skeleton.js'
+import { QueryState } from '../components/QueryState.js'
 
 /**
  * The studio's landing page.
@@ -61,19 +62,36 @@ export function DashboardPage() {
   const navigate = useNavigate()
   const [openSections, setOpenSections] = useState({ today: true, detail: true, activity: true })
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['dashboard'],
     queryFn: () => api.get<Dashboard>('/api/admin/settings/dashboard'),
     refetchInterval: 60_000,
   })
 
-  if (isLoading || !data) {
+  /*
+   * `isLoading || !data` was the condition here, which renders the skeleton forever when the
+   * request fails: the flag clears, the data never arrives, and the page waits for something
+   * that is not coming. Failure has to be its own state.
+   */
+  if (error || isLoading || !data) {
     return (
       <>
         <div className="page-head">
           <div><h1>Dashboard</h1><p>Your studio at a glance.</p></div>
         </div>
-        <SkeletonStats />
+        {error ? (
+          <QueryState
+            isLoading={false}
+            error={error}
+            data={undefined}
+            skeleton={null}
+            onRetry={() => void refetch()}
+          >
+            {null}
+          </QueryState>
+        ) : (
+          <SkeletonStats />
+        )}
       </>
     )
   }

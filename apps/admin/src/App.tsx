@@ -65,6 +65,17 @@ export function App() {
     localStorage.setItem('mzk.sidebar', collapsed ? 'collapsed' : 'open')
   }, [collapsed])
 
+  /*
+   * Any request answering 401 means the cookie is gone or expired. Re-checking `me` is what
+   * decides it: that call will 401 too, and the shell falls through to the sign-in screen
+   * rather than every page inventing its own way of being broken.
+   */
+  useEffect(() => {
+    const onEnded = () => void refetch()
+    window.addEventListener('mizuki:session-ended', onEnded)
+    return () => window.removeEventListener('mizuki:session-ended', onEnded)
+  }, [refetch])
+
   // Escape closes the drawer, like every other overlay in here.
   useEffect(() => {
     if (!navOpen) return
