@@ -53,6 +53,13 @@ const envSchema = z.object({
   RESEND_API_KEY: z.string().optional(),
   MAIL_FROM: z.string().default('Mizuki Flora <hello@mizuki.com.sg>'),
   MAIL_REPLY_TO: z.string().optional(),
+  /*
+   * How a student reaches the studio. Shown on the booking page and used in emails, so it lives
+   * in one place rather than being written into each template — a changed number should not mean
+   * editing fifteen messages.
+   */
+  STUDIO_PHONE: z.string().default('+65 8821 9386'),
+  STUDIO_EMAIL: z.string().default('hello@mizuki.com.sg'),
   /** Where "someone just booked" alerts land. */
   ADMIN_ALERT_EMAIL: z.string().optional(),
 

@@ -1,5 +1,11 @@
 import type { PublicCalendarDay, PublicSession } from '@mizuki/shared'
 
+/** How a student reaches the studio, shown wherever they might need to ask something. */
+export interface StudioContact {
+  phone: string
+  email: string
+}
+
 /**
  * A course as the booking page sees it — the studio's own writing about what it is, alongside
  * the few rules the widget needs. Everything descriptive is optional: a course with none of it
@@ -99,7 +105,7 @@ export const widgetApi = {
     )
   },
 
-  courses: () => request<{ courses: PublicCourse[] }>('/api/public/courses'),
+  courses: () => request<{ courses: PublicCourse[]; studio?: StudioContact }>('/api/public/courses'),
 
   alternatives: (sessionId: string) =>
     request<{ alternatives: PublicSession[] }>(`/api/public/sessions/${sessionId}/alternatives`),

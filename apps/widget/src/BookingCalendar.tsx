@@ -9,7 +9,7 @@ import {
   toStudio,
 } from '@mizuki/shared'
 import { Scope } from './Scope.js'
-import { hasCourseDetail, widgetApi, type PublicCourse } from './api.js'
+import { hasCourseDetail, widgetApi, type PublicCourse, type StudioContact } from './api.js'
 import { CourseDetail } from './CourseDetail.js'
 import { BookingDialog } from './BookingDialog.js'
 
@@ -35,6 +35,7 @@ export function BookingCalendar({
 }) {
   const [days, setDays] = useState<PublicCalendarDay[] | null>(null)
   const [courses, setCourses] = useState<PublicCourse[]>([])
+  const [studio, setStudio] = useState<StudioContact | null>(null)
   /* The course being read about, plus the class it was opened from so Book can carry straight on. */
   const [learning, setLearning] = useState<{ course: PublicCourse; session: PublicSession } | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -78,6 +79,7 @@ export function BookingCalendar({
         const allowed = new Set(filtered.map((c) => c.id))
 
         setCourses(filtered)
+        setStudio(courseList.studio ?? null)
         setDays(
           courseSlug
             ? calendar.days.map((d) => ({ ...d, sessions: d.sessions.filter((s) => allowed.has(s.courseTypeId)) }))
@@ -233,6 +235,7 @@ export function BookingCalendar({
       {learning && (
         <CourseDetail
           course={learning.course}
+          studio={studio}
           canBook={!learning.session.isFull}
           // Straight from reading about it to booking it, without hunting for the row again.
           onBook={() => {
@@ -283,14 +286,15 @@ function SessionRow({
   const low = session.seatsLeft > 0 && session.seatsLeft <= 2
 
   /*
-   * Two buttons side by side, not one inside the other.
+   * The row is the card; the things inside it are separate controls.
    *
-   * The row used to be a single button covering everything, and a button cannot contain another
-   * button — the browser drops it. So the row is a plain element now, with the booking button
-   * filling it and "Learn more" sitting alongside.
+   * It used to be one button wrapping everything, which cannot hold a second button — the browser
+   * drops a nested one. Putting "Learn more" outside the button instead left it stranded past the
+   * card's edge, floating in the margin. So the border, background and hover move up to the row,
+   * and the booking button becomes the transparent area that fills most of it.
    */
   return (
-    <div className="mzk-session-row">
+    <div className={session.isFull ? 'mzk-session-row is-full' : 'mzk-session-row'}>
       <button className="mzk-session" onClick={onBook} disabled={session.isFull}>
         <span className="mzk-stripe" style={{ background: session.colour }} />
         <span className="mzk-session-main">
@@ -299,15 +303,6 @@ function SessionRow({
             {formatTimeRange(start.toJSDate(), end.toJSDate())} · {formatDuration(session.durationMins)}
             {session.breaks.length > 0 && ` · includes a break`}
           </span>
-        </span>
-        <span className="mzk-session-right">
-          {session.isFull ? (
-            <span className="mzk-tag mzk-tag-full">Full</span>
-          ) : (
-            <span className={`mzk-tag ${low ? 'mzk-tag-low' : 'mzk-tag-ok'}`}>
-              {session.seatsLeft} {session.seatsLeft === 1 ? 'place' : 'places'} left
-            </span>
-          )}
         </span>
       </button>
 
@@ -323,6 +318,17 @@ function SessionRow({
           Learn more
         </button>
       )}
+
+      {/* Outside the button so "Learn more" can sit before it, where the eye already is. */}
+      <span className="mzk-session-right">
+        {session.isFull ? (
+          <span className="mzk-tag mzk-tag-full">Full</span>
+        ) : (
+          <span className={`mzk-tag ${low ? 'mzk-tag-low' : 'mzk-tag-ok'}`}>
+            {session.seatsLeft} {session.seatsLeft === 1 ? 'place' : 'places'} left
+          </span>
+        )}
+      </span>
     </div>
   )
 }

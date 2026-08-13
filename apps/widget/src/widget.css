@@ -138,25 +138,50 @@
 /* Focused only to move a keyboard user down to the classes; it is not a control, so no ring. */
 .mzk-day-title:focus { outline: none; }
 
-.mzk-session {
+/*
+ * The card is the row, not the button inside it.
+ *
+ * The border and background used to live on the booking button, so anything that could not go
+ * inside a button — "Learn more", which is a button itself — ended up outside the card entirely,
+ * sitting in the margin beside it. Moving the card up one level lets both controls share it.
+ */
+.mzk-session-row {
   transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease;
   display: flex;
   align-items: center;
-  gap: 12px;
-  width: 100%;
-  text-align: left;
+  gap: 10px;
   padding: 13px 14px;
   border: 1px solid var(--mzk-line);
   border-radius: 10px;
   background: var(--mzk-bg);
+  margin-bottom: 8px;
+}
+/* :focus-within so tabbing to either control lifts the card, as hovering it does. */
+.mzk-session-row:hover:not(.is-full),
+.mzk-session-row:focus-within:not(.is-full) {
+  border-color: var(--mzk-accent);
+  background: var(--mzk-canvas);
+  transform: translateY(-1px);
+}
+.mzk-session-row:active:not(.is-full) { transform: none; }
+.mzk-session-row.is-full { background: var(--mzk-canvas); }
+.mzk-session-row.is-full .mzk-session { opacity: 0.72; }
+
+.mzk-session {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  padding: 0;
+  border: 0;
+  background: transparent;
   cursor: pointer;
   font: inherit;
   color: inherit;
-  margin-bottom: 8px;
 }
-.mzk-session:hover:not(:disabled) { border-color: var(--mzk-accent); background: var(--mzk-canvas); transform: translateY(-1px); }
-.mzk-session:active:not(:disabled) { transform: none; }
-.mzk-session:disabled { cursor: not-allowed; background: var(--mzk-canvas); opacity: 0.72; }
+.mzk-session:disabled { cursor: not-allowed; }
 .mzk-stripe { width: 4px; align-self: stretch; border-radius: 3px; flex-shrink: 0; }
 .mzk-session-main { flex: 1; min-width: 0; }
 /* Both are spans so the whole row can stay a single <button>. Forced to block, or the class
@@ -439,8 +464,14 @@
   background: repeating-linear-gradient(45deg, #f2f6f7, #f2f6f7 5px, #e6edef 5px, #e6edef 10px) !important;
 }
 
-/* Session rows */
-.mzk .mzk-session {
+/*
+ * Session rows.
+ *
+ * The card lives on .mzk-session-row now, so these are the row's. Left on the button they drew a
+ * second bordered box inside the first — the class sat in a card within a card, with "Learn more"
+ * outside the inner one and inside the outer.
+ */
+.mzk .mzk-session-row {
   display: flex !important;
   width: 100% !important;
   padding: 14px 16px !important;
@@ -451,12 +482,22 @@
   margin-bottom: 8px !important;
   transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease !important;
 }
-.mzk .mzk-session:hover:not(:disabled) {
+.mzk .mzk-session {
+  border: 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  width: auto !important;
+  color: inherit !important;
+}
+.mzk .mzk-session-row:hover:not(.is-full),
+.mzk .mzk-session-row:focus-within:not(.is-full) {
   border-color: var(--mzk-accent) !important;
   background: var(--mzk-canvas) !important;
   transform: translateY(-1px) !important;
 }
-.mzk .mzk-session:disabled { background: var(--mzk-canvas) !important; opacity: 0.7 !important; transform: none !important; }
+.mzk .mzk-session-row.is-full { background: var(--mzk-canvas) !important; transform: none !important; }
+.mzk .mzk-session-row.is-full .mzk-session { opacity: 0.7 !important; }
 .mzk .mzk-session-title { font-size: 16px !important; font-weight: 650 !important; }
 .mzk .mzk-session-meta { font-size: 14px !important; color: var(--mzk-soft) !important; font-weight: 400 !important; }
 
@@ -639,85 +680,110 @@
 /* --- Learn more ------------------------------------------------------------ */
 
 /*
- * The booking button and "Learn more" side by side.
+ * A quiet text control inside the card, sitting just before the places tag.
  *
- * The row was a single button covering the whole strip, and a button cannot legally contain
- * another one — the browser silently drops the inner one. So the row is a plain element and the
- * booking button fills what is left of it.
+ * It was a bordered button hanging off the end of the row, which read as a second, competing
+ * call to action next to "book" — and outweighed the one number people are actually scanning
+ * for. Underlined on hover rather than always, so a column of these does not become a column of
+ * blue rules.
  */
-.mzk-session-row { display: flex; align-items: stretch; gap: 8px; margin-bottom: 8px; }
-.mzk-session-row .mzk-session { margin-bottom: 0; flex: 1; min-width: 0; }
-
 .mzk-learn {
   flex-shrink: 0;
-  padding: 0 14px;
-  border: 1px solid var(--mzk-line);
-  border-radius: 10px;
-  background: var(--mzk-bg);
-  color: var(--mzk-soft);
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--mzk-accent);
   font: inherit;
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  text-decoration: none;
+  transition: color 0.15s ease;
 }
-.mzk-learn:hover { background: var(--mzk-canvas); color: var(--mzk-ink); border-color: var(--mzk-accent); }
+.mzk-learn:hover { color: var(--mzk-accent-dark); text-decoration: underline; text-underline-offset: 3px; }
 
 /* --- The course panel ------------------------------------------------------ */
 
-.mzk-course-modal { padding: 0; overflow: hidden; max-width: 520px; }
-.mzk-course-img { display: block; width: 100%; height: 190px; object-fit: cover; }
-.mzk-course-body { padding: 20px 22px 18px; }
+/*
+ * Wide and short rather than narrow and tall.
+ *
+ * In one column this ran past 900px and had to be scrolled, which for a panel whose job is "read
+ * this before you decide" meant the decision was at the bottom of a scroll. Two columns bring it
+ * back to roughly a screen.
+ */
+.mzk-course-modal { padding: 0; overflow: hidden; width: min(820px, 100%); max-width: 820px; }
+.mzk-course-img { display: block; width: 100%; height: 150px; object-fit: cover; }
+.mzk-course-body { padding: 22px 26px 20px; }
 
-.mzk-course-head { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
-.mzk-course-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-.mzk-course-name { margin: 0; font-size: 19px; font-weight: 650; }
+.mzk-course-head { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; }
+.mzk-course-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.mzk-course-name { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: -0.01em; }
 
-.mzk-course-lede { margin: 0 0 14px; line-height: 1.6; }
+/* Held to a readable measure even though the panel is now wide. */
+.mzk-course-lede { margin: 0 0 10px; line-height: 1.6; max-width: 62ch; }
 
-/* The one fact people scroll looking for, so it is not left to be found among the sections. */
-.mzk-course-price {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  padding: 10px 13px;
-  margin-bottom: 16px;
-  background: var(--mzk-canvas);
-  border-radius: 9px;
-}
+.mzk-course-price { margin: 0 0 20px; font-weight: 600; }
 .mzk-course-price-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
+  margin-right: 8px;
+  font-size: 13px;
+  font-weight: 500;
   color: var(--mzk-soft);
 }
 
-.mzk-course-section { margin-bottom: 15px; }
+.mzk-course-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 40px;
+  padding-top: 18px;
+  border-top: 1px solid var(--mzk-line);
+}
+.mzk-course-cols-one { grid-template-columns: minmax(0, 1fr); }
+
+.mzk-course-section { margin-bottom: 16px; }
+/*
+ * Sentence case, not small caps with tracking.
+ *
+ * Four uppercase labels stacked down a panel is a lot of shouting for what are really just
+ * subheadings, and it made a short course read like a form to fill in.
+ */
 .mzk-course-section h4 {
-  margin: 0 0 5px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 650;
   color: var(--mzk-soft);
 }
 .mzk-course-section p { margin: 0; line-height: 1.6; }
-.mzk-course-section ul { margin: 0; padding-left: 20px; line-height: 1.6; }
-.mzk-course-section li { margin-bottom: 3px; }
+.mzk-course-section ul { margin: 0; padding-left: 18px; line-height: 1.55; }
+.mzk-course-section li { margin-bottom: 2px; }
+
+/* Sits above the buttons, on the divider, so it reads as part of deciding rather than a footnote. */
+.mzk-course-contact {
+  margin: 4px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--mzk-line);
+  font-size: 14px;
+  color: var(--mzk-soft);
+}
+.mzk-course-contact a { color: var(--mzk-accent); font-weight: 600; text-decoration: none; }
+.mzk-course-contact a:hover { text-decoration: underline; text-underline-offset: 3px; }
 
 .mzk-course-foot { justify-content: flex-end; gap: 9px; margin-top: 18px; }
 
+/* One column before the two get too narrow to hold a line of text comfortably. */
+@media (max-width: 700px) {
+  .mzk-course-cols { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .mzk-course-body { padding: 20px 20px 18px; }
+}
+
 @media (max-width: 560px) {
-  /* Stacked: at this width the two buttons split the row and both titles get an ellipsis. */
-  .mzk-session-row { flex-direction: column; gap: 0; }
-  .mzk-learn {
-    width: 100%;
-    padding: 9px 14px;
-    margin-top: -1px;
-    border-radius: 0 0 10px 10px;
-  }
-  .mzk-session-row .mzk-session { border-radius: 10px 10px 0 0; }
-  .mzk-course-img { height: 150px; }
+  /*
+   * Three things across a 390px screen is one too many, and the title loses. The class and its
+   * time keep the top line; "Learn more" and the places tag share the one underneath.
+   */
+  .mzk-session-row { flex-wrap: wrap; gap: 0 10px; }
+  .mzk-session { flex: 1 0 100%; }
+  .mzk-learn { order: 2; margin-top: 8px; }
+  .mzk-session-right { order: 3; margin-top: 8px; margin-left: auto; }
+  .mzk-course-img { height: 130px; }
 }
