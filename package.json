@@ -11,7 +11,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "npm run build -w @mizuki/shared && npm run build -w @mizuki/api && npm run build -w @mizuki/admin && npm run build -w @mizuki/widget",
+    "build": "npm run build -w @mizuki/shared && npm run build -w @mizuki/api && npm run build -w @mizuki/admin && npm run build -w @mizuki/widget && node scripts/package-wp-plugin.mjs",
     "dev:api": "npm run dev -w @mizuki/api",
     "dev:admin": "npm run dev -w @mizuki/admin",
     "dev:widget": "npm run dev -w @mizuki/widget",

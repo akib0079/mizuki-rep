@@ -3,7 +3,14 @@
  * Assembles the WordPress plugin into a zip the studio can upload through wp-admin.
  *
  * The built widget lives in apps/widget/dist and the PHP lives in wp-plugin/, so this copies
- * the former into the latter's assets folder and zips the result. Run after `npm run build`.
+ * the former into the latter's assets folder and zips the result.
+ *
+ * `npm run build` now ends by running this, and it has to stay that way. The plugin's copy of
+ * widget.js is a build artefact and is not in git, so nothing about the repository being current
+ * says anything about the zip sitting next to it. A build that refreshed dist but left the zip
+ * alone produced exactly that: a plugin uploaded to the live site carrying a bundle from before
+ * the work it was supposed to deliver, with the API correctly updated underneath it — which
+ * looks, from the outside, like a feature that simply does not work.
  */
 import { cp, mkdir, rm, access } from 'node:fs/promises'
 import { execFile } from 'node:child_process'
