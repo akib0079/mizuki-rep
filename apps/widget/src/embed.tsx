@@ -4,6 +4,7 @@ import { configureApi } from './api.js'
 import { BookingCalendar } from './BookingCalendar.js'
 import { MyBookings } from './MyBookings.js'
 import { MizukiApp } from './MizukiApp.js'
+import { CoursePortal } from './CoursePortal.js'
 import { ErrorBoundary } from './ErrorBoundary.js'
 // Imported as text rather than as a stylesheet: it is injected into the shadow root below,
 // where the page's CSS cannot reach it and it cannot reach the page.
@@ -20,7 +21,7 @@ import css from './widget.css?inline'
 
 interface MountConfig {
   apiBase: string
-  view?: 'all' | 'calendar' | 'my-bookings'
+  view?: 'all' | 'calendar' | 'my-bookings' | 'course-portal'
   course?: string
 }
 
@@ -93,7 +94,14 @@ function mount(element: Element, config: MountConfig): void {
   root.render(
     <StrictMode>
       <ErrorBoundary label="booking widget">
-        {config.view === 'my-bookings' ? (
+        {config.view === 'course-portal' ? (
+          /*
+           * A page for students who have already paid: balance and dates first, calendar behind
+           * one button. Needs a course to be about, so it falls back to the ordinary page rather
+           * than rendering a portal for nothing in particular.
+           */
+          config.course ? <CoursePortal courseSlug={config.course} /> : <MizukiApp />
+        ) : config.view === 'my-bookings' ? (
           <MyBookings />
         ) : config.view === 'calendar' ? (
           <BookingCalendar courseSlug={config.course} />
@@ -124,7 +132,9 @@ function mountFromElement(element: Element): void {
         ? 'my-bookings'
         : el.dataset.view === 'calendar'
           ? 'calendar'
-          : 'all',
+          : el.dataset.view === 'course-portal'
+            ? 'course-portal'
+            : 'all',
     course: el.dataset.course || undefined,
   })
 }

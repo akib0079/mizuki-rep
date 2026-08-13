@@ -228,6 +228,7 @@ export interface PackageRow {
   totalSessions: number
   usedSessions: number
   remaining: number
+  startsAt: string | null
   expiresAt: string | null
   status: string
 }

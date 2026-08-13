@@ -51,6 +51,16 @@
         thing this page could not test.
       -->
       <div data-mizuki-booking data-api-base="http://localhost:4000" data-view="all"></div>
+
+      <!--
+        The IFDA student page, on the same harness so both can be looked at side by side.
+        Matches [mizuki_course_portal course="ifda"] exactly.
+      -->
+      <hr style="margin: 48px 0 32px; border: 0; border-top: 1px solid #e7e0e4" />
+      <p style="color: #7b7178; font-size: 14px; margin-bottom: 16px">
+        Below: <code>[mizuki_course_portal course="ifda"]</code>
+      </p>
+      <div data-mizuki-booking data-api-base="http://localhost:4000" data-view="course-portal" data-course="ifda"></div>
     </div>
 
     <script type="module" src="/src/embed.tsx"></script>

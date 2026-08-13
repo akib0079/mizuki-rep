@@ -329,6 +329,7 @@ adminStudentsRouter.post(
       studentId: input.studentId,
       courseTypeId: input.courseTypeId,
       totalSessions: input.totalSessions,
+      startsAt: input.startsAt ? new Date(input.startsAt) : null,
       expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
       note: input.note,
       by: actorOf(req),
@@ -339,7 +340,7 @@ adminStudentsRouter.post(
       action: 'package.grant',
       entity: 'Package',
       entityId: pkg._id,
-      after: { totalSessions: input.totalSessions, expiresAt: input.expiresAt },
+      after: { totalSessions: input.totalSessions, startsAt: input.startsAt, expiresAt: input.expiresAt },
     })
 
     res.status(201).json({ package: { id: String(pkg._id), totalSessions: pkg.totalSessions } })
@@ -354,6 +355,7 @@ adminStudentsRouter.patch(
 
     const pkg = await adjustPackage(req.params.id!, {
       addSessions: input.addSessions,
+      setStartDate: input.setStartDate ? new Date(input.setStartDate) : null,
       extendToDate: input.extendToDate ? new Date(input.extendToDate) : null,
       note: input.note,
       by: actorOf(req),
@@ -364,7 +366,7 @@ adminStudentsRouter.patch(
       action: 'package.adjust',
       entity: 'Package',
       entityId: pkg._id,
-      after: { addSessions: input.addSessions, extendToDate: input.extendToDate },
+      after: { addSessions: input.addSessions, setStartDate: input.setStartDate, extendToDate: input.extendToDate },
       reason: input.note,
     })
 
@@ -374,6 +376,7 @@ adminStudentsRouter.patch(
         totalSessions: pkg.totalSessions,
         usedSessions: pkg.usedSessions,
         remaining: sessionsRemaining(pkg),
+        startsAt: pkg.startsAt,
         expiresAt: pkg.expiresAt,
         status: pkg.status,
       },

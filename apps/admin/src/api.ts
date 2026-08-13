@@ -162,6 +162,8 @@ export interface PackageSummary {
   totalSessions: number
   usedSessions: number
   remaining: number
+  /** Both ends of the course period; either may be unset. */
+  startsAt: string | null
   expiresAt: string | null
   status: string
 }

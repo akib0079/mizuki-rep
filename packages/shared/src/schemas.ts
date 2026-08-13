@@ -233,12 +233,22 @@ export const packageGrantSchema = z.object({
   studentId: objectIdSchema,
   courseTypeId: objectIdSchema,
   totalSessions: z.number().int().min(1).max(200),
+  /** Both ends of the course period, both optional — an open package has neither. */
+  startsAt: z.string().datetime().nullable().default(null),
   expiresAt: z.string().datetime().nullable().default(null),
   note: z.string().trim().max(300).default(''),
 })
 
 export const packageAdjustSchema = z.object({
   addSessions: z.number().int().min(-100).max(100).default(0),
+  /*
+   * Two separate fields rather than one "set the period".
+   *
+   * Moving the end date is the common act — a student needs longer — and it happens on its own,
+   * often repeatedly. Moving the start is rare and usually a correction. Sending them together
+   * would mean every extension had to restate a start date nobody was changing.
+   */
+  setStartDate: z.string().datetime().nullable().default(null),
   extendToDate: z.string().datetime().nullable().default(null),
   note: z.string().trim().max(300).default(''),
 })

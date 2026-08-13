@@ -27,6 +27,17 @@ const packageSchema = new Schema(
     totalSessions: { type: Number, required: true, min: 0 },
     usedSessions: { type: Number, required: true, default: 0, min: 0 },
 
+    /*
+     * The course period, both ends of it.
+     *
+     * `expiresAt` came first because expiry is what the system enforces. The studio also runs
+     * courses that start on a date — a January intake sold in November — and until now that had
+     * to live in somebody's memory, because a package with only an end date silently begins the
+     * moment it is created.
+     *
+     * Both stay nullable: a package with no dates is an open one, which is how most are sold.
+     */
+    startsAt: { type: Date, default: null },
     expiresAt: { type: Date, default: null },
     status: { type: String, enum: ['active', 'expired', 'completed'], default: 'active', index: true },
 

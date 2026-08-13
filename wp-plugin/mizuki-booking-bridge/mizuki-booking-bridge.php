@@ -139,6 +139,13 @@ function mizuki_render_settings_page() {
 					</td>
 				</tr>
 				<tr>
+					<td><code>[mizuki_course_portal course="ifda"]</code></td>
+					<td>
+						<strong><?php esc_html_e( 'For students who have already paid.', 'mizuki-booking' ); ?></strong>
+						<?php esc_html_e( 'They sign in, see how many lessons are left and by when, then press Book a lesson to see only that course. No payment step.', 'mizuki-booking' ); ?>
+					</td>
+				</tr>
+				<tr>
 					<td><code>[mizuki_booking course="ikebana"]</code></td>
 					<td><?php esc_html_e( 'Only one course. Use ikebana, ifda, preserved-flower, fresh-flower or bouquet.', 'mizuki-booking' ); ?></td>
 				</tr>
@@ -246,8 +253,32 @@ add_shortcode( 'mizuki_booking', 'mizuki_booking_shortcode' );
 function mizuki_booking_shortcode( $atts ) {
 	$atts = shortcode_atts( array( 'course' => '', 'view' => 'all' ), $atts, 'mizuki_booking' );
 
-	$view = in_array( $atts['view'], array( 'calendar', 'my-bookings' ), true ) ? $atts['view'] : 'all';
+	$view = in_array( $atts['view'], array( 'calendar', 'my-bookings', 'course-portal' ), true ) ? $atts['view'] : 'all';
 	return mizuki_render_widget( $atts, $view );
+}
+
+/**
+ * A page for students who have already paid for a course — IFDA, and Preserved Flower when the
+ * studio wants one.
+ *
+ * Their lessons are covered by the course fee, so this page has no payment and no checkout: they
+ * sign in with the address they enrolled with, see how many lessons are left and by when, and
+ * press one button to open a calendar showing only their own course.
+ *
+ * Usage:  [mizuki_course_portal course="ifda"]
+ */
+add_shortcode( 'mizuki_course_portal', 'mizuki_course_portal_shortcode' );
+function mizuki_course_portal_shortcode( $atts ) {
+	$atts = shortcode_atts( array( 'course' => 'ifda' ), $atts, 'mizuki_course_portal' );
+
+	if ( empty( $atts['course'] ) ) {
+		if ( current_user_can( 'manage_options' ) ) {
+			return '<p><strong>' . esc_html__( 'Mizuki Booking: add a course, e.g. [mizuki_course_portal course="ifda"].', 'mizuki-booking' ) . '</strong></p>';
+		}
+		return '';
+	}
+
+	return mizuki_render_widget( $atts, 'course-portal' );
 }
 
 /**

@@ -105,6 +105,7 @@ export async function grantSessions(input: {
   studentId: Types.ObjectId | string
   courseTypeId: Types.ObjectId | string
   totalSessions: number
+  startsAt?: Date | null
   expiresAt?: Date | null
   note?: string
   by?: string
@@ -115,6 +116,7 @@ export async function grantSessions(input: {
     courseTypeId: input.courseTypeId,
     totalSessions: input.totalSessions,
     usedSessions: 0,
+    startsAt: input.startsAt ?? null,
     expiresAt: input.expiresAt ?? null,
     status: 'active',
     sourceOrderId: input.sourceOrderId ?? null,
@@ -135,7 +137,13 @@ export async function grantSessions(input: {
 /** Add sessions to an existing package, extend its expiry, or both. */
 export async function adjustPackage(
   packageId: Types.ObjectId | string,
-  input: { addSessions?: number; extendToDate?: Date | null; note?: string; by?: string },
+  input: {
+    addSessions?: number
+    setStartDate?: Date | null
+    extendToDate?: Date | null
+    note?: string
+    by?: string
+  },
 ): Promise<PackageDoc> {
   const pkg = await PackageModel.findById(packageId)
   if (!pkg) throw new NotFoundError('Course package')
@@ -154,6 +162,16 @@ export async function adjustPackage(
     }
     pkg.totalSessions = next
     pkg.ledger.push({ type: 'adjust', delta: input.addSessions, bookingId: null, note, at: new Date(), by })
+  }
+
+  /*
+   * The start moves on its own. Recorded in the ledger like everything else — a course that
+   * appears to have begun a month earlier than the student remembers is exactly the kind of
+   * disagreement the ledger exists to settle.
+   */
+  if (input.setStartDate !== undefined && input.setStartDate !== null) {
+    pkg.startsAt = input.setStartDate
+    pkg.ledger.push({ type: 'extend', delta: 0, bookingId: null, note: note || 'Start date set', at: new Date(), by })
   }
 
   if (input.extendToDate !== undefined && input.extendToDate !== null) {
@@ -176,6 +194,7 @@ export interface PackageSummary {
   totalSessions: number
   usedSessions: number
   remaining: number
+  startsAt: Date | null
   expiresAt: Date | null
   status: string
 }
@@ -188,6 +207,7 @@ export async function summarisePackages(studentId: Types.ObjectId | string): Pro
     totalSessions: p.totalSessions,
     usedSessions: p.usedSessions,
     remaining: Math.max(0, p.totalSessions - p.usedSessions),
+    startsAt: p.startsAt ?? null,
     expiresAt: normaliseExpiry(p.expiresAt),
     status: p.status,
   }))

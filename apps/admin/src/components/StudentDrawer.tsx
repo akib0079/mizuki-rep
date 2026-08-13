@@ -345,7 +345,7 @@ function PackagesTab({
   })
 
   const grant = useMutation({
-    mutationFn: (input: { courseTypeId: string; totalSessions: number; expiresAt: string | null }) =>
+    mutationFn: (input: { courseTypeId: string; totalSessions: number; startsAt: string | null; expiresAt: string | null }) =>
       api.post('/api/admin/students/packages', { studentId, ...input, note: 'Created from the studio console' }),
     onSuccess: () => { setGranting(false); onMessage({ kind: 'ok', text: 'Package created.' }); onChanged() },
     onError: (err) => onMessage({ kind: 'danger', text: err instanceof ApiError ? err.message : 'Could not create.' }),
@@ -375,8 +375,13 @@ function PackagesTab({
                   <strong>{p.courseName}</strong>
                   <div className="small muted">
                     {p.remaining} of {p.totalSessions} left · {p.usedSessions} used
-                    {p.expiresAt && ` · expires ${DateTime.fromISO(p.expiresAt).setZone(STUDIO_TZ).toFormat('d LLL yyyy')}`}
                   </div>
+                  {/*
+                    The period on its own line, written as a period rather than as two facts.
+                    "Runs 1 Sep 2026 – 30 Nov 2026" is the question the studio is actually asking
+                    when a student rings up about needing longer.
+                  */}
+                  <div className="small muted">{coursePeriod(p.startsAt, p.expiresAt)}</div>
                 </div>
                 <span className={`pill ${p.status === 'active' ? 'pill-ok' : 'pill-muted'}`}>{p.status}</span>
               </div>
@@ -416,10 +421,17 @@ function GrantForm({
 }: {
   courses: Course[]
   busy: boolean
-  onSubmit: (input: { courseTypeId: string; totalSessions: number; expiresAt: string | null }) => void
+  onSubmit: (input: {
+    courseTypeId: string
+    totalSessions: number
+    startsAt: string | null
+    expiresAt: string | null
+  }) => void
 }) {
   const [courseTypeId, setCourseTypeId] = useState(courses[0]?.id ?? '')
   const [totalSessions, setTotalSessions] = useState(8)
+  /* Today by default: most packages start when they are sold, and a wrong start is worse than none. */
+  const [startsAt, setStartsAt] = useState(DateTime.now().setZone(STUDIO_TZ).toFormat('yyyy-MM-dd'))
   const [expiresAt, setExpiresAt] = useState(DateTime.now().setZone(STUDIO_TZ).plus({ months: 12 }).toFormat('yyyy-MM-dd'))
 
   if (courses.length === 0) return <div className="banner banner-info">No package-based courses are set up yet.</div>
@@ -432,15 +444,22 @@ function GrantForm({
           {courses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       </label>
+      <label className="field">
+        <span>Sessions</span>
+        <input type="number" min={1} value={totalSessions} onChange={(e) => setTotalSessions(Number(e.target.value))} />
+      </label>
       <div className="field-row">
         <label className="field">
-          <span>Sessions</span>
-          <input type="number" min={1} value={totalSessions} onChange={(e) => setTotalSessions(Number(e.target.value))} />
+          <span>Course starts</span>
+          <input type="date" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} />
         </label>
         <label className="field">
-          <span>Expires</span>
+          <span>Course ends</span>
           <input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
         </label>
+      </div>
+      <div className="field-hint" style={{ marginBottom: 10 }}>
+        Leave either empty for a package with no fixed period. You can change both later.
       </div>
       <button type="button"
         className="btn btn-primary btn-sm"
@@ -449,6 +468,9 @@ function GrantForm({
           onSubmit({
             courseTypeId,
             totalSessions,
+            // Start at the beginning of the day and end at the end of it, so a course that runs
+            // "1 Sep to 30 Nov" includes both of those days in full.
+            startsAt: startsAt ? DateTime.fromISO(startsAt, { zone: STUDIO_TZ }).startOf('day').toISO() : null,
             expiresAt: expiresAt ? DateTime.fromISO(expiresAt, { zone: STUDIO_TZ }).endOf('day').toISO() : null,
           })
         }
@@ -521,4 +543,18 @@ function DetailsTab({
       </button>
     </>
   )
+}
+
+/**
+ * The course period in the words the studio uses.
+ *
+ * Most packages have only an end date, some have both, and a few have neither — so this says
+ * whichever is true rather than printing "— to 30 Nov" around a blank.
+ */
+function coursePeriod(startsAt: string | null, expiresAt: string | null): string {
+  const fmt = (iso: string) => DateTime.fromISO(iso).setZone(STUDIO_TZ).toFormat('d LLL yyyy')
+  if (startsAt && expiresAt) return `Runs ${fmt(startsAt)} – ${fmt(expiresAt)}`
+  if (expiresAt) return `Ends ${fmt(expiresAt)}`
+  if (startsAt) return `Starts ${fmt(startsAt)}`
+  return 'No fixed period'
 }
