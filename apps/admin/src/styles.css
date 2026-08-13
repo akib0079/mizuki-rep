@@ -624,15 +624,143 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 /* --- Calendar ------------------------------------------------------------- */
 
-.calendar-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow-sm); }
-.fc { --fc-border-color: var(--line); --fc-today-bg-color: #fbfaf9; font-size: 13px; }
-.fc .fc-toolbar-title { font-size: 17px; font-weight: 650; }
-.fc .fc-button {
-  background: var(--surface); border-color: var(--line); color: var(--ink);
-  font-size: 13px; font-weight: 550; padding: 5px 11px; box-shadow: none; text-transform: none;
+/*
+ * Laid out the way a calendar application is, rather than as a page with a calendar on it: one
+ * control bar across the top, a navigator down the side, and the grid taking whatever is left.
+ * The month is the thing being used, so it gets the room.
+ */
+
+.cal-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
 }
-.fc .fc-button:hover { background: var(--canvas); }
-.fc .fc-button-primary:not(:disabled).fc-button-active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.cal-title {
+  font-size: 21px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  margin: 0;
+  white-space: nowrap;
+}
+.cal-steps { display: flex; gap: 2px; }
+.cal-bar-end { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.cal-filter { max-width: 170px; }
+
+.icon-btn {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 50%;
+  color: var(--ink-soft);
+  font-size: 19px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.icon-btn:hover { background: var(--canvas); color: var(--ink); }
+
+/* One control, several states — rather than three buttons that happen to sit together. */
+.seg {
+  display: inline-flex;
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+.seg-btn {
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.seg-btn:hover { color: var(--ink); }
+.seg-btn.is-on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
+
+/* 200px, not 232: every pixel here comes straight out of seven day columns, and at 232 the
+   titles were clipping to "IFDA Morni…" — the part that identifies the class. */
+.cal-layout { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 16px; align-items: start; }
+.cal-side { display: flex; flex-direction: column; gap: 18px; }
+.cal-hint { margin: 0; }
+
+/* --- The month beside the month ------------------------------------------- */
+
+.mini { user-select: none; }
+.mini-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.mini-title { font-size: 13.5px; font-weight: 650; }
+.mini-nav { display: flex; }
+.mini-nav .icon-btn { width: 26px; height: 26px; font-size: 16px; }
+
+.mini-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; }
+.mini-dow {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ink-faint);
+  text-align: center;
+  padding-bottom: 4px;
+}
+.mini-day {
+  position: relative;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  font: inherit;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+.mini-day:hover { background: var(--canvas); }
+.mini-day.is-outside { color: var(--ink-faint); }
+.mini-day.is-closed { text-decoration: line-through; color: var(--ink-faint); }
+.mini-day.is-today { font-weight: 700; color: var(--accent); }
+.mini-day.is-selected { background: var(--accent); color: #fff; font-weight: 650; }
+.mini-day.is-selected .mini-dot { background: #fff; }
+
+/* Placed under the number rather than beside it, so a two-digit date is not pushed off-centre. */
+.mini-dot {
+  position: absolute;
+  bottom: 3px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--ink-faint);
+}
+
+.legend-stack { flex-direction: column; gap: 7px; margin-top: 0; }
+.legend-dot-closed { background: repeating-linear-gradient(45deg, #dfe3e8, #dfe3e8 2px, #f2f3f6 2px, #f2f3f6 4px); }
+
+.calendar-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 10px 10px; box-shadow: var(--shadow-sm); }
+.fc { --fc-border-color: var(--line); --fc-today-bg-color: transparent; font-size: 13px; }
+
+/* Uppercase initials over the columns, and the date sitting quietly in the corner. */
+.fc .fc-col-header-cell { background: transparent; border-bottom: 1px solid var(--line); }
+.fc .fc-col-header-cell-cushion {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  padding: 9px 4px;
+}
+.fc .fc-daygrid-day-top { justify-content: center; }
+.fc .fc-daygrid-day-number { font-size: 12px; color: var(--ink-soft); padding: 5px 6px; }
+.fc .fc-day-other .fc-daygrid-day-number { color: var(--ink-faint); }
 /*
  * A class in the grid.
  *
@@ -642,27 +770,68 @@ button, input, select, textarea { font: inherit; color: inherit; }
  * the row white, and lets the occupancy pill be the only coloured thing — so red means one thing
  * and one thing only.
  */
-.fc-event {
+/*
+ * Scoped to the month grid and the schedule. In a time grid an event's height *is* its duration,
+ * and stripping the background there turned a three-hour class into the same one-line chip as a
+ * thirty-minute one — the whole reason for looking at a week.
+ */
+.fc-daygrid-event,
+.fc-list-event {
   border: none !important;
   background: transparent !important;
   cursor: pointer;
   padding: 0;
   margin-bottom: 2px;
 }
-.fc-event .fc-event-main { color: var(--ink); padding: 0; }
+.fc-daygrid-event .fc-event-main,
+.fc-list-event .fc-event-main { color: var(--ink); padding: 0; }
+
+/*
+ * A class in the week and day views: a block the height of the lesson, tinted with its course
+ * colour. The colour is carried at low opacity with a solid edge rather than filled, so several
+ * courses in one week stay distinguishable without the grid becoming a paint chart.
+ */
+.fc-timegrid-event {
+  border: none !important;
+  border-left: 3px solid var(--ev-colour, var(--accent)) !important;
+  border-radius: 5px !important;
+  background: color-mix(in srgb, var(--ev-colour, var(--accent)) 13%, #fff) !important;
+  box-shadow: none !important;
+  cursor: pointer;
+  overflow: hidden;
+}
+.fc-timegrid-event .fc-event-main { color: var(--ink); padding: 2px 0; }
+
+/*
+ * Stacked, not a row. A column in a seven-day week is around 130px, and a row put the time, the
+ * title and the count in competition for it — the title lost and wrapped to one letter per line,
+ * spelling "I F D A" down the block. Each line now gets the full width.
+ */
+.fc-timegrid-event .ev {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 1px 5px 1px 6px;
+}
+.fc-timegrid-event .ev-time { font-size: 11px; }
+.fc-timegrid-event .ev-title { white-space: normal; overflow-wrap: anywhere; flex: none; }
+.fc-timegrid-event .ev-count { margin-top: 1px; }
+/* The block already carries the colour along its edge; a dot inside repeats it. */
+.fc-timegrid-event .ev-dot { display: none; }
 
 .ev {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   min-width: 0;
-  padding: 3px 5px 3px 0;
+  padding: 2px 4px 2px 0;
   border-radius: 5px;
   transition: background 0.12s ease;
 }
 .fc-event:hover .ev { background: var(--canvas); }
 
-.ev-bar { width: 3px; align-self: stretch; min-height: 15px; border-radius: 2px; flex-shrink: 0; }
+/* A dot, not a bar: it reads as "which course" without drawing a line down every row. */
+.ev-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-left: 5px; }
 .ev-time { font-variant-numeric: tabular-nums; color: var(--ink-soft); flex-shrink: 0; font-size: 11.5px; }
 /* Clip rather than wrap, so a long title shortens instead of making the whole month taller.
    The full text is on the title attribute for anyone who needs it. */
@@ -697,7 +866,25 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .fc-daygrid-day.is-closed { background: repeating-linear-gradient(45deg, #f2f3f6, #f2f3f6 6px, #e9ebef 6px, #e9ebef 12px); }
 
 /* Today should be findable without hunting for it. */
-.fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number { color: var(--accent); font-weight: 700; }
+/*
+ * Today is a filled disc around the date, not a tinted cell.
+ *
+ * Tinting the whole column fought the closed-day hatching and the hover state for the same
+ * surface, and on a month where today is a Thursday it put a stripe down the middle of the grid.
+ * A disc marks the one square that is actually today and leaves every other signal its own colour.
+ */
+.fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 650;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  margin: 3px auto 1px;
+}
 .fc-daygrid-event-harness { overflow: hidden; }
 .fc .fc-daygrid-more-link { font-size: 11px; font-weight: 600; color: var(--accent); }
 
@@ -730,6 +917,22 @@ button, input, select, textarea { font: inherit; color: inherit; }
 @media (max-width: 1100px) {
   .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .grid-2-1, .grid-3 { grid-template-columns: minmax(0, 1fr); }
+
+  /*
+   * Below this the navigator costs the grid more than it gives. Seven columns in what is left of
+   * a 1000px window is around 100px each, which is where class titles start being clipped — and
+   * the grid is what the page is for. The legend moves under the calendar rather than going.
+   */
+  .cal-layout { grid-template-columns: minmax(0, 1fr); }
+  .cal-side {
+    grid-row: 2;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px 20px;
+  }
+  .mini, .cal-hint { display: none; }
+  .legend-stack { flex-direction: row; flex-wrap: wrap; gap: 14px; }
 }
 /* ===========================================================================
  * Phones
@@ -823,6 +1026,27 @@ button, input, select, textarea { font: inherit; color: inherit; }
     background-size: 26px 100%;
     background-attachment: local;
   }
+
+  /*
+   * The navigator is a shortcut for jumping around a month you can see. On a phone the schedule
+   * is the view, there is no month on screen to jump within, and a second calendar above the
+   * first is just something to scroll past.
+   */
+  .cal-layout { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .cal-side { display: none; }
+
+  .cal-bar { gap: 8px; margin-bottom: 12px; }
+  .cal-title { font-size: 19px; order: -1; width: 100%; }
+
+  /*
+   * The end group has to wrap too, or nothing inside it can take a line of its own — `order` and
+   * `width` on the filter applied within a row that never breaks, so it was simply squeezed until
+   * "All courses" read "All co".
+   */
+  .cal-bar-end { margin-left: auto; gap: 8px; flex-wrap: wrap; }
+  /* Least urgent control, widest content: it gets the full line rather than crushing the rest. */
+  .cal-filter { order: 10; flex: 1 0 100%; max-width: none; }
+  .seg-btn { padding: 5px 12px; }
 
   /*
    * FullCalendar sizes itself from its own tables, which on a 390px screen means it decides it

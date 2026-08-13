@@ -12,6 +12,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { DateTime } from 'luxon'
 import { STUDIO_TZ } from '@mizuki/shared'
 import { api, type AdminSession, type ClosedDate, type Course } from '../api.js'
+import { MiniMonth } from '../components/MiniMonth.js'
 import { SessionDrawer } from '../components/SessionDrawer.js'
 import { NewSessionDialog } from '../components/NewSessionDialog.js'
 import { ConfirmDialog } from '../components/ConfirmDialog.js'
@@ -48,6 +49,19 @@ export function CalendarPage() {
   }, [params, setParams])
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null)
   const [courseFilter, setCourseFilter] = useState<string>('')
+
+  /*
+   * The toolbar is ours rather than FullCalendar's, so the title and the view buttons have to be
+   * mirrored here — FullCalendar owns the truth, this follows it via `datesSet`.
+   *
+   * Two dates, not one. `cursor` is the month on screen, derived from the middle of whatever
+   * range is drawn; `picked` is the day someone actually chose. Using the first for both put the
+   * navigator's filled disc on the 17th — the midpoint of a grid running 27 July to 6 September,
+   * and a day nobody had asked about.
+   */
+  const [cursor, setCursor] = useState(() => DateTime.now().setZone(STUDIO_TZ))
+  const [picked, setPicked] = useState(() => DateTime.now().setZone(STUDIO_TZ))
+  const [viewName, setViewName] = useState(() => (isPhone ? 'listTwoWeek' : 'dayGridMonth'))
 
   const sessionsQuery = useQuery({
     queryKey: ['admin-sessions', range.from, range.to, courseFilter],
@@ -90,6 +104,50 @@ export function CalendarPage() {
     return keys
   }, [closedQuery.data])
 
+  /*
+   * The heading names whatever is actually on screen.
+   *
+   * A month is the month; a week and a day are not, and labelling a Monday-to-Sunday grid
+   * "August 2026" tells you the one thing you already knew. The week spanning a month end reads
+   * "31 Aug – 6 Sep 2026", which is the case that makes the range worth spelling out at all.
+   */
+  const title = useMemo(() => {
+    if (viewName === 'timeGridDay') return cursor.toFormat('cccc d LLLL yyyy')
+
+    if (viewName === 'timeGridWeek' || viewName.startsWith('list')) {
+      const start = viewName.startsWith('list') ? cursor.minus({ days: 7 }) : cursor.startOf('week')
+      const end = viewName.startsWith('list') ? cursor.plus({ days: 6 }) : cursor.endOf('week')
+      const sameMonth = start.hasSame(end, 'month')
+      return sameMonth
+        ? `${start.toFormat('d')} – ${end.toFormat('d LLL yyyy')}`
+        : `${start.toFormat('d LLL')} – ${end.toFormat('d LLL yyyy')}`
+    }
+
+    return cursor.toFormat('LLLL yyyy')
+  }, [cursor, viewName])
+
+  /** Days with at least one class, for the dots on the mini month. */
+  const busyKeys = useMemo(() => {
+    const keys = new Set<string>()
+    for (const s of sessionsQuery.data?.sessions ?? []) {
+      if (s.status === 'cancelled') continue
+      keys.add(DateTime.fromISO(s.startAt, { zone: STUDIO_TZ }).toFormat('yyyy-MM-dd'))
+    }
+    return keys
+  }, [sessionsQuery.data])
+
+  /** Move both the grid and the mini month to a date, from whichever asked. */
+  function goTo(date: DateTime) {
+    calendarRef.current?.getApi().gotoDate(date.toJSDate())
+    setCursor(date)
+    setPicked(date)
+  }
+
+  function changeView(next: string) {
+    calendarRef.current?.getApi().changeView(next)
+    setViewName(next)
+  }
+
   const events = useMemo(
     () =>
       (sessionsQuery.data?.sessions ?? []).map((s) => ({
@@ -129,14 +187,30 @@ export function CalendarPage() {
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1>Calendar</h1>
-          <p>Drag a class to move it. Click one to see who is coming.</p>
+      {/*
+        One bar rather than a page heading above a toolbar above FullCalendar's own toolbar.
+        Three stacked rows of controls was most of the screen before a single class appeared, and
+        on a phone they wrapped into six ragged lines.
+      */}
+      <div className="cal-bar">
+        <button
+          type="button"
+          className="btn"
+          onClick={() => goTo(DateTime.now().setZone(STUDIO_TZ))}
+        >
+          Today
+        </button>
+
+        <div className="cal-steps">
+          <button type="button" className="icon-btn" aria-label="Previous" onClick={() => { calendarRef.current?.getApi().prev() }}>‹</button>
+          <button type="button" className="icon-btn" aria-label="Next" onClick={() => { calendarRef.current?.getApi().next() }}>›</button>
         </div>
-        <div className="toolbar">
+
+        <h1 className="cal-title">{title}</h1>
+
+        <div className="cal-bar-end">
           <select
-            className="btn"
+            className="btn cal-filter"
             value={courseFilter}
             onChange={(e) => setCourseFilter(e.target.value)}
             aria-label="Filter by course"
@@ -146,7 +220,33 @@ export function CalendarPage() {
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
-          <button type="button" className="btn btn-primary" onClick={() => setCreatingOn(DateTime.now().setZone(STUDIO_TZ).toFormat('yyyy-MM-dd'))}>
+
+          <div className="seg" role="group" aria-label="Calendar view">
+            {(isPhone
+              ? [{ id: 'listTwoWeek', label: 'Schedule' }, { id: 'dayGridMonth', label: 'Month' }]
+              : [
+                  { id: 'dayGridMonth', label: 'Month' },
+                  { id: 'timeGridWeek', label: 'Week' },
+                  { id: 'timeGridDay', label: 'Day' },
+                ]
+            ).map((v) => (
+              <button
+                key={v.id}
+                type="button"
+                className={viewName === v.id ? 'seg-btn is-on' : 'seg-btn'}
+                aria-pressed={viewName === v.id}
+                onClick={() => changeView(v.id)}
+              >
+                {v.label}
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setCreatingOn(DateTime.now().setZone(STUDIO_TZ).toFormat('yyyy-MM-dd'))}
+          >
             + Add class
           </button>
         </div>
@@ -156,7 +256,30 @@ export function CalendarPage() {
         <div className="banner banner-danger">Could not load the calendar. Please refresh.</div>
       )}
 
-      <div className="calendar-wrap">
+      <div className="cal-layout">
+        <aside className="cal-side">
+          <MiniMonth
+            month={cursor}
+            selected={picked}
+            busyDates={busyKeys}
+            closedDates={closedKeys}
+            onPick={goTo}
+          />
+
+          <div className="legend legend-stack">
+            {(coursesQuery.data?.courses ?? []).map((c) => (
+              <span className="legend-item" key={c.id}>
+                <span className="legend-dot" style={{ background: c.colour }} />
+                {c.name}
+              </span>
+            ))}
+            <span className="legend-item"><span className="legend-dot legend-dot-closed" />Closed day</span>
+          </div>
+
+          <p className="cal-hint muted small">Drag a class to move it. Click one to see who is coming.</p>
+        </aside>
+
+        <div className="calendar-wrap">
         <FullCalendar
           ref={calendarRef}
           /*
@@ -172,11 +295,9 @@ export function CalendarPage() {
           views={{
             listTwoWeek: { type: 'list', duration: { weeks: 2 }, buttonText: 'list' },
           }}
-          headerToolbar={{
-            left: 'prev,next today',
-            center: 'title',
-            right: isPhone ? 'listTwoWeek,dayGridMonth' : 'dayGridMonth,timeGridWeek,timeGridDay',
-          }}
+          // The bar above replaces this one; leaving both gave the page two sets of the same
+          // controls, disagreeing about which view was active.
+          headerToolbar={false}
           /*
            * The Luxon plugin is what makes this line mean anything.
            *
@@ -187,6 +308,13 @@ export function CalendarPage() {
            */
           timeZone={STUDIO_TZ}
           firstDay={1}
+          /*
+           * "MON 10", not FullCalendar's default "MON 8/10".
+           *
+           * That default is US month-first, so in a Singapore studio the Monday of this week read
+           * as the 8th of October. The month is already in the heading above.
+           */
+          dayHeaderFormat={{ weekday: 'short', day: 'numeric', omitCommas: true }}
           height="auto"
           nowIndicator
           // Weekdays currently run three IFDA classes, which fits. This caps a day at three
@@ -205,6 +333,18 @@ export function CalendarPage() {
               from: DateTime.fromJSDate(info.start).setZone(STUDIO_TZ).toFormat('yyyy-MM-dd'),
               to: DateTime.fromJSDate(info.end).setZone(STUDIO_TZ).toFormat('yyyy-MM-dd'),
             })
+
+            /*
+             * Follow whatever FullCalendar decided, however it was reached — our buttons, a swipe,
+             * or a click on the mini month. `info.start` is the first cell drawn, which in a month
+             * view is usually in the previous month, so the title is taken from the middle of the
+             * range rather than its edge.
+             */
+            const middle = DateTime.fromJSDate(
+              new Date((info.start.getTime() + info.end.getTime()) / 2),
+            ).setZone(STUDIO_TZ)
+            setCursor(middle)
+            setViewName(info.view.type)
           }}
           dayCellClassNames={(arg) => {
             const key = DateTime.fromJSDate(arg.date).setZone(STUDIO_TZ).toFormat('yyyy-MM-dd')
@@ -219,17 +359,28 @@ export function CalendarPage() {
            * space, and colouring it means how full a class is can be read without reading at all:
            * the studio scans for red, not for numbers.
            */
-          eventContent={(arg) => <CalendarEvent session={arg.event.extendedProps as AdminSession} timeText={arg.timeText} />}
+          /*
+           * Hand the course colour to CSS as a variable.
+           *
+           * FullCalendar writes it as an inline background-color, which the time-grid rules have
+           * to override to tint rather than fill — so the colour has to arrive by another route
+           * than the one being overridden.
+           */
+          eventDidMount={(info) => {
+            const session = info.event.extendedProps as AdminSession
+            info.el.style.setProperty('--ev-colour', session.colour)
+          }}
+          eventContent={(arg) => (
+            <CalendarEvent
+              session={arg.event.extendedProps as AdminSession}
+              timeText={arg.timeText}
+              // The schedule has a whole row per class, so it can afford the count that the
+              // month grid has to earn. Hiding it there too was habit, not a space decision.
+              roomy={arg.view.type.startsWith('list')}
+            />
+          )}
         />
 
-        <div className="legend">
-          {(coursesQuery.data?.courses ?? []).map((c) => (
-            <span className="legend-item" key={c.id}>
-              <span className="legend-dot" style={{ background: c.colour }} />
-              {c.name}
-            </span>
-          ))}
-          <span className="legend-item"><span className="legend-dot" style={{ background: '#ece6e9' }} />Closed day</span>
         </div>
       </div>
 
@@ -319,7 +470,16 @@ function monthWindow(now: DateTime) {
  * at one place left, red when full or oversubscribed. Those are the only states worth interrupting
  * someone for, and they are the ones that change what the studio does next.
  */
-function CalendarEvent({ session, timeText }: { session: AdminSession; timeText: string }) {
+function CalendarEvent({
+  session,
+  timeText,
+  roomy = false,
+}: {
+  session: AdminSession
+  timeText: string
+  /** True in the schedule view, where there is room for the count on every row. */
+  roomy?: boolean
+}) {
   const cancelled = session.status === 'cancelled'
   const left = session.seatsLeft
 
@@ -344,7 +504,7 @@ function CalendarEvent({ session, timeText }: { session: AdminSession; timeText:
    * "who has students?" from reading every row into glancing at the month. The full numbers are
    * on the tooltip and in the class itself.
    */
-  const showCount = cancelled || session.seatsTaken > 0 || session.heldBack > 0
+  const showCount = roomy || cancelled || session.seatsTaken > 0 || session.heldBack > 0
 
   return (
     <div
@@ -353,7 +513,7 @@ function CalendarEvent({ session, timeText }: { session: AdminSession; timeText:
         session.heldBack > 0 ? `, ${session.heldBack} held back` : ''
       }`}
     >
-      <span className="ev-bar" style={{ background: session.colour }} aria-hidden />
+      <span className="ev-dot" style={{ background: session.colour }} aria-hidden />
       <span className="ev-time">{timeText}</span>
       <span className="ev-title">{session.title}</span>
       {showCount && (
