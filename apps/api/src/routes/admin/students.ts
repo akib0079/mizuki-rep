@@ -96,6 +96,20 @@ adminStudentsRouter.get(
   }),
 )
 
+/*
+ * Declared before `/:id`, and it has to stay there.
+ *
+ * Express matches in declaration order, so with `/:id` first this route was unreachable: every
+ * request for it arrived as a student whose id was the word "duplicates", and Mongoose threw
+ * casting it to an ObjectId. The panel returned a 500 and the studio simply never saw it.
+ */
+adminStudentsRouter.get(
+  '/duplicates',
+  asyncRoute(async (_req, res) => {
+    res.json({ groups: await findDuplicateGroups() })
+  }),
+)
+
 adminStudentsRouter.get(
   '/:id',
   asyncRoute(async (req, res) => {
@@ -387,13 +401,6 @@ function escapeRegex(value: string): string {
  * Offered as a screen rather than left to be noticed, because the studio only found their three
  * copies of one student by scrolling the list and recognising the name.
  */
-adminStudentsRouter.get(
-  '/duplicates',
-  asyncRoute(async (_req, res) => {
-    res.json({ groups: await findDuplicateGroups() })
-  }),
-)
-
 /**
  * Join two accounts.
  *

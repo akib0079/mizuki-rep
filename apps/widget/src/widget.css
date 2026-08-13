@@ -135,6 +135,8 @@
 /* --- Session list --------------------------------------------------------- */
 
 .mzk-day-title { font-size: 15px; font-weight: 650; margin: 22px 0 10px; }
+/* Focused only to move a keyboard user down to the classes; it is not a control, so no ring. */
+.mzk-day-title:focus { outline: none; }
 
 .mzk-session {
   transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease;

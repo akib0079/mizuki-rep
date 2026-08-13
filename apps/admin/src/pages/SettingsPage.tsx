@@ -90,131 +90,133 @@ export function SettingsPage({ totpEnabled }: { totpEnabled: boolean }) {
           How each course is paid for, and how late a student may change their booking.
         </p>
 
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Course</th>
-              <th>Booked with</th>
-              <th>Shop product</th>
-              <th>Confirm by hand</th>
-              <th>Notice to change</th>
-              <th>Default class size</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {(coursesQuery.data?.courses ?? []).map((c) => (
-              <tr key={c.id} className={c.active ? '' : 'row-inactive'}>
-                <td>
-                  <span className="legend-dot" style={{ background: c.colour, display: 'inline-block', marginRight: 8 }} />
-                  <strong>{c.name}</strong>
-                </td>
-                <td>
-                  <span className="pill pill-muted">
-                    {c.bookingMode === 'package' ? 'Course package' : c.bookingMode === 'paid' ? 'Shop payment' : 'Free'}
-                  </span>
-                </td>
-                <td>
-                  {/*
-                    Empty is meaningful, not merely unset: with no product the shop has nothing to
-                    sell for this course, so a paid booking cannot be completed. Saying so beats
-                    an empty box that looks finished.
-                  */}
-                  <input
-                    type="number"
-                    min={1}
-                    className="btn btn-sm"
-                    style={{ width: 92 }}
-                    placeholder={c.bookingMode === 'free' ? 'not needed' : 'e.g. 1234'}
-                    defaultValue={c.wooProductIds[0] ?? ''}
-                    disabled={c.bookingMode === 'free'}
-                    onBlur={(e) => {
-                      const raw = e.target.value.trim()
-                      const next = raw ? [Number(raw)] : []
-                      if (next[0] !== c.wooProductIds[0]) {
-                        courseMutation.mutate({ id: c.id, patch: { wooProductIds: next } as Partial<Course> })
-                      }
-                    }}
-                  />
-                  {c.bookingMode !== 'free' && c.wooProductIds.length === 0 && (
-                    <div className="small" style={{ color: 'var(--danger, #b3382c)' }}>
-                      Not on sale yet
-                    </div>
-                  )}
-                </td>
-                <td>
-                  <label className="switch-label">
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Course</th>
+                <th>Booked with</th>
+                <th>Shop product</th>
+                <th>Confirm by hand</th>
+                <th>Notice to change</th>
+                <th>Default class size</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {(coursesQuery.data?.courses ?? []).map((c) => (
+                <tr key={c.id} className={c.active ? '' : 'row-inactive'}>
+                  <td>
+                    <span className="legend-dot" style={{ background: c.colour, display: 'inline-block', marginRight: 8 }} />
+                    <strong>{c.name}</strong>
+                  </td>
+                  <td>
+                    <span className="pill pill-muted">
+                      {c.bookingMode === 'package' ? 'Course package' : c.bookingMode === 'paid' ? 'Shop payment' : 'Free'}
+                    </span>
+                  </td>
+                  <td>
+                    {/*
+                      Empty is meaningful, not merely unset: with no product the shop has nothing to
+                      sell for this course, so a paid booking cannot be completed. Saying so beats
+                      an empty box that looks finished.
+                    */}
                     <input
-                      type="checkbox"
-                      checked={c.requiresManualConfirmation}
+                      type="number"
+                      min={1}
+                      className="btn btn-sm"
+                      style={{ width: 92 }}
+                      placeholder={c.bookingMode === 'free' ? 'not needed' : 'e.g. 1234'}
+                      defaultValue={c.wooProductIds[0] ?? ''}
+                      disabled={c.bookingMode === 'free'}
+                      onBlur={(e) => {
+                        const raw = e.target.value.trim()
+                        const next = raw ? [Number(raw)] : []
+                        if (next[0] !== c.wooProductIds[0]) {
+                          courseMutation.mutate({ id: c.id, patch: { wooProductIds: next } as Partial<Course> })
+                        }
+                      }}
+                    />
+                    {c.bookingMode !== 'free' && c.wooProductIds.length === 0 && (
+                      <div className="small" style={{ color: 'var(--danger, #b3382c)' }}>
+                        Not on sale yet
+                      </div>
+                    )}
+                  </td>
+                  <td>
+                    <label className="switch-label">
+                      <input
+                        type="checkbox"
+                        checked={c.requiresManualConfirmation}
+                        onChange={(e) =>
+                          courseMutation.mutate({
+                            id: c.id,
+                            patch: { requiresManualConfirmation: e.target.checked } as Partial<Course>,
+                          })
+                        }
+                      />
+                      <span className="small muted">
+                        {c.requiresManualConfirmation ? 'You approve each place' : 'Confirmed on payment'}
+                      </span>
+                    </label>
+                  </td>
+                  <td>
+                    <select
+                      className="btn btn-sm"
+                      value={c.rescheduleCutoffHours}
                       onChange={(e) =>
                         courseMutation.mutate({
                           id: c.id,
-                          patch: { requiresManualConfirmation: e.target.checked } as Partial<Course>,
+                          patch: {
+                            rescheduleCutoffHours: Number(e.target.value),
+                            cancelCutoffHours: Number(e.target.value),
+                          } as Partial<Course>,
                         })
                       }
+                    >
+                      <option value={0}>No restriction</option>
+                      <option value={24}>24 hours</option>
+                      <option value={48}>2 days</option>
+                      <option value={72}>3 days</option>
+                      <option value={168}>1 week</option>
+                    </select>
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      min={1}
+                      max={200}
+                      className="btn btn-sm"
+                      style={{ width: 74 }}
+                      defaultValue={c.defaultCapacity}
+                      onBlur={(e) => {
+                        const value = Number(e.target.value)
+                        if (value !== c.defaultCapacity) {
+                          courseMutation.mutate({ id: c.id, patch: { defaultCapacity: value } as Partial<Course> })
+                        }
+                      }}
                     />
-                    <span className="small muted">
-                      {c.requiresManualConfirmation ? 'You approve each place' : 'Confirmed on payment'}
-                    </span>
-                  </label>
-                </td>
-                <td>
-                  <select
-                    className="btn btn-sm"
-                    value={c.rescheduleCutoffHours}
-                    onChange={(e) =>
-                      courseMutation.mutate({
-                        id: c.id,
-                        patch: {
-                          rescheduleCutoffHours: Number(e.target.value),
-                          cancelCutoffHours: Number(e.target.value),
-                        } as Partial<Course>,
-                      })
-                    }
-                  >
-                    <option value={0}>No restriction</option>
-                    <option value={24}>24 hours</option>
-                    <option value={48}>2 days</option>
-                    <option value={72}>3 days</option>
-                    <option value={168}>1 week</option>
-                  </select>
-                </td>
-                <td>
-                  <input
-                    type="number"
-                    min={1}
-                    max={200}
-                    className="btn btn-sm"
-                    style={{ width: 74 }}
-                    defaultValue={c.defaultCapacity}
-                    onBlur={(e) => {
-                      const value = Number(e.target.value)
-                      if (value !== c.defaultCapacity) {
-                        courseMutation.mutate({ id: c.id, patch: { defaultCapacity: value } as Partial<Course> })
+                  </td>
+                  <td className="row-actions">
+                    {/*
+                      Archived, never deleted: courses are referenced by every class ever taught and
+                      every package ever sold, and removing one would take the history with it.
+                    */}
+                    <button
+                      type="button"
+                      className={c.active ? 'link-btn link-danger' : 'link-btn'}
+                      onClick={() =>
+                        courseMutation.mutate({ id: c.id, patch: { active: !c.active } as Partial<Course> })
                       }
-                    }}
-                  />
-                </td>
-                <td className="row-actions">
-                  {/*
-                    Archived, never deleted: courses are referenced by every class ever taught and
-                    every package ever sold, and removing one would take the history with it.
-                  */}
-                  <button
-                    type="button"
-                    className={c.active ? 'link-btn link-danger' : 'link-btn'}
-                    onClick={() =>
-                      courseMutation.mutate({ id: c.id, patch: { active: !c.active } as Partial<Course> })
-                    }
-                  >
-                    {c.active ? 'Archive' : 'Restore'}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                    >
+                      {c.active ? 'Archive' : 'Restore'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
         <NewCourseForm onMessage={setMessage} />
 
@@ -265,21 +267,23 @@ export function SettingsPage({ totpEnabled }: { totpEnabled: boolean }) {
               {driftQuery.data.drift.length} class(es) have a places-taken count that does not match their
               bookings. This should not happen — worth a look before correcting it.
             </div>
-            <table className="table">
-              <thead>
-                <tr><th>Date</th><th>Class</th><th>Counter says</th><th>Bookings say</th></tr>
-              </thead>
-              <tbody>
-                {driftQuery.data.drift.map((d) => (
-                  <tr key={d.sessionId}>
-                    <td className="small">{d.dateKey}</td>
-                    <td>{d.title}</td>
-                    <td>{d.storedSeatsTaken}</td>
-                    <td>{d.actualSeatsTaken}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr><th>Date</th><th>Class</th><th>Counter says</th><th>Bookings say</th></tr>
+                </thead>
+                <tbody>
+                  {driftQuery.data.drift.map((d) => (
+                    <tr key={d.sessionId}>
+                      <td className="small">{d.dateKey}</td>
+                      <td>{d.title}</td>
+                      <td>{d.storedSeatsTaken}</td>
+                      <td>{d.actualSeatsTaken}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
             <button type="button" className="btn btn-sm" style={{ marginTop: 12 }} onClick={() => repairMutation.mutate()}>
               Correct these counts
             </button>
@@ -353,22 +357,24 @@ function SetCoursesCard({ onMessage }: { onMessage: (m: { kind: 'ok' | 'danger';
 
           {!row.bookable && row.reason && <div className="banner banner-warn" style={{ marginTop: 8 }}>{row.reason}</div>}
 
-          <table className="table" style={{ marginTop: 8 }}>
-            <tbody>
-              {row.sessions.map((s) => (
-                <tr key={s.id}>
-                  <td className="small">
-                    {DateTime.fromISO(s.startAt).setZone(STUDIO_TZ).toFormat('ccc d LLL yyyy, h:mm a')}
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <span className={`pill ${s.isFull ? 'pill-danger' : 'pill-muted'}`}>
-                      {s.isFull ? 'Full' : `${s.seatsLeft} left`}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="table-wrap">
+            <table className="table" style={{ marginTop: 8 }}>
+              <tbody>
+                {row.sessions.map((s) => (
+                  <tr key={s.id}>
+                    <td className="small">
+                      {DateTime.fromISO(s.startAt).setZone(STUDIO_TZ).toFormat('ccc d LLL yyyy, h:mm a')}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <span className={`pill ${s.isFull ? 'pill-danger' : 'pill-muted'}`}>
+                        {s.isFull ? 'Full' : `${s.seatsLeft} left`}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           <label className="field" style={{ maxWidth: 320, marginTop: 10 }}>
             <span>Shop product ID</span>
@@ -427,28 +433,30 @@ function AuditCard() {
       </div>
 
       {open && (
-        <table className="table" style={{ marginTop: 14 }}>
-          <thead>
-            <tr><th>When</th><th>What</th><th>Who</th></tr>
-          </thead>
-          <tbody>
-            {(data?.entries ?? []).map((entry) => (
-              <tr key={entry._id}>
-                <td className="small muted" style={{ whiteSpace: 'nowrap' }}>
-                  {DateTime.fromISO(entry.createdAt).setZone(STUDIO_TZ).toFormat('d LLL, h:mm a')}
-                </td>
-                <td>
-                  {describeAction(entry.action)}
-                  {entry.reason && <div className="muted small">{entry.reason}</div>}
-                </td>
-                <td className="small muted">{entry.actor.replace(/^(admin|student|woo):/, '')}</td>
-              </tr>
-            ))}
-            {data?.entries.length === 0 && (
-              <tr><td colSpan={3} className="empty">Nothing recorded yet.</td></tr>
-            )}
-          </tbody>
-        </table>
+        <div className="table-wrap">
+          <table className="table" style={{ marginTop: 14 }}>
+            <thead>
+              <tr><th>When</th><th>What</th><th>Who</th></tr>
+            </thead>
+            <tbody>
+              {(data?.entries ?? []).map((entry) => (
+                <tr key={entry._id}>
+                  <td className="small muted" style={{ whiteSpace: 'nowrap' }}>
+                    {DateTime.fromISO(entry.createdAt).setZone(STUDIO_TZ).toFormat('d LLL, h:mm a')}
+                  </td>
+                  <td>
+                    {describeAction(entry.action)}
+                    {entry.reason && <div className="muted small">{entry.reason}</div>}
+                  </td>
+                  <td className="small muted">{entry.actor.replace(/^(admin|student|woo):/, '')}</td>
+                </tr>
+              ))}
+              {data?.entries.length === 0 && (
+                <tr><td colSpan={3} className="empty">Nothing recorded yet.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   )
@@ -709,65 +717,67 @@ function IntegrationsCard({ onMessage }: { onMessage: (m: { kind: 'ok' | 'danger
         />
       </div>
 
-      <table className="table" style={{ marginTop: 14 }}>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.name}>
-              <td>
-                <div className="row-title">{row.label}</div>
-                <div className="row-sub">{row.hint}</div>
-
-                {editing === row.name && (
-                  <div className="row" style={{ marginTop: 10 }}>
-                    <input
-                      type="password"
-                      autoFocus
-                      className="btn"
-                      style={{ minWidth: 300, fontFamily: 'ui-monospace, monospace' }}
-                      placeholder="Paste the new key"
-                      value={value}
-                      onChange={(e) => setValue(e.target.value)}
-                    />
+      <div className="table-wrap">
+        <table className="table" style={{ marginTop: 14 }}>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.name}>
+                <td>
+                  <div className="row-title">{row.label}</div>
+                  <div className="row-sub">{row.hint}</div>
+  
+                  {editing === row.name && (
+                    <div className="row" style={{ marginTop: 10 }}>
+                      <input
+                        type="password"
+                        autoFocus
+                        className="btn"
+                        style={{ minWidth: 300, fontFamily: 'ui-monospace, monospace' }}
+                        placeholder="Paste the new key"
+                        value={value}
+                        onChange={(e) => setValue(e.target.value)}
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        disabled={!value.trim() || save.isPending}
+                        onClick={() => save.mutate({ name: row.name, value: value.trim() })}
+                      >
+                        Save
+                      </button>
+                      <button type="button" className="btn btn-sm" onClick={() => { setEditing(null); setValue('') }}>
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </td>
+                <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                  {row.status?.configured ? (
+                    <>
+                      <span className="mono faint" style={{ marginRight: 8 }}>{row.status.hint}</span>
+                      <span className={row.status.source === 'studio' ? 'pill pill-ok' : 'pill pill-muted'}>
+                        {row.status.source === 'studio' ? 'Set here' : 'From server'}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="pill pill-warn">Not set</span>
+                  )}
+                  {editing !== row.name && (
                     <button
                       type="button"
-                      className="btn btn-primary btn-sm"
-                      disabled={!value.trim() || save.isPending}
-                      onClick={() => save.mutate({ name: row.name, value: value.trim() })}
+                      className="btn btn-sm"
+                      style={{ marginLeft: 8 }}
+                      onClick={() => { setEditing(row.name); setValue('') }}
                     >
-                      Save
+                      Change
                     </button>
-                    <button type="button" className="btn btn-sm" onClick={() => { setEditing(null); setValue('') }}>
-                      Cancel
-                    </button>
-                  </div>
-                )}
-              </td>
-              <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                {row.status?.configured ? (
-                  <>
-                    <span className="mono faint" style={{ marginRight: 8 }}>{row.status.hint}</span>
-                    <span className={row.status.source === 'studio' ? 'pill pill-ok' : 'pill pill-muted'}>
-                      {row.status.source === 'studio' ? 'Set here' : 'From server'}
-                    </span>
-                  </>
-                ) : (
-                  <span className="pill pill-warn">Not set</span>
-                )}
-                {editing !== row.name && (
-                  <button
-                    type="button"
-                    className="btn btn-sm"
-                    style={{ marginLeft: 8 }}
-                    onClick={() => { setEditing(row.name); setValue('') }}
-                  >
-                    Change
-                  </button>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       <div className="banner banner-info" style={{ marginTop: 14, marginBottom: 0 }}>
         Keys are stored encrypted and never shown again once saved — only the first and last few
@@ -864,25 +874,27 @@ function BackupsCard({ onMessage }: { onMessage: (m: { kind: 'ok' | 'danger'; te
       )}
 
       {backups.length > 0 && (
-        <table className="table" style={{ marginTop: 14 }}>
-          <tbody>
-            {backups.slice(0, 8).map((b) => (
-              <tr key={b.file}>
-                <td>
-                  <div className="row-title">
-                    {DateTime.fromISO(b.createdAt).setZone(STUDIO_TZ).toFormat('ccc d LLL yyyy, h:mm a')}
-                  </div>
-                  <div className="row-sub">{(b.bytes / 1024).toFixed(0)} KB</div>
-                </td>
-                <td style={{ textAlign: 'right' }}>
-                  <a className="btn btn-sm" href={`/api/admin/settings/backups/${b.file}`} download>
-                    Download
-                  </a>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="table-wrap">
+          <table className="table" style={{ marginTop: 14 }}>
+            <tbody>
+              {backups.slice(0, 8).map((b) => (
+                <tr key={b.file}>
+                  <td>
+                    <div className="row-title">
+                      {DateTime.fromISO(b.createdAt).setZone(STUDIO_TZ).toFormat('ccc d LLL yyyy, h:mm a')}
+                    </div>
+                    <div className="row-sub">{(b.bytes / 1024).toFixed(0)} KB</div>
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <a className="btn btn-sm" href={`/api/admin/settings/backups/${b.file}`} download>
+                      Download
+                    </a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   )

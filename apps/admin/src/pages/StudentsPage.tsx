@@ -171,48 +171,50 @@ export function StudentsPage() {
             )}
           </div>
         ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Contact</th>
-                <th>Sessions left</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {students.map((s) => (
-                <tr key={s.id} style={{ cursor: 'pointer' }} onClick={() => setSelectedId(s.id)}>
-                  <td className="row-title">
-                    {s.name}
-                    {/* Two students can share a name; the reference is what separates them. */}
-                    {s.reference && <span className="student-ref">{s.reference}</span>}
-                  </td>
-                  <td className="small muted">
-                    {s.email}
-                    {s.phone ? <><br />{s.phone}</> : null}
-                  </td>
-                  <td>
-                    {s.sessionsRemaining > 0 ? (
-                      <span className={s.sessionsRemaining <= 2 ? 'pill pill-warn' : 'pill pill-ok'}>
-                        {s.sessionsRemaining}
-                      </span>
-                    ) : (
-                      <span className="pill pill-muted">—</span>
-                    )}
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <button type="button"
-                      className="btn btn-sm"
-                      onClick={(e) => { e.stopPropagation(); setSelectedId(s.id) }}
-                    >
-                      Open
-                    </button>
-                  </td>
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Contact</th>
+                  <th>Sessions left</th>
+                  <th />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {students.map((s) => (
+                  <tr key={s.id} style={{ cursor: 'pointer' }} onClick={() => setSelectedId(s.id)}>
+                    <td className="row-title">
+                      {s.name}
+                      {/* Two students can share a name; the reference is what separates them. */}
+                      {s.reference && <span className="student-ref">{s.reference}</span>}
+                    </td>
+                    <td className="small muted">
+                      {s.email}
+                      {s.phone ? <><br />{s.phone}</> : null}
+                    </td>
+                    <td>
+                      {s.sessionsRemaining > 0 ? (
+                        <span className={s.sessionsRemaining <= 2 ? 'pill pill-warn' : 'pill pill-ok'}>
+                          {s.sessionsRemaining}
+                        </span>
+                      ) : (
+                        <span className="pill pill-muted">—</span>
+                      )}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button type="button"
+                        className="btn btn-sm"
+                        onClick={(e) => { e.stopPropagation(); setSelectedId(s.id) }}
+                      >
+                        Open
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 

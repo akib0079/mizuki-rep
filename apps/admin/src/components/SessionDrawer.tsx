@@ -228,58 +228,60 @@ export function SessionDrawer({
                 {liveRoster.length === 0 ? (
                   <div className="empty">Nobody booked yet.</div>
                 ) : (
-                  <table className="table" style={{ marginTop: 10 }}>
-                    <tbody>
-                      {liveRoster.map((entry) => (
-                        <tr key={entry.bookingId}>
-                          <td>
-                            <div style={{ fontWeight: 600 }}>
-                              {entry.name}
-                              {/* Whose account this sits on, when the attendee is someone else. */}
-                              {entry.bookedBy && (
-                                <span className="small muted" style={{ marginLeft: 6, fontWeight: 400 }}>
-                                  booked by {entry.bookedBy}
-                                </span>
-                              )}
-                            </div>
-                            <div className="muted small">{entry.email}{entry.phone ? ` · ${entry.phone}` : ''}</div>
-                            <div style={{ marginTop: 4, display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                              {entry.status === 'hold' && <span className="pill pill-warn">Awaiting payment</span>}
-                              {entry.status === 'attended' && <span className="pill pill-ok">Attended</span>}
-                              {entry.status === 'no_show' && <span className="pill pill-danger">No show</span>}
-                              {entry.usedPackage && <span className="pill pill-muted">Course session</span>}
-                              {entry.source === 'admin_manual' && <span className="pill pill-muted">Added by you</span>}
-                              {entry.capacityOverridden && <span className="pill pill-warn">Over capacity</span>}
-                            </div>
-                          </td>
-                          <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                            <button type="button"
-                              className="btn btn-sm"
-                              onClick={() =>
-                                attendanceMutation.mutate({
-                                  bookingId: entry.bookingId,
-                                  status: entry.status === 'attended' ? 'confirmed' : 'attended',
-                                })
-                              }
-                              title="Mark attendance"
-                            >
-                              {entry.status === 'attended' ? 'Undo' : '✓'}
-                            </button>{' '}
-                            <button type="button"
-                              className="btn btn-sm"
-                              onClick={() => {
-                                if (confirm(`Remove ${entry.name} from this class? Any course session they used is returned.`)) {
-                                  removeMutation.mutate(entry.bookingId)
+                  <div className="table-wrap">
+                    <table className="table" style={{ marginTop: 10 }}>
+                      <tbody>
+                        {liveRoster.map((entry) => (
+                          <tr key={entry.bookingId}>
+                            <td>
+                              <div style={{ fontWeight: 600 }}>
+                                {entry.name}
+                                {/* Whose account this sits on, when the attendee is someone else. */}
+                                {entry.bookedBy && (
+                                  <span className="small muted" style={{ marginLeft: 6, fontWeight: 400 }}>
+                                    booked by {entry.bookedBy}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="muted small">{entry.email}{entry.phone ? ` · ${entry.phone}` : ''}</div>
+                              <div style={{ marginTop: 4, display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                                {entry.status === 'hold' && <span className="pill pill-warn">Awaiting payment</span>}
+                                {entry.status === 'attended' && <span className="pill pill-ok">Attended</span>}
+                                {entry.status === 'no_show' && <span className="pill pill-danger">No show</span>}
+                                {entry.usedPackage && <span className="pill pill-muted">Course session</span>}
+                                {entry.source === 'admin_manual' && <span className="pill pill-muted">Added by you</span>}
+                                {entry.capacityOverridden && <span className="pill pill-warn">Over capacity</span>}
+                              </div>
+                            </td>
+                            <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                              <button type="button"
+                                className="btn btn-sm"
+                                onClick={() =>
+                                  attendanceMutation.mutate({
+                                    bookingId: entry.bookingId,
+                                    status: entry.status === 'attended' ? 'confirmed' : 'attended',
+                                  })
                                 }
-                              }}
-                            >
-                              Remove
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                                title="Mark attendance"
+                              >
+                                {entry.status === 'attended' ? 'Undo' : '✓'}
+                              </button>{' '}
+                              <button type="button"
+                                className="btn btn-sm"
+                                onClick={() => {
+                                  if (confirm(`Remove ${entry.name} from this class? Any course session they used is returned.`)) {
+                                    removeMutation.mutate(entry.bookingId)
+                                  }
+                                }}
+                              >
+                                Remove
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </div>
 

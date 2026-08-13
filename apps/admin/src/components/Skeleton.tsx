@@ -56,19 +56,21 @@ export function SkeletonTable({ rows = 5, cols = 4 }: { rows?: number; cols?: nu
 
   return (
     <SkeletonBlock label="Loading">
-      <table className="table sk-table">
-        <tbody>
-          {Array.from({ length: rows }, (_, r) => (
-            <tr key={r}>
-              {Array.from({ length: cols }, (_, c) => (
-                <td key={c}>
-                  <SkeletonLine w={widths[(r + c) % widths.length]} />
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="table-wrap">
+        <table className="table sk-table">
+          <tbody>
+            {Array.from({ length: rows }, (_, r) => (
+              <tr key={r}>
+                {Array.from({ length: cols }, (_, c) => (
+                  <td key={c}>
+                    <SkeletonLine w={widths[(r + c) % widths.length]} />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </SkeletonBlock>
   )
 }

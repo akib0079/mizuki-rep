@@ -151,79 +151,81 @@ export function TeamPage({ currentAdminId }: { currentAdminId: string }) {
         {isPending ? (
           <SkeletonTable rows={3} cols={4} />
         ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Status</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {admins.map((row) => (
-                <tr key={row.id} className={row.active ? '' : 'row-inactive'}>
-                  <td>
-                    <strong>{row.name}</strong>
-                    {row.id === currentAdminId && <span className="pill pill-muted" style={{ marginLeft: 7 }}>You</span>}
-                  </td>
-                  <td>{row.email}</td>
-                  <td>
-                    {!row.active ? (
-                      <span className="pill pill-muted">No access</span>
-                    ) : row.invitePending ? (
-                      <span className="pill pill-warn">Invitation not used</span>
-                    ) : (
-                      <span className="pill pill-ok">Active</span>
-                    )}
-                  </td>
-                  <td className="row-actions">
-                    {row.active &&
-                      (row.invitePending ? (
-                        <button type="button" className="link-btn" onClick={() => reinvite.mutate(row)}>
-                          New link
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="link-btn"
-                          onClick={() => {
-                            // Ends their sessions, so make sure that is what was meant.
-                            if (
-                              confirm(
-                                `Reset ${row.name}'s password? They will be signed out everywhere and need the new link to get back in.`,
-                              )
-                            ) {
-                              resetPassword.mutate(row)
-                            }
-                          }}
-                        >
-                          Reset password
-                        </button>
-                      ))}
-                    {row.id !== currentAdminId &&
-                      (row.active ? (
-                        <button
-                          type="button"
-                          className="link-btn link-danger"
-                          onClick={() => setActive.mutate({ id: row.id, active: false })}
-                        >
-                          Remove access
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="link-btn"
-                          onClick={() => setActive.mutate({ id: row.id, active: true })}
-                        >
-                          Restore
-                        </button>
-                      ))}
-                  </td>
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Status</th>
+                  <th />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {admins.map((row) => (
+                  <tr key={row.id} className={row.active ? '' : 'row-inactive'}>
+                    <td>
+                      <strong>{row.name}</strong>
+                      {row.id === currentAdminId && <span className="pill pill-muted" style={{ marginLeft: 7 }}>You</span>}
+                    </td>
+                    <td>{row.email}</td>
+                    <td>
+                      {!row.active ? (
+                        <span className="pill pill-muted">No access</span>
+                      ) : row.invitePending ? (
+                        <span className="pill pill-warn">Invitation not used</span>
+                      ) : (
+                        <span className="pill pill-ok">Active</span>
+                      )}
+                    </td>
+                    <td className="row-actions">
+                      {row.active &&
+                        (row.invitePending ? (
+                          <button type="button" className="link-btn" onClick={() => reinvite.mutate(row)}>
+                            New link
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="link-btn"
+                            onClick={() => {
+                              // Ends their sessions, so make sure that is what was meant.
+                              if (
+                                confirm(
+                                  `Reset ${row.name}'s password? They will be signed out everywhere and need the new link to get back in.`,
+                                )
+                              ) {
+                                resetPassword.mutate(row)
+                              }
+                            }}
+                          >
+                            Reset password
+                          </button>
+                        ))}
+                      {row.id !== currentAdminId &&
+                        (row.active ? (
+                          <button
+                            type="button"
+                            className="link-btn link-danger"
+                            onClick={() => setActive.mutate({ id: row.id, active: false })}
+                          >
+                            Remove access
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="link-btn"
+                            onClick={() => setActive.mutate({ id: row.id, active: true })}
+                          >
+                            Restore
+                          </button>
+                        ))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
 
         <form

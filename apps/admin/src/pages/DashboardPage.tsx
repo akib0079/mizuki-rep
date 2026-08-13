@@ -181,30 +181,32 @@ export function DashboardPage() {
             {data.todayClasses.length === 0 ? (
               <div className="empty">No classes scheduled today.</div>
             ) : (
-              <table className="table">
-                <thead>
-                  <tr><th>Class</th><th>Time</th><th>Booked</th></tr>
-                </thead>
-                <tbody>
-                  {data.todayClasses.map((row) => (
-                    <tr key={row.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/calendar?session=${row.id}`)}>
-                      <td>
-                        <div className="row" style={{ gap: 8 }}>
-                          <span className="legend-dot" style={{ background: row.colour }} />
-                          <div>
-                            <div className="row-title">{row.title}</div>
-                            <div className="row-sub">{row.courseName}</div>
+              <div className="table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr><th>Class</th><th>Time</th><th>Booked</th></tr>
+                  </thead>
+                  <tbody>
+                    {data.todayClasses.map((row) => (
+                      <tr key={row.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/calendar?session=${row.id}`)}>
+                        <td>
+                          <div className="row" style={{ gap: 8 }}>
+                            <span className="legend-dot" style={{ background: row.colour }} />
+                            <div>
+                              <div className="row-title">{row.title}</div>
+                              <div className="row-sub">{row.courseName}</div>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="nowrap">
-                        {DateTime.fromISO(row.startAt).setZone(STUDIO_TZ).toFormat('h:mm a')}
-                      </td>
-                      <td><SeatPill row={row} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        </td>
+                        <td className="nowrap">
+                          {DateTime.fromISO(row.startAt).setZone(STUDIO_TZ).toFormat('h:mm a')}
+                        </td>
+                        <td><SeatPill row={row} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
 
@@ -235,30 +237,32 @@ export function DashboardPage() {
             {data.upcomingClasses.length === 0 ? (
               <div className="empty">Nothing scheduled.</div>
             ) : (
-              <table className="table">
-                <thead>
-                  <tr><th>Class</th><th>When</th><th>Booked</th></tr>
-                </thead>
-                <tbody>
-                  {data.upcomingClasses.map((row) => (
-                    <tr key={row.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/calendar?session=${row.id}`)}>
-                      <td>
-                        <div className="row" style={{ gap: 8 }}>
-                          <span className="legend-dot" style={{ background: row.colour }} />
-                          <div>
-                            <div className="row-title">{row.title}</div>
-                            <div className="row-sub">{row.courseName}</div>
+              <div className="table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr><th>Class</th><th>When</th><th>Booked</th></tr>
+                  </thead>
+                  <tbody>
+                    {data.upcomingClasses.map((row) => (
+                      <tr key={row.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/calendar?session=${row.id}`)}>
+                        <td>
+                          <div className="row" style={{ gap: 8 }}>
+                            <span className="legend-dot" style={{ background: row.colour }} />
+                            <div>
+                              <div className="row-title">{row.title}</div>
+                              <div className="row-sub">{row.courseName}</div>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="nowrap small muted">
-                        {DateTime.fromISO(row.startAt).setZone(STUDIO_TZ).toFormat('ccc d LLL, h:mm a')}
-                      </td>
-                      <td><SeatPill row={row} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        </td>
+                        <td className="nowrap small muted">
+                          {DateTime.fromISO(row.startAt).setZone(STUDIO_TZ).toFormat('ccc d LLL, h:mm a')}
+                        </td>
+                        <td><SeatPill row={row} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
 
@@ -267,27 +271,29 @@ export function DashboardPage() {
             {data.packagesLow.length === 0 ? (
               <div className="empty">Nobody is close to running out.</div>
             ) : (
-              <table className="table">
-                <tbody>
-                  {data.packagesLow.map((pkg, i) => (
-                    <tr key={`${pkg.studentName}-${i}`} style={{ cursor: 'pointer' }} onClick={() => navigate('/students')}>
-                      <td>
-                        <div className="row-title">{pkg.studentName}</div>
-                        <div className="row-sub">
-                          {pkg.courseName}
-                          {pkg.expiresAt &&
-                            ` · expires ${DateTime.fromISO(pkg.expiresAt).setZone(STUDIO_TZ).toFormat('d LLL')}`}
-                        </div>
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <span className={pkg.remaining === 0 ? 'pill pill-danger' : 'pill pill-warn'}>
-                          {pkg.remaining} left
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="table-wrap">
+                <table className="table">
+                  <tbody>
+                    {data.packagesLow.map((pkg, i) => (
+                      <tr key={`${pkg.studentName}-${i}`} style={{ cursor: 'pointer' }} onClick={() => navigate('/students')}>
+                        <td>
+                          <div className="row-title">{pkg.studentName}</div>
+                          <div className="row-sub">
+                            {pkg.courseName}
+                            {pkg.expiresAt &&
+                              ` · expires ${DateTime.fromISO(pkg.expiresAt).setZone(STUDIO_TZ).toFormat('d LLL')}`}
+                          </div>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <span className={pkg.remaining === 0 ? 'pill pill-danger' : 'pill pill-warn'}>
+                            {pkg.remaining} left
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </div>

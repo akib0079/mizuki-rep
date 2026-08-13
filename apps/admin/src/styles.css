@@ -783,9 +783,13 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .sidebar .side-heading, .sidebar .side-search { display: block; }
 
   /* The pinned shortcuts repeat two links that are already in the list below, so they go — and
-     the heading goes with them, or the drawer opens on a section label with nothing under it. */
-  .nav-pinned,
-  .side-heading-pinned { display: none; }
+     the heading goes with them, or the drawer opens on a section label with nothing under it.
+
+     Scoped to .sidebar to outweigh the `.sidebar .side-heading { display: block }` two rules up.
+     Written as a bare class it lost on specificity, and the drawer opened on exactly the dangling
+     "Pinned" label this rule exists to prevent. */
+  .sidebar .nav-pinned,
+  .sidebar .side-heading-pinned { display: none; }
 
   .nav-link { width: 100%; }
   .brand { padding: 2px 8px 14px; }
@@ -802,6 +806,23 @@ button, input, select, textarea { font: inherit; color: inherit; }
      already built to fit and would be forced into a scrollbar by a blanket min-width. */
   .card-pad-0, .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .card-pad-0 > .table, .table-wrap > .table { min-width: 520px; }
+
+  /*
+   * Say that the table continues.
+   *
+   * The courses table shows three of its six columns on a phone and cuts the fourth heading
+   * mid-word, with nothing to suggest the rest exists — the studio has to set their real class
+   * sizes in a column they cannot see. The shading only appears while there is more to the right:
+   * `local` scrolls it out of view once the end is reached, so it never lies about a table that
+   * already fits.
+   */
+  .card-pad-0, .table-wrap {
+    background-image: linear-gradient(to right, rgba(15, 32, 39, 0.09), rgba(15, 32, 39, 0));
+    background-position: right center;
+    background-repeat: no-repeat;
+    background-size: 26px 100%;
+    background-attachment: local;
+  }
 
   /*
    * FullCalendar sizes itself from its own tables, which on a 390px screen means it decides it

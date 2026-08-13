@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { DateTime } from 'luxon'
 import {
   STUDIO_TZ,
@@ -40,6 +40,26 @@ export function BookingCalendar({
   const [booking, setBooking] = useState<PublicSession | null>(null)
 
   const today = useMemo(() => DateTime.now().setZone(STUDIO_TZ).startOf('day'), [])
+
+  /*
+   * Bring the chosen day's classes into view.
+   *
+   * On a laptop the month grid fills the window and the class list opens underneath it, so
+   * clicking a date looked like it had done nothing at all — the one thing that changed was off
+   * the bottom of the screen. Moving focus as well as scrolling means a keyboard or screen-reader
+   * user is taken to the classes too, rather than being left up in the grid.
+   */
+  const dayTitleRef = useRef<HTMLHeadingElement | null>(null)
+
+  useEffect(() => {
+    if (!selectedDate) return
+    const el = dayTitleRef.current
+    if (!el) return
+    if (el.getBoundingClientRect().bottom > window.innerHeight) {
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    }
+    el.focus({ preventScroll: true })
+  }, [selectedDate])
 
   useEffect(() => {
     let cancelled = false
@@ -175,7 +195,7 @@ export function BookingCalendar({
 
       {selectedDay && (
         <>
-          <h3 className="mzk-day-title">
+          <h3 className="mzk-day-title" ref={dayTitleRef} tabIndex={-1}>
             {DateTime.fromISO(selectedDay.date, { zone: STUDIO_TZ }).toFormat('cccc d LLLL yyyy')}
           </h3>
 

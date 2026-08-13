@@ -31,19 +31,6 @@
         color: #6b5b73;
       }
       .site-head p { margin: 6px 0 0; color: #7b7178; font-size: 14px; }
-      .tabs { display: flex; gap: 8px; margin-bottom: 24px; }
-      .tabs button {
-        padding: 8px 16px;
-        border: 1px solid #e7e0e4;
-        background: #fff;
-        border-radius: 8px;
-        cursor: pointer;
-        font: inherit;
-        font-weight: 600;
-        color: #2f292f;
-      }
-      .tabs button[aria-selected='true'] { background: #6b5b73; border-color: #6b5b73; color: #fff; }
-      [hidden] { display: none !important; }
     </style>
   </head>
   <body>
@@ -53,29 +40,19 @@
         <p>Development preview — this stands in for the WordPress page.</p>
       </div>
 
-      <div class="tabs" role="tablist">
-        <button role="tab" aria-selected="true" data-target="calendar">Book a class</button>
-        <button role="tab" aria-selected="false" data-target="bookings">My bookings</button>
-      </div>
+      <!--
+        Exactly what [mizuki_booking] outputs: one mount, view "all", and the widget draws its
+        own tabs.
 
-      <!-- Identical to what the shortcode outputs. -->
-      <div id="calendar" data-mizuki-booking data-api-base="http://localhost:4000" data-view="calendar"></div>
-
-      <div id="bookings" hidden data-mizuki-booking data-api-base="http://localhost:4000" data-view="my-bookings"></div>
+        This page used to mount the two views separately behind hand-written tabs, which looked
+        the same and behaved differently — the widget's own tabs read ?tab=bookings from the
+        address, and hand-written ones do not. Every confirmation email links to
+        /book-a-class/?tab=bookings, so the one thing most worth testing locally was the one
+        thing this page could not test.
+      -->
+      <div data-mizuki-booking data-api-base="http://localhost:4000" data-view="all"></div>
     </div>
 
     <script type="module" src="/src/embed.tsx"></script>
-    <script>
-      // Both views mount on load; the tabs just show one at a time.
-      document.querySelectorAll('[role="tab"]').forEach((tab) => {
-        tab.addEventListener('click', () => {
-          document.querySelectorAll('[role="tab"]').forEach((t) => {
-            const on = t === tab
-            t.setAttribute('aria-selected', String(on))
-            document.getElementById(t.dataset.target).hidden = !on
-          })
-        })
-      })
-    </script>
   </body>
 </html>

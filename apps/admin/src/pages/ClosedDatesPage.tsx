@@ -142,47 +142,49 @@ export function ClosedDatesPage() {
           )}
 
           {preview.sessions.length > 0 && (
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Class</th>
-                  <th>Booked</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {preview.sessions.map((s) => (
-                  <tr key={s.id}>
-                    <td className="small">
-                      {DateTime.fromISO(s.startAt).setZone(STUDIO_TZ).toFormat('ccc d LLL, h:mm a')}
-                    </td>
-                    <td>
-                      {s.title}
-                      {s.students.length > 0 && (
-                        <div className="muted small">{s.students.map((st) => st.name).join(', ')}</div>
-                      )}
-                    </td>
-                    <td>
-                      {s.bookedCount > 0 ? (
-                        <span className="pill pill-warn">{s.bookedCount}</span>
-                      ) : (
-                        <span className="pill pill-muted">0</span>
-                      )}
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <button type="button"
-                        className="btn btn-sm btn-danger"
-                        disabled={cancelSessionMutation.isPending}
-                        onClick={() => cancelSessionMutation.mutate(s.id)}
-                      >
-                        Cancel {s.bookedCount > 0 ? '& notify' : ''}
-                      </button>
-                    </td>
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Class</th>
+                    <th>Booked</th>
+                    <th />
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {preview.sessions.map((s) => (
+                    <tr key={s.id}>
+                      <td className="small">
+                        {DateTime.fromISO(s.startAt).setZone(STUDIO_TZ).toFormat('ccc d LLL, h:mm a')}
+                      </td>
+                      <td>
+                        {s.title}
+                        {s.students.length > 0 && (
+                          <div className="muted small">{s.students.map((st) => st.name).join(', ')}</div>
+                        )}
+                      </td>
+                      <td>
+                        {s.bookedCount > 0 ? (
+                          <span className="pill pill-warn">{s.bookedCount}</span>
+                        ) : (
+                          <span className="pill pill-muted">0</span>
+                        )}
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <button type="button"
+                          className="btn btn-sm btn-danger"
+                          disabled={cancelSessionMutation.isPending}
+                          onClick={() => cancelSessionMutation.mutate(s.id)}
+                        >
+                          Cancel {s.bookedCount > 0 ? '& notify' : ''}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       )}
@@ -192,27 +194,29 @@ export function ClosedDatesPage() {
         {closedQuery.data?.closedDates.length === 0 ? (
           <div className="empty">No closed dates yet.</div>
         ) : (
-          <table className="table">
-            <tbody>
-              {(closedQuery.data?.closedDates ?? []).map((c) => (
-                <tr key={c.id}>
-                  <td>
-                    <strong>
-                      {c.startDate === c.endDate
-                        ? DateTime.fromISO(c.startDate, { zone: STUDIO_TZ }).toFormat('ccc d LLL yyyy')
-                        : `${DateTime.fromISO(c.startDate, { zone: STUDIO_TZ }).toFormat('d LLL')} – ${DateTime.fromISO(c.endDate, { zone: STUDIO_TZ }).toFormat('d LLL yyyy')}`}
-                    </strong>
-                    {c.reason && <div className="muted small">{c.reason}</div>}
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <button type="button" className="btn btn-sm" onClick={() => deleteMutation.mutate(c.id)}>
-                      Reopen
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="table-wrap">
+            <table className="table">
+              <tbody>
+                {(closedQuery.data?.closedDates ?? []).map((c) => (
+                  <tr key={c.id}>
+                    <td>
+                      <strong>
+                        {c.startDate === c.endDate
+                          ? DateTime.fromISO(c.startDate, { zone: STUDIO_TZ }).toFormat('ccc d LLL yyyy')
+                          : `${DateTime.fromISO(c.startDate, { zone: STUDIO_TZ }).toFormat('d LLL')} – ${DateTime.fromISO(c.endDate, { zone: STUDIO_TZ }).toFormat('d LLL yyyy')}`}
+                      </strong>
+                      {c.reason && <div className="muted small">{c.reason}</div>}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button type="button" className="btn btn-sm" onClick={() => deleteMutation.mutate(c.id)}>
+                        Reopen
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </>
