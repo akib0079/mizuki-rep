@@ -17,6 +17,11 @@ publicRouter.get(
   asyncRoute(async (_req, res) => {
     const courses = await CourseTypeModel.find({ active: true }).sort({ sortOrder: 1 }).lean()
     res.json({
+      /*
+       * Named one by one rather than spread, because this is the one endpoint anybody on the
+       * internet can read. A course row also carries the shop product ids and the studio's
+       * package rules, and a spread would publish them the moment either was added.
+       */
       courses: courses.map((c) => ({
         id: String(c._id),
         name: c.name,
@@ -25,6 +30,14 @@ publicRouter.get(
         bookingMode: c.bookingMode,
         description: c.description,
         rescheduleCutoffHours: c.rescheduleCutoffHours,
+
+        // The "Learn more" panel.
+        suitableFor: c.suitableFor,
+        whatYouLearn: c.whatYouLearn,
+        whatToBring: c.whatToBring,
+        whatIsProvided: c.whatIsProvided,
+        priceNote: c.priceNote,
+        imageUrl: c.imageUrl,
       })),
     })
   }),

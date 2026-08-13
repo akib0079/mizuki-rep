@@ -53,16 +53,23 @@ export function NewSessionDialog({
 
   return (
     <>
+      {/*
+        On .modal rather than a hand-written copy of it.
+
+        This dialog carried its own inline position, width, radius and shadow — a duplicate of the
+        stylesheet's, and the reason it appeared with no movement at all while every other dialog
+        rose into place: the animation lives on the class it was not using. Sharing the class also
+        gets it the bottom-sheet treatment on a phone, which it never had.
+      */}
       <div className="drawer-backdrop" style={{ zIndex: 60 }} onClick={onClose} />
+      {/* Scrolls on itself: .modal caps its height and leaves scrolling to a .modal-body, and
+          this form is a flat list of fields rather than a head/body/foot. */}
       <div
+        className="modal"
         role="dialog"
         aria-modal="true"
         aria-label="Add a class"
-        style={{
-          position: 'fixed', zIndex: 70, top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-          width: 'min(460px, calc(100vw - 32px))', maxHeight: '86vh', overflowY: 'auto',
-          background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: 22,
-        }}
+        style={{ padding: 22, overflowY: 'auto' }}
       >
         <h2 style={{ margin: '0 0 14px', fontSize: 17 }}>Add a class</h2>
 

@@ -42,7 +42,28 @@ const courseTypeSchema = new Schema(
     packageGrantSessions: { type: Number, default: 0, min: 0 },
     packageValidityDays: { type: Number, default: 365, min: 0 },
 
+    /*
+     * What a student reads before deciding.
+     *
+     * Everything below is shown on the booking page behind "Learn more", and every field is
+     * optional — a course with none of it filled in simply shows no button, rather than opening a
+     * panel of empty headings. The studio writes these once and the same words then appear
+     * wherever the course does, instead of being retyped into a product description each time.
+     */
     description: { type: String, default: '', maxlength: 2000 },
+    /** Who it suits — beginners, people continuing from a trial, and so on. */
+    suitableFor: { type: String, default: '', maxlength: 600 },
+    /** What the class covers. */
+    whatYouLearn: { type: String, default: '', maxlength: 2000 },
+    /** What the student needs to bring. */
+    whatToBring: { type: String, default: '', maxlength: 600 },
+    /** What the studio supplies — flowers, tools, refreshments. */
+    whatIsProvided: { type: String, default: '', maxlength: 600 },
+    /** Free text rather than a number: prices here are per class, per package, and per trial. */
+    priceNote: { type: String, default: '', maxlength: 300 },
+    /** A photograph of the work, shown at the top of the panel. */
+    imageUrl: { type: String, default: '', maxlength: 500 },
+
     sortOrder: { type: Number, default: 0 },
     active: { type: Boolean, default: true, index: true },
   },

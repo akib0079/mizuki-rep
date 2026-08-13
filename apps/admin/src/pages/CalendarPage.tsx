@@ -294,6 +294,8 @@ export function CalendarPage() {
           initialView={isPhone ? 'listTwoWeek' : 'dayGridMonth'}
           views={{
             listTwoWeek: { type: 'list', duration: { weeks: 2 }, buttonText: 'list' },
+            timeGridWeek: { dayHeaderFormat: { weekday: 'short', day: 'numeric', omitCommas: true } },
+            timeGridDay: { dayHeaderFormat: { weekday: 'long', day: 'numeric', month: 'long', omitCommas: true } },
           }}
           // The bar above replaces this one; leaving both gave the page two sets of the same
           // controls, disagreeing about which view was active.
@@ -309,12 +311,16 @@ export function CalendarPage() {
           timeZone={STUDIO_TZ}
           firstDay={1}
           /*
-           * "MON 10", not FullCalendar's default "MON 8/10".
+           * Column headings differ by view, so they are set per view rather than globally.
            *
-           * That default is US month-first, so in a Singapore studio the Monday of this week read
-           * as the 8th of October. The month is already in the heading above.
+           * A month column is every Monday in the month and can only be "Mon" — set globally, the
+           * date came along too and the headings read "5 Mon, 6 Tue … 4 Sun": one arbitrary date
+           * per column, and the Sunday from a different week entirely.
+           *
+           * In a week or a day the column *is* one date, so it carries it — as "10 Mon", not
+           * FullCalendar's US month-first "Mon 8/10", which in Singapore reads as 8 October.
            */
-          dayHeaderFormat={{ weekday: 'short', day: 'numeric', omitCommas: true }}
+          dayHeaderFormat={{ weekday: 'short' }}
           height="auto"
           nowIndicator
           // Weekdays currently run three IFDA classes, which fits. This caps a day at three

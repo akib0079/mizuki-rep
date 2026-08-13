@@ -118,6 +118,19 @@ export const courseTypeInputSchema = z.object({
   packageGrantSessions: z.number().int().min(0).max(200).default(0),
   packageValidityDays: z.number().int().min(0).max(3650).default(365),
   description: z.string().trim().max(2000).default(''),
+
+  /* What a student reads behind "Learn more" on the booking page. All optional. */
+  suitableFor: z.string().trim().max(600).default(''),
+  whatYouLearn: z.string().trim().max(2000).default(''),
+  whatToBring: z.string().trim().max(600).default(''),
+  whatIsProvided: z.string().trim().max(600).default(''),
+  priceNote: z.string().trim().max(300).default(''),
+  /*
+   * An address, not an upload. The studio's photographs already live in the WordPress media
+   * library, and a second place to store them is a second place to lose them.
+   */
+  imageUrl: z.string().trim().url('Expected a web address starting http:// or https://').max(500).or(z.literal('')).default(''),
+
   sortOrder: z.number().int().min(0).max(999).default(0),
   active: z.boolean().default(true),
 })

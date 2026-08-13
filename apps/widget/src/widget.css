@@ -635,3 +635,89 @@
   text-align: center !important;
   font-size: 13.5px !important;
 }
+
+/* --- Learn more ------------------------------------------------------------ */
+
+/*
+ * The booking button and "Learn more" side by side.
+ *
+ * The row was a single button covering the whole strip, and a button cannot legally contain
+ * another one — the browser silently drops the inner one. So the row is a plain element and the
+ * booking button fills what is left of it.
+ */
+.mzk-session-row { display: flex; align-items: stretch; gap: 8px; margin-bottom: 8px; }
+.mzk-session-row .mzk-session { margin-bottom: 0; flex: 1; min-width: 0; }
+
+.mzk-learn {
+  flex-shrink: 0;
+  padding: 0 14px;
+  border: 1px solid var(--mzk-line);
+  border-radius: 10px;
+  background: var(--mzk-bg);
+  color: var(--mzk-soft);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.mzk-learn:hover { background: var(--mzk-canvas); color: var(--mzk-ink); border-color: var(--mzk-accent); }
+
+/* --- The course panel ------------------------------------------------------ */
+
+.mzk-course-modal { padding: 0; overflow: hidden; max-width: 520px; }
+.mzk-course-img { display: block; width: 100%; height: 190px; object-fit: cover; }
+.mzk-course-body { padding: 20px 22px 18px; }
+
+.mzk-course-head { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
+.mzk-course-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.mzk-course-name { margin: 0; font-size: 19px; font-weight: 650; }
+
+.mzk-course-lede { margin: 0 0 14px; line-height: 1.6; }
+
+/* The one fact people scroll looking for, so it is not left to be found among the sections. */
+.mzk-course-price {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 13px;
+  margin-bottom: 16px;
+  background: var(--mzk-canvas);
+  border-radius: 9px;
+}
+.mzk-course-price-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--mzk-soft);
+}
+
+.mzk-course-section { margin-bottom: 15px; }
+.mzk-course-section h4 {
+  margin: 0 0 5px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mzk-soft);
+}
+.mzk-course-section p { margin: 0; line-height: 1.6; }
+.mzk-course-section ul { margin: 0; padding-left: 20px; line-height: 1.6; }
+.mzk-course-section li { margin-bottom: 3px; }
+
+.mzk-course-foot { justify-content: flex-end; gap: 9px; margin-top: 18px; }
+
+@media (max-width: 560px) {
+  /* Stacked: at this width the two buttons split the row and both titles get an ellipsis. */
+  .mzk-session-row { flex-direction: column; gap: 0; }
+  .mzk-learn {
+    width: 100%;
+    padding: 9px 14px;
+    margin-top: -1px;
+    border-radius: 0 0 10px 10px;
+  }
+  .mzk-session-row .mzk-session { border-radius: 10px 10px 0 0; }
+  .mzk-course-img { height: 150px; }
+}

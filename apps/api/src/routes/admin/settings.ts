@@ -12,8 +12,10 @@ import {
   CourseSeriesModel,
   CourseTypeModel,
   EmailTemplateModel,
+  PackageModel,
   PushSubscriptionModel,
   ScheduleRuleModel,
+  SessionModel,
 } from '../../models/index.js'
 import { getSeriesAvailability } from '../../services/seriesService.js'
 import { buildDashboard } from '../../services/dashboardService.js'
@@ -101,6 +103,62 @@ adminSettingsRouter.patch(
     }
 
     res.json({ course: { id: String(course!._id), name: course!.name } })
+  }),
+)
+
+/**
+ * Remove a course entirely.
+ *
+ * Archiving is the right answer almost every time: it takes the course off the website and keeps
+ * every class and every student record it is attached to. This is for the other case — a course
+ * added by mistake, or one set up twice — where archiving leaves a wrong row on the settings page
+ * forever.
+ *
+ * So it refuses whenever anything points at the course, and says what does. Deleting a course
+ * with classes behind it would orphan every one of them: sessions whose colour, rules and name
+ * come from a row that no longer exists, and bookings on those sessions that students can still
+ * see. Better to be told "archive it instead" than to find that out afterwards.
+ */
+adminSettingsRouter.delete(
+  '/courses/:id',
+  asyncRoute(async (req, res) => {
+    const course = await CourseTypeModel.findById(req.params.id)
+    if (!course) throw new NotFoundError('Course')
+
+    const [sessionCount, ruleCount, packageCount, seriesCount] = await Promise.all([
+      SessionModel.countDocuments({ courseTypeId: course._id }),
+      ScheduleRuleModel.countDocuments({ courseTypeId: course._id }),
+      PackageModel.countDocuments({ courseTypeId: course._id }),
+      CourseSeriesModel.countDocuments({ courseTypeId: course._id }),
+    ])
+
+    const blockers: string[] = []
+    if (sessionCount) blockers.push(`${sessionCount} class${sessionCount === 1 ? '' : 'es'}`)
+    if (ruleCount) blockers.push(`${ruleCount} weekly timetable rule${ruleCount === 1 ? '' : 's'}`)
+    if (packageCount) blockers.push(`${packageCount} course package${packageCount === 1 ? '' : 's'}`)
+    if (seriesCount) blockers.push(`${seriesCount} set course${seriesCount === 1 ? '' : 's'}`)
+
+    if (blockers.length) {
+      throw new AppError(
+        409,
+        'course_in_use',
+        `${course.name} still has ${blockers.join(', ')} attached, so deleting it would leave them ` +
+          `pointing at nothing. Archive it instead — it disappears from the website and everything is kept.`,
+      )
+    }
+
+    await recordAudit({
+      actor: actorOf(req),
+      action: 'course.delete',
+      entity: 'CourseType',
+      entityId: course._id,
+      before: { name: course.name, slug: course.slug },
+      reason: 'Deleted from the courses page',
+    })
+
+    await course.deleteOne()
+
+    res.json({ deleted: true, name: course.name })
   }),
 )
 

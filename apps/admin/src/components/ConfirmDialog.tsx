@@ -33,22 +33,14 @@ export function ConfirmDialog({
   return (
     <>
       <div className="drawer-backdrop" style={{ zIndex: 60 }} onClick={busy ? undefined : onCancel} />
+      {/* On .modal, like every other dialog — it was carrying its own copy of the same position,
+          width, radius and shadow, and missing the entrance animation that lives on the class. */}
       <div
+        className="modal"
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        style={{
-          position: 'fixed',
-          zIndex: 70,
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: 'min(440px, calc(100vw - 32px))',
-          background: 'var(--surface)',
-          borderRadius: 'var(--radius)',
-          boxShadow: 'var(--shadow)',
-          padding: 22,
-        }}
+        style={{ padding: 22, overflowY: 'auto' }}
       >
         <h2 style={{ margin: '0 0 10px', fontSize: 17 }}>{title}</h2>
         <div style={{ fontSize: 14 }}>{children}</div>

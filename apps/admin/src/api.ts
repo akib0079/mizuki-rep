@@ -113,6 +113,15 @@ export interface Course {
   /** True when a paid place waits for the studio to check the payment before it is confirmed. */
   requiresManualConfirmation: boolean
   active: boolean
+
+  /* What a student reads behind "Learn more" on the booking page. All optional. */
+  description: string
+  suitableFor: string
+  whatYouLearn: string
+  whatToBring: string
+  whatIsProvided: string
+  priceNote: string
+  imageUrl: string
 }
 
 export interface ClosedDate {

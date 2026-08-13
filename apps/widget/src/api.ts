@@ -1,6 +1,40 @@
 import type { PublicCalendarDay, PublicSession } from '@mizuki/shared'
 
 /**
+ * A course as the booking page sees it — the studio's own writing about what it is, alongside
+ * the few rules the widget needs. Everything descriptive is optional: a course with none of it
+ * shows no "Learn more" button rather than an empty panel.
+ */
+export interface PublicCourse {
+  id: string
+  name: string
+  slug: string
+  colour: string
+  bookingMode: string
+  rescheduleCutoffHours: number
+  description: string
+  suitableFor: string
+  whatYouLearn: string
+  whatToBring: string
+  whatIsProvided: string
+  priceNote: string
+  imageUrl: string
+}
+
+/** True when there is enough written to be worth opening a panel for. */
+export function hasCourseDetail(course: PublicCourse | undefined): boolean {
+  if (!course) return false
+  return Boolean(
+    course.description?.trim() ||
+      course.whatYouLearn?.trim() ||
+      course.suitableFor?.trim() ||
+      course.whatToBring?.trim() ||
+      course.whatIsProvided?.trim() ||
+      course.priceNote?.trim(),
+  )
+}
+
+/**
  * The widget runs on the WordPress site and talks to the API on a different host, so every
  * request is explicitly cross-origin with credentials — that is what lets a signed-in student
  * see their own bookings from the shop's pages.
@@ -65,10 +99,7 @@ export const widgetApi = {
     )
   },
 
-  courses: () =>
-    request<{ courses: { id: string; name: string; slug: string; colour: string; bookingMode: string; rescheduleCutoffHours: number }[] }>(
-      '/api/public/courses',
-    ),
+  courses: () => request<{ courses: PublicCourse[] }>('/api/public/courses'),
 
   alternatives: (sessionId: string) =>
     request<{ alternatives: PublicSession[] }>(`/api/public/sessions/${sessionId}/alternatives`),

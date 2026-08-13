@@ -9,7 +9,8 @@ import {
   toStudio,
 } from '@mizuki/shared'
 import { Scope } from './Scope.js'
-import { widgetApi } from './api.js'
+import { hasCourseDetail, widgetApi, type PublicCourse } from './api.js'
+import { CourseDetail } from './CourseDetail.js'
 import { BookingDialog } from './BookingDialog.js'
 
 /**
@@ -33,7 +34,9 @@ export function BookingCalendar({
   onSeeBookings?: () => void
 }) {
   const [days, setDays] = useState<PublicCalendarDay[] | null>(null)
-  const [courses, setCourses] = useState<{ id: string; name: string; slug: string; colour: string }[]>([])
+  const [courses, setCourses] = useState<PublicCourse[]>([])
+  /* The course being read about, plus the class it was opened from so Book can carry straight on. */
+  const [learning, setLearning] = useState<{ course: PublicCourse; session: PublicSession } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [monthOffset, setMonthOffset] = useState(0)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
@@ -204,9 +207,19 @@ export function BookingCalendar({
           ) : selectedDay.sessions.length === 0 ? (
             <div className="mzk-empty">No classes on this day.</div>
           ) : (
-            selectedDay.sessions.map((session) => (
-              <SessionRow key={session.id} session={session} onBook={() => setBooking(session)} />
-            ))
+            selectedDay.sessions.map((session) => {
+              const course = courses.find((c) => c.id === session.courseTypeId)
+              return (
+                <SessionRow
+                  key={session.id}
+                  session={session}
+                  onBook={() => setBooking(session)}
+                  onLearnMore={
+                    hasCourseDetail(course) ? () => setLearning({ course: course!, session }) : undefined
+                  }
+                />
+              )
+            })
           )}
         </>
       )}
@@ -215,6 +228,19 @@ export function BookingCalendar({
         <p className="mzk-muted mzk-small" style={{ marginTop: 14, textAlign: 'center' }}>
           Pick a highlighted date to see the classes running that day.
         </p>
+      )}
+
+      {learning && (
+        <CourseDetail
+          course={learning.course}
+          canBook={!learning.session.isFull}
+          // Straight from reading about it to booking it, without hunting for the row again.
+          onBook={() => {
+            setBooking(learning.session)
+            setLearning(null)
+          }}
+          onClose={() => setLearning(null)}
+        />
       )}
 
       {booking && (
@@ -242,31 +268,62 @@ export function BookingCalendar({
 }
 
 
-function SessionRow({ session, onBook }: { session: PublicSession; onBook: () => void }) {
+function SessionRow({
+  session,
+  onBook,
+  onLearnMore,
+}: {
+  session: PublicSession
+  onBook: () => void
+  /** Absent when the studio has written nothing about this course yet. */
+  onLearnMore?: () => void
+}) {
   const start = toStudio(session.startAt)
   const end = toStudio(session.endAt)
   const low = session.seatsLeft > 0 && session.seatsLeft <= 2
 
+  /*
+   * Two buttons side by side, not one inside the other.
+   *
+   * The row used to be a single button covering everything, and a button cannot contain another
+   * button — the browser drops it. So the row is a plain element now, with the booking button
+   * filling it and "Learn more" sitting alongside.
+   */
   return (
-    <button className="mzk-session" onClick={onBook} disabled={session.isFull}>
-      <span className="mzk-stripe" style={{ background: session.colour }} />
-      <span className="mzk-session-main">
-        <span className="mzk-session-title">{session.title}</span>
-        <span className="mzk-session-meta">
-          {formatTimeRange(start.toJSDate(), end.toJSDate())} · {formatDuration(session.durationMins)}
-          {session.breaks.length > 0 && ` · includes a break`}
-        </span>
-      </span>
-      <span className="mzk-session-right">
-        {session.isFull ? (
-          <span className="mzk-tag mzk-tag-full">Full</span>
-        ) : (
-          <span className={`mzk-tag ${low ? 'mzk-tag-low' : 'mzk-tag-ok'}`}>
-            {session.seatsLeft} {session.seatsLeft === 1 ? 'place' : 'places'} left
+    <div className="mzk-session-row">
+      <button className="mzk-session" onClick={onBook} disabled={session.isFull}>
+        <span className="mzk-stripe" style={{ background: session.colour }} />
+        <span className="mzk-session-main">
+          <span className="mzk-session-title">{session.title}</span>
+          <span className="mzk-session-meta">
+            {formatTimeRange(start.toJSDate(), end.toJSDate())} · {formatDuration(session.durationMins)}
+            {session.breaks.length > 0 && ` · includes a break`}
           </span>
-        )}
-      </span>
-    </button>
+        </span>
+        <span className="mzk-session-right">
+          {session.isFull ? (
+            <span className="mzk-tag mzk-tag-full">Full</span>
+          ) : (
+            <span className={`mzk-tag ${low ? 'mzk-tag-low' : 'mzk-tag-ok'}`}>
+              {session.seatsLeft} {session.seatsLeft === 1 ? 'place' : 'places'} left
+            </span>
+          )}
+        </span>
+      </button>
+
+      {onLearnMore && (
+        <button
+          type="button"
+          className="mzk-learn"
+          onClick={onLearnMore}
+          // The visible words are the same on every row, so the class has to be named for anyone
+          // who navigates by button.
+          aria-label={`Learn more about ${session.courseName}`}
+        >
+          Learn more
+        </button>
+      )}
+    </div>
   )
 }
 

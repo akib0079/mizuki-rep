@@ -10,6 +10,7 @@ import { StudentsPage } from './pages/StudentsPage.js'
 import { TemplatesPage } from './pages/TemplatesPage.js'
 import { SettingsPage } from './pages/SettingsPage.js'
 import { PaymentsPage } from './pages/PaymentsPage.js'
+import { CoursesPage } from './pages/CoursesPage.js'
 import { TeamPage } from './pages/TeamPage.js'
 import { AcceptInvitePage } from './pages/AcceptInvitePage.js'
 import { NotificationBell } from './components/NotificationBell.js'
@@ -32,6 +33,7 @@ const NAV: NavItem[] = [
   { to: '/calendar', label: 'Calendar', icon: 'calendar' },
   { to: '/students', label: 'Students', icon: 'students' },
   { to: '/payments', label: 'Payments', icon: 'ticket' },
+  { to: '/courses', label: 'Courses', icon: 'note' },
   { to: '/closed-dates', label: 'Closed dates', icon: 'closed' },
   { to: '/templates', label: 'Emails', icon: 'mail' },
   { to: '/team', label: 'Team', icon: 'users' },
@@ -247,6 +249,7 @@ export function App() {
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/students" element={<StudentsPage />} />
             <Route path="/payments" element={<PaymentsPage />} />
+            <Route path="/courses" element={<CoursesPage />} />
             <Route path="/closed-dates" element={<ClosedDatesPage />} />
             <Route path="/templates" element={<TemplatesPage adminEmail={data.admin.email} />} />
             <Route path="/team" element={<TeamPage currentAdminId={data.admin.id} />} />
