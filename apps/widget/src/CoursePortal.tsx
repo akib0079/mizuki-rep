@@ -102,22 +102,43 @@ export function CoursePortal({ courseSlug }: { courseSlug: string }) {
       */}
       {pkg ? (
         <div className="mzk-portal-summary">
+          {/*
+            One large number, not two.
+            
+            "4 lessons left" beside "4 of 8 used" set two figures of equal weight next to each
+            other and read, at a glance, as "4 4" — and the one that governs what they can do is
+            the first. Used is the same fact from the other side, so it becomes a bar and a line
+            underneath rather than a competing headline.
+          */}
           <div className="mzk-portal-figure">
             <span className="mzk-portal-num">{pkg.remaining}</span>
             <span className="mzk-portal-label">
               {pkg.remaining === 1 ? 'lesson left' : 'lessons left'}
             </span>
           </div>
-          <div className="mzk-portal-figure">
-            <span className="mzk-portal-num">{pkg.usedSessions}</span>
-            <span className="mzk-portal-label">of {pkg.totalSessions} used</span>
+
+          <div className="mzk-portal-track">
+            <div className="mzk-portal-bar" aria-hidden>
+              <span
+                style={{
+                  width: `${pkg.totalSessions ? (pkg.usedSessions / pkg.totalSessions) * 100 : 0}%`,
+                }}
+              />
+            </div>
+            <div className="mzk-portal-track-meta">
+              <span>
+                {pkg.usedSessions} of {pkg.totalSessions} used
+              </span>
+              <span>{coursePeriod(pkg.startsAt, pkg.expiresAt)}</span>
+            </div>
           </div>
-          <div className="mzk-portal-period">{coursePeriod(pkg.startsAt, pkg.expiresAt)}</div>
         </div>
       ) : (
         <div className="mzk-note mzk-note-info">
-          We do not have a {courseName} course on your account yet. If you have paid for one,
-          please get in touch and we will add it.
+          {/* No article: "a IFDA" is wrong, "an IFDA" is right, and the fallback name would make
+              either of them wrong again. Rewording sidesteps a grammar rule the data cannot know. */}
+          There is no {courseName} course on your account yet. If you have paid for one, please get
+          in touch and we will add it.
         </div>
       )}
 

@@ -105,7 +105,17 @@ export function CourseDetail({
         className="mzk-modal-backdrop"
         onClick={(e) => e.target === e.currentTarget && onClose()}
       >
-        <div className="mzk mzk-modal mzk-course-modal" role="dialog" aria-modal="true" aria-label={course.name}>
+        {/*
+          Narrow when there is little to read. 820px is the width two columns of sections need;
+          a course with only a description in it filled that width with one sentence and a lot of
+          white, which reads as something that failed to load rather than as a short answer.
+        */}
+        <div
+          className={twoColumns ? 'mzk mzk-modal mzk-course-modal' : 'mzk mzk-modal mzk-course-modal mzk-course-modal-narrow'}
+          role="dialog"
+          aria-modal="true"
+          aria-label={course.name}
+        >
         {course.imageUrl?.trim() && (
           // Decorative: the name is right underneath it, so a description would only repeat it.
           <img
