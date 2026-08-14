@@ -32,7 +32,8 @@ function section(label: string, value: string | undefined, asList = false) {
             ))}
         </ul>
       ) : (
-        <p>{value}</p>
+        // Classed so the theme defence leaves it alone: it resets bare elements only.
+        <p className="mzk-course-text">{value}</p>
       )}
     </section>,
   ]

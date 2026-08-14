@@ -50,7 +50,9 @@
   box-sizing: border-box;
 }
 .mzk *, .mzk *::before, .mzk *::after { box-sizing: border-box; }
-.mzk p { margin: 0 0 10px; }
+/* :not([class]) here too — `.mzk p` is element-plus-class and outranks any single-class
+   component selector, so unguarded it decided the spacing of every paragraph on every page. */
+.mzk p:not([class]) { margin: 0 0 10px; }
 
 .mzk-panel {
   background: var(--mzk-bg);
@@ -203,6 +205,11 @@
 .mzk-tag-ok { background: #e8f5ef; color: var(--mzk-ok); }
 .mzk-tag-low { background: #fdf3e0; color: #92650a; }
 .mzk-tag-full { background: #eef2f4; color: var(--mzk-soft); }
+/*
+ * Held back or cancelled — nothing to book, but not the room being full.
+ * Outlined rather than filled, so it reads as "not offered" rather than as another status colour.
+ */
+.mzk-tag-off { background: transparent; color: var(--mzk-soft); box-shadow: inset 0 0 0 1px var(--mzk-line); }
 
 /* --- Forms and messages --------------------------------------------------- */
 
@@ -412,15 +419,29 @@
   transition: none !important;
 }
 
+/*
+ * :not([class]) — the defence applies to bare elements only.
+ *
+ * A theme can style `p`, `ul` and `li`; it cannot style `.mzk-cp-lede`, because that class does
+ * not exist outside this file. Written without the guard, these rules out-ranked the widget's own
+ * components as well as the theme's: every paragraph on a course page came out with the same
+ * `margin: 0 0 10px; padding: 0`, whatever it had been given, so the framed price rendered with
+ * its text against the border and nothing on the page could set its own spacing.
+ *
+ * Headings keep the blanket reset — they are always given explicit sizes right afterwards, and
+ * a theme's h2 margin is the thing most likely to show through.
+ */
 .mzk h2, .mzk h3 {
   margin: 0 !important;
   padding: 0 !important;
   color: var(--mzk-ink) !important;
   border: none !important;
 }
-.mzk p { color: inherit !important; margin: 0 0 10px !important; padding: 0 !important; }
-.mzk ul { list-style: disc !important; margin: 8px 0 0 !important; padding-left: 18px !important; }
-.mzk li { margin: 0 !important; color: inherit !important; }
+.mzk p { color: inherit !important; }
+.mzk p:not([class]) { margin: 0 0 10px !important; padding: 0 !important; }
+.mzk ul:not([class]) { list-style: disc !important; margin: 8px 0 0 !important; padding-left: 18px !important; }
+.mzk li:not([class]) { margin: 0 !important; }
+.mzk li { color: inherit !important; }
 .mzk a { text-decoration: none !important; }
 
 /*
@@ -1002,15 +1023,10 @@
   border-radius: 2px;
   background: var(--mzk-course);
 }
-.mzk-cp .mzk-course-section p { padding-left: 16px; }
-/*
- * !important because the theme-proofing block forces `list-style: disc !important` on every list
- * in the widget — a defence against WordPress themes, and one that otherwise leaves these items
- * carrying both a disc and the marker drawn below it. Specificity settles it from there.
- */
-.mzk-cp .mzk-course-section ul { list-style: none !important; padding-left: 16px !important; }
+.mzk-cp .mzk-course-section .mzk-course-text { padding-left: 16px; margin: 0; }
+.mzk-cp .mzk-course-section ul { list-style: none; padding-left: 16px; }
 /* A small open marker rather than a filled disc — closer to a bud than a bullet. */
-.mzk-cp .mzk-course-section li { position: relative; padding-left: 16px; margin-bottom: 7px !important; }
+.mzk-cp .mzk-course-section li { position: relative; padding-left: 16px; margin-bottom: 7px; }
 .mzk-cp .mzk-course-section li::before {
   content: '';
   position: absolute;
@@ -1085,4 +1101,44 @@
   /* Stacked: a 220px field and a button do not share a 390px line. */
   .mzk-cp-signin-field { flex: 1 0 100%; }
   .mzk-cp-signin-form .mzk-btn { width: 100%; justify-content: center; }
+}
+
+/* --- A number from outside Singapore ---------------------------------------- */
+
+/*
+ * The picker and the number on one line: they are one value, and stacking them would read as two
+ * separate questions. The picker takes only what it needs so the number keeps the room.
+ */
+.mzk-phone-row { display: flex; gap: 8px; align-items: stretch; }
+.mzk-phone-country { flex: 0 0 auto; max-width: 44%; margin: 0; }
+.mzk-phone-country select {
+  width: 100%;
+  height: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--mzk-line);
+  border-radius: 8px;
+  background: var(--mzk-bg);
+  font: inherit;
+  color: var(--mzk-ink);
+}
+.mzk-phone-number { flex: 1; min-width: 0; }
+
+/* Sits under the field it qualifies, quieter than a field label. */
+.mzk-abroad { margin: -4px 0 14px; font-size: 14px; }
+
+/* Reachable by a screen reader, invisible on screen — the select is labelled by its own options. */
+.mzk-sr {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 480px) {
+  /* Two controls on a 390px line leaves the number four characters wide. */
+  .mzk-phone-row { flex-direction: column; }
+  .mzk-phone-country { max-width: none; }
 }

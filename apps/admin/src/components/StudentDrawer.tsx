@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { DateTime } from 'luxon'
-import { STUDIO_TZ } from '@mizuki/shared'
+import { STUDIO_COUNTRY, STUDIO_TZ, flagEmoji } from '@mizuki/shared'
 import { ApiError, api, type Course, type PackageSummary } from '../api.js'
 import { Icon } from './Icon.js'
 import { QueryState } from './QueryState.js'
@@ -45,6 +45,7 @@ interface StudentDetail {
     name: string
     email: string
     phone: string
+    phoneCountry: string
     notes: string
     marketingOptIn: boolean
     lastLoginAt: string | null
@@ -131,7 +132,14 @@ export function StudentDrawer({ studentId, onClose }: { studentId: string; onClo
                 {student.phone && (
                   <>
                     <br />
-                    <a href={`tel:${student.phone.replace(/\s/g, '')}`} className="link">{student.phone}</a>
+                    <a href={`tel:${student.phone.replace(/\s/g, '')}`} className="link">
+                      {student.phoneCountry && student.phoneCountry !== STUDIO_COUNTRY && (
+                        // Only when it is not local: flagging every Singaporean number would bury
+                        // the one case where knowing the country actually changes what you dial.
+                        <span aria-hidden title={student.phoneCountry}>{flagEmoji(student.phoneCountry)} </span>
+                      )}
+                      {student.phone}
+                    </a>
                   </>
                 )}
               </p>

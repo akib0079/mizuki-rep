@@ -1,4 +1,5 @@
 import type { DateKey } from './time.js'
+import type { SessionAvailability } from './rules.js'
 
 /**
  * How a student gets a seat in a class of this course.
@@ -195,6 +196,8 @@ export interface PublicSession {
   breaks: SessionBreak[]
   seatsLeft: number
   isFull: boolean
+  /** Three states rather than a count: what the student is actually told. */
+  availability: SessionAvailability
   bookingMode: BookingMode
 }
 

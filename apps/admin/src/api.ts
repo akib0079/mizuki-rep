@@ -152,6 +152,8 @@ export interface StudentSummary {
   name: string
   email: string
   phone: string
+  /** ISO country code when the number is not Singaporean; empty otherwise. */
+  phoneCountry: string
   sessionsRemaining: number
 }
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
+import { STUDIO_COUNTRY, flagEmoji } from '@mizuki/shared'
 import { ApiError, api, type StudentSummary } from '../api.js'
 import { StudentDrawer } from '../components/StudentDrawer.js'
 import { NewStudentDialog } from '../components/NewStudentDialog.js'
@@ -10,7 +11,7 @@ import { SkeletonTable } from '../components/Skeleton.js'
 /** Students, their course packages, and the controls to top them up or extend them. */
 interface DuplicateGroup {
   reason: string
-  students: { id: string; reference: string; name: string; email: string; phone: string }[]
+  students: { id: string; reference: string; name: string; email: string; phone: string; phoneCountry: string }[]
 }
 
 export function StudentsPage() {
@@ -122,7 +123,7 @@ export function StudentsPage() {
                     {s.reference && <span className="student-ref">{s.reference}</span>}
                     <div className="small muted">
                       {s.email}
-                      {s.phone && ` · ${s.phone}`}
+                      {s.phone && <> · <PhoneWithFlag phone={s.phone} country={s.phoneCountry} /></>}
                     </div>
                   </div>
                   {index === 0 ? (
@@ -191,7 +192,7 @@ export function StudentsPage() {
                     </td>
                     <td className="small muted">
                       {s.email}
-                      {s.phone ? <><br />{s.phone}</> : null}
+                      {s.phone ? <><br /><PhoneWithFlag phone={s.phone} country={s.phoneCountry} /></> : null}
                     </td>
                     <td>
                       {s.sessionsRemaining > 0 ? (
@@ -232,5 +233,21 @@ export function StudentsPage() {
         />
       )}
     </>
+  )
+}
+
+/**
+ * A number with where it is from.
+ *
+ * A local number needs no decoration — nearly every student is Singaporean, and flagging all of
+ * them would make the one thing worth noticing invisible. A foreign number is flagged, because
+ * the studio has to know before they dial, and because the number alone does not say.
+ */
+function PhoneWithFlag({ phone, country }: { phone: string; country?: string }) {
+  if (!country || country === STUDIO_COUNTRY) return <>{phone}</>
+  return (
+    <span title={country}>
+      <span aria-hidden>{flagEmoji(country)}</span> {phone}
+    </span>
   )
 }

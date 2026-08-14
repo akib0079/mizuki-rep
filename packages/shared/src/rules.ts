@@ -59,6 +59,27 @@ export function isSessionFull(session: Pick<Session, 'capacity' | 'heldBack' | '
 }
 
 /**
+ * Whether a student can book this class, as three states rather than a number.
+ *
+ * "Full" and "not available" look identical from a seat count — both leave nothing to book — but
+ * they mean different things and lead to different actions. Full is the room; not available is
+ * the studio holding the remaining places back for people booking over chat, or having cancelled
+ * the class. Someone told "full" looks for another date; someone told "not available" might well
+ * ring up, and should.
+ */
+export type SessionAvailability = 'available' | 'unavailable' | 'full'
+
+export function sessionAvailability(
+  session: Pick<Session, 'capacity' | 'heldBack' | 'seatsTaken'> & { status?: string },
+): SessionAvailability {
+  if (session.status === 'cancelled') return 'unavailable'
+  if (seatsLeft(session) > 0) return 'available'
+  // Every place in the room is taken by a person, not withheld.
+  if (session.seatsTaken >= session.capacity) return 'full'
+  return 'unavailable'
+}
+
+/**
  * True when more people are booked than the room now holds. Reachable only by an admin
  * lowering capacity after bookings exist — which we allow, because refusing would leave
  * them unable to record a real-world room change. The admin console shows a banner and

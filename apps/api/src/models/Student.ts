@@ -26,6 +26,15 @@ const studentSchema = new Schema(
      * so the number as typed cannot be searched on. This is derived, never entered: `phone` stays
      * exactly as the student wrote it, because that is what the studio dials.
      */
+    /*
+     * Where the number is from, as an ISO country code.
+     *
+     * Stored rather than parsed back out of the number: a Singapore number and a Malaysian one
+     * can look identical once the +65 or +60 is dropped, and the studio needs to know which
+     * before they dial. Empty means Singapore, which is what nearly every student is.
+     */
+    phoneCountry: { type: String, default: '', trim: true, uppercase: true, maxlength: 2 },
+
     phoneDigits: { type: String, default: '', index: true },
 
     /**

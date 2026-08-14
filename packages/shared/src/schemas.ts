@@ -49,6 +49,15 @@ export const calendarQuerySchema = z.object({
   courseTypeId: objectIdSchema.optional(),
 })
 
+/** ISO 3166-1 alpha-2, or empty for Singapore — which is what nearly every student is. */
+export const phoneCountrySchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^[A-Z]{2}$/, 'Expected a two-letter country code')
+  .or(z.literal(''))
+  .default('')
+
 /**
  * Booking as a visitor: everything about you, because we do not know you yet.
  *
@@ -60,6 +69,7 @@ export const startBookingSchema = z.object({
   email: emailSchema,
   name: z.string().trim().min(1, 'Please enter your name').max(120),
   phone: phoneSchema,
+  phoneCountry: phoneCountrySchema,
   notes: z.string().trim().max(500).default(''),
   marketingOptIn: z.boolean().default(false),
   /** Who is actually attending, when it is not the person booking. */
@@ -216,6 +226,7 @@ export const studentInputSchema = z.object({
   name: z.string().trim().min(1).max(120),
   email: emailSchema,
   phone: phoneSchema,
+  phoneCountry: phoneCountrySchema,
   notes: z.string().trim().max(2000).default(''),
   marketingOptIn: z.boolean().default(false),
 })

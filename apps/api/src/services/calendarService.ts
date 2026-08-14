@@ -5,6 +5,7 @@ import {
   eachDateKey,
   isSessionFull,
   seatsLeft,
+  sessionAvailability,
   studioInstant,
   type DateKey,
   type PublicCalendarDay,
@@ -116,6 +117,7 @@ export function toPublicSession(
     breaks: session.breaks ?? [],
     seatsLeft: seatsLeft(session),
     isFull: isSessionFull(session),
+    availability: sessionAvailability(session),
     bookingMode: course.bookingMode,
   }
 }

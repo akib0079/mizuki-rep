@@ -283,7 +283,21 @@ function SessionRow({
 }) {
   const start = toStudio(session.startAt)
   const end = toStudio(session.endAt)
-  const low = session.seatsLeft > 0 && session.seatsLeft <= 2
+
+  /*
+   * A state, not a count.
+   *
+   * The studio asked for Available, Not available or Full instead of "8 places left". The number
+   * was doing two jobs — telling a student whether they could book, and telling them how popular
+   * the class was — and only the first is any of their business. It also meant a class with
+   * places withheld for chat bookings read as "Full", which sends someone looking elsewhere when
+   * a phone call would have got them in.
+   */
+  const availability = session.availability ?? (session.isFull ? 'full' : 'available')
+  const label =
+    availability === 'available' ? 'Available' : availability === 'full' ? 'Full' : 'Not available'
+  const tone =
+    availability === 'available' ? 'mzk-tag-ok' : availability === 'full' ? 'mzk-tag-full' : 'mzk-tag-off'
 
   /*
    * The row is the card; the things inside it are separate controls.
@@ -294,8 +308,8 @@ function SessionRow({
    * and the booking button becomes the transparent area that fills most of it.
    */
   return (
-    <div className={session.isFull ? 'mzk-session-row is-full' : 'mzk-session-row'}>
-      <button className="mzk-session" onClick={onBook} disabled={session.isFull}>
+    <div className={availability === 'available' ? 'mzk-session-row' : 'mzk-session-row is-full'}>
+      <button className="mzk-session" onClick={onBook} disabled={availability !== 'available'}>
         <span className="mzk-stripe" style={{ background: session.colour }} />
         <span className="mzk-session-main">
           <span className="mzk-session-title">{session.title}</span>
@@ -321,13 +335,7 @@ function SessionRow({
 
       {/* Outside the button so "Learn more" can sit before it, where the eye already is. */}
       <span className="mzk-session-right">
-        {session.isFull ? (
-          <span className="mzk-tag mzk-tag-full">Full</span>
-        ) : (
-          <span className={`mzk-tag ${low ? 'mzk-tag-low' : 'mzk-tag-ok'}`}>
-            {session.seatsLeft} {session.seatsLeft === 1 ? 'place' : 'places'} left
-          </span>
-        )}
+        <span className={`mzk-tag ${tone}`}>{label}</span>
       </span>
     </div>
   )

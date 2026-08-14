@@ -160,6 +160,7 @@ bookingRouter.post(
         name: visitor.name,
         email: visitor.email,
         phone: visitor.phone,
+        phoneCountry: visitor.phoneCountry,
         marketingOptIn: visitor.marketingOptIn,
       })
     }

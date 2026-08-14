@@ -120,6 +120,8 @@ export const widgetApi = {
     email?: string
     name?: string
     phone?: string
+    /** ISO country code when the number is not Singaporean; empty otherwise. */
+    phoneCountry?: string
     notes?: string
     marketingOptIn?: boolean
     attendeeName?: string

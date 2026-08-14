@@ -90,6 +90,7 @@ adminStudentsRouter.get(
         name: s.name,
         email: s.email,
         phone: s.phone,
+        phoneCountry: s.phoneCountry ?? '',
         sessionsRemaining: remainingByStudent.get(String(s._id)) ?? 0,
       })),
     })
@@ -164,6 +165,7 @@ adminStudentsRouter.get(
         name: student.name,
         email: student.email,
         phone: student.phone,
+        phoneCountry: student.phoneCountry ?? '',
         notes: student.notes,
         marketingOptIn: student.marketingOptIn,
         lastLoginAt: student.lastLoginAt,

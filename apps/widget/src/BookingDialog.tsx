@@ -1,7 +1,14 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { DateTime } from 'luxon'
-import { formatDuration, formatTimeRange, type PublicSession,
+import {
+  STUDIO_COUNTRY,
+  countryList,
+  flagEmoji,
+  formatDuration,
+  formatInternational,
+  formatTimeRange,
   toStudio,
+  type PublicSession,
 } from '@mizuki/shared'
 import { ApiError, widgetApi, type StartBookingResult, type StudentProfile } from './api.js'
 
@@ -25,7 +32,16 @@ export function BookingDialog({
   /** Offered after a successful booking, so the next step is one click rather than a hunt. */
   onSeeBookings?: () => void
 }) {
-  const [form, setForm] = useState({ name: '', email: '', phone: '', notes: '', attendeeName: '' })
+  const [form, setForm] = useState({ name: '', email: '', phone: '', phoneCountry: '', notes: '', attendeeName: '' })
+  /** Ticked when the number is not Singaporean, which swaps in the country picker. */
+  const [abroad, setAbroad] = useState(false)
+
+  // Built once: two hundred entries and an Intl lookup each is not work to repeat on every keystroke.
+  const countries = useMemo(() => countryList(), [])
+  const dialPreview = useMemo(
+    () => formatInternational(form.phoneCountry || STUDIO_COUNTRY, form.phone || '…'),
+    [form.phoneCountry, form.phone],
+  )
   const [bookingForSomeoneElse, setBookingForSomeoneElse] = useState(false)
   /** Set when they have seen a possible duplicate and told us it is not them. */
   const [confirmedNewAccount, setConfirmedNewAccount] = useState(false)
@@ -83,7 +99,14 @@ export function BookingDialog({
               sessionId: session.id,
               name: form.name.trim(),
               email: form.email.trim(),
-              phone: form.phone.trim(),
+              /*
+               * Sent international when it is not Singaporean, so the studio can dial it as
+               * written and the duplicate check compares like with like.
+               */
+              phone: abroad
+                ? formatInternational(form.phoneCountry || STUDIO_COUNTRY, form.phone.trim())
+                : form.phone.trim(),
+              phoneCountry: abroad ? form.phoneCountry || STUDIO_COUNTRY : '',
               notes: form.notes.trim(),
               attendeeName,
               confirmedNewAccount,
@@ -191,19 +214,80 @@ export function BookingDialog({
                     <span className="mzk-muted mzk-small">Your confirmation and reminder go here.</span>
                   </label>
 
-                  <label className="mzk-field">
-                    <span>Phone</span>
+                  {/*
+                    Singapore by default, with a way out.
+                    
+                    Nearly every student is local, so the plain field is what nearly everyone
+                    sees. Putting a country picker in front of all of them would tax the many for
+                    the few — the tick moves the cost onto the people it applies to.
+                  */}
+                  {abroad ? (
+                    <div className="mzk-field">
+                      <span>Phone</span>
+                      <div className="mzk-phone-row">
+                        <label className="mzk-phone-country">
+                          <span className="mzk-sr">Country</span>
+                          <select
+                            value={form.phoneCountry || STUDIO_COUNTRY}
+                            onChange={(e) => setForm({ ...form, phoneCountry: e.target.value })}
+                          >
+                            {countries.map((c) => (
+                              <option key={c.code} value={c.code}>
+                                {c.flag} {c.name} +{c.dial}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <input
+                          type="tel"
+                          inputMode="tel"
+                          className="mzk-phone-number"
+                          value={form.phone}
+                          required
+                          autoComplete="tel-national"
+                          aria-label="Phone number"
+                          placeholder="Number without the country code"
+                          onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                        />
+                      </div>
+                      <span className="mzk-muted mzk-small">
+                        We will save it as {dialPreview}. Leave off the leading zero.
+                      </span>
+                    </div>
+                  ) : (
+                    <label className="mzk-field">
+                      <span>Phone</span>
+                      <input
+                        type="tel"
+                        inputMode="tel"
+                        value={form.phone}
+                        required
+                        autoComplete="tel"
+                        onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                      />
+                      <span className="mzk-muted mzk-small">
+                        So we can reach you quickly if a class changes at short notice.
+                      </span>
+                    </label>
+                  )}
+
+                  <label className="mzk-check mzk-abroad">
                     <input
-                      type="tel"
-                      inputMode="tel"
-                      value={form.phone}
-                      required
-                      autoComplete="tel"
-                      onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                      type="checkbox"
+                      checked={abroad}
+                      onChange={(e) => {
+                        setAbroad(e.target.checked)
+                        /*
+                         * Clear the number when switching.
+                         *
+                         * "9123 4567" typed as a Singapore number is not the same number once the
+                         * country changes, and carrying it over would quietly produce a wrong one
+                         * that looks right.
+                         */
+                        setForm((f) => ({ ...f, phone: '', phoneCountry: e.target.checked ? '' : '' }))
+                      }}
                     />
-                    <span className="mzk-muted mzk-small">
-                      So we can reach you quickly if a class changes at short notice.
-                    </span>
+                    <span>Not from {flagEmoji(STUDIO_COUNTRY)} Singapore?</span>
                   </label>
                 </>
               )}
