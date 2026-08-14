@@ -889,39 +889,173 @@
 /* --- A course's own page ---------------------------------------------------- */
 
 /*
- * Reads as a page about a course, not as a form. The picture and the name lead, the sections sit
- * in the same two columns as the popup, and the one button comes after the reader has been told
- * what they would be booking.
+ * Built on the grammar of the thing it sells.
+ *
+ * Ikebana works in line, asymmetry and deliberate empty space — three stems set at different
+ * angles, and the space between them doing as much as the flowers. So this page is asymmetric
+ * rather than centred, marks its sections with a thin stem rather than a rule across the page,
+ * and leaves room rather than filling it. The alternative was a photograph across the top and
+ * everything stacked underneath, which is every page on the internet and says nothing about a
+ * floral studio.
+ *
+ * --mzk-course is set per course from its own colour, so IFDA's page and Preserved Flower's are
+ * recognisably different pages rather than one template twice.
  */
-.mzk-cp-img {
+
+.mzk-cp { --mzk-course: var(--mzk-accent); }
+
+/* --- The opening ------------------------------------------------------------ */
+
+.mzk-cp-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 32px;
+  align-items: center;
+  margin-bottom: 40px;
+}
+/* Without a photograph there is nothing to sit beside, so the text simply gets the measure. */
+.mzk-cp-hero-plain { grid-template-columns: minmax(0, 1fr); }
+
+/*
+ * A portrait, not a banner. A tall frame is how an arrangement is photographed — and it lets the
+ * name and the opening paragraph sit level with it rather than underneath, which is what makes
+ * the top of the page read as composed rather than stacked.
+ */
+.mzk-cp-figure {
+  position: relative;
+  border-radius: 4px 4px 44px 4px;
+  overflow: hidden;
+}
+.mzk-cp-img { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; }
+
+.mzk-cp-eyebrow {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--mzk-course);
+}
+.mzk-cp-title {
+  margin: 0 0 16px;
+  font-size: clamp(30px, 4.4vw, 44px);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+.mzk-cp-lede { margin: 0 0 20px; font-size: 17px; line-height: 1.7; max-width: 54ch; }
+
+/* --- The fact a pre-paid student came to check ------------------------------ */
+
+.mzk-course-price-framed {
   display: block;
-  width: 100%;
-  height: 240px;
-  object-fit: cover;
-  border-radius: 14px;
-  margin-bottom: 20px;
+  margin: 0;
+  padding: 14px 18px;
+  /* Bordered on one edge only: a full box would be a fourth rectangle on a page that already has
+     a photograph, a calendar and a sign-in panel. */
+  border-left: 3px solid var(--mzk-course);
+  background: color-mix(in srgb, var(--mzk-course) 7%, #fff);
+  border-radius: 0 10px 10px 0;
+  font-weight: 600;
+}
+.mzk-course-price-framed .mzk-course-price-label {
+  display: block;
+  margin: 0 0 2px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--mzk-course);
 }
 
-.mzk-cp-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-.mzk-cp-title { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
-/* Held to a readable measure even when the page is wide. */
-.mzk-cp-lede { margin: 0 0 14px; font-size: 17px; line-height: 1.65; max-width: 62ch; }
+/* --- The sections ----------------------------------------------------------- */
 
-.mzk-cp .mzk-course-cols { padding-top: 18px; border-top: 1px solid var(--mzk-line); }
+.mzk-cp .mzk-course-cols {
+  padding-top: 0;
+  border-top: 0;
+  gap: 4px 48px;
+}
+.mzk-cp .mzk-course-section { margin-bottom: 30px; }
 
-/* The one thing to do, given room on both sides so it is unmistakably the action. */
+/*
+ * A stem beside each heading rather than a rule above it.
+ *
+ * Lines across the page cut it into slabs; a short vertical mark sets the heading off without
+ * dividing anything, which is nearer to how an arrangement is read — down a line, not across.
+ */
+.mzk-cp .mzk-course-section h4 {
+  position: relative;
+  padding-left: 16px;
+  margin-bottom: 10px;
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--mzk-ink);
+}
+.mzk-cp .mzk-course-section h4::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 2px;
+  bottom: 2px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--mzk-course);
+}
+.mzk-cp .mzk-course-section p { padding-left: 16px; }
+/*
+ * !important because the theme-proofing block forces `list-style: disc !important` on every list
+ * in the widget — a defence against WordPress themes, and one that otherwise leaves these items
+ * carrying both a disc and the marker drawn below it. Specificity settles it from there.
+ */
+.mzk-cp .mzk-course-section ul { list-style: none !important; padding-left: 16px !important; }
+/* A small open marker rather than a filled disc — closer to a bud than a bullet. */
+.mzk-cp .mzk-course-section li { position: relative; padding-left: 16px; margin-bottom: 7px !important; }
+.mzk-cp .mzk-course-section li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.62em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  border: 1.5px solid var(--mzk-course);
+}
+
+/* --- The moment of deciding ------------------------------------------------- */
+
+/*
+ * Its own band, edge to edge of the article. Left as another row in the flow it read as one more
+ * paragraph; the page has one thing to do and this is it.
+ */
 .mzk-cp-cta {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
-  padding: 20px 0 4px;
-  margin-top: 8px;
+  align-items: center;
+  padding: 26px 0;
+  margin: 8px 0 0;
   border-top: 1px solid var(--mzk-line);
+  border-bottom: 1px solid var(--mzk-line);
 }
+/*
+ * The button stays the studio's teal, not the course's colour.
+ *
+ * Teal means "this is the action" everywhere in the widget — Book a class, Book this class, Email
+ * me a sign-in link. Tinting it per course would make the primary action a different colour on
+ * every page, and a student who has learned that teal is the thing to press would lose it. The
+ * course colour identifies the course, in the eyebrow, the stems and the price; the action colour
+ * signals the action. Two jobs, two colours.
+ *
+ * (An earlier rule here set it to --mzk-course and did nothing at all — the theme-proofing block
+ * carries !important — which is how the question came up.)
+ */
+
+/* --- Account and contact ---------------------------------------------------- */
 
 .mzk-cp-account {
-  margin-top: 24px;
-  padding: 18px 20px;
+  margin-top: 28px;
+  padding: 20px 22px;
   background: var(--mzk-canvas);
   border-radius: 12px;
 }
@@ -934,12 +1068,19 @@
 .mzk-cp-signin-form { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; margin: 12px 0 4px; }
 .mzk-cp-signin-field { flex: 1; min-width: 220px; margin-bottom: 0; }
 
-.mzk-cp .mzk-course-contact { margin-top: 20px; padding-top: 16px; }
+.mzk-cp .mzk-course-contact { margin-top: 22px; padding-top: 18px; }
+
+@media (max-width: 720px) {
+  /* The photograph goes back on top: side by side, neither column has room to be read. */
+  .mzk-cp-hero { grid-template-columns: minmax(0, 1fr); gap: 20px; margin-bottom: 28px; }
+  .mzk-cp-figure { border-radius: 4px 4px 32px 4px; }
+  .mzk-cp-img { aspect-ratio: 16 / 10; }
+  .mzk-cp-lede { font-size: 16px; }
+  .mzk-cp .mzk-course-cols { gap: 0 32px; }
+}
 
 @media (max-width: 560px) {
-  .mzk-cp-img { height: 170px; }
-  .mzk-cp-title { font-size: 22px; }
-  .mzk-cp-lede { font-size: 16px; }
+  .mzk-cp-cta { padding: 20px 0; }
   .mzk-cp-cta .mzk-btn { flex: 1; justify-content: center; }
   /* Stacked: a 220px field and a button do not share a 390px line. */
   .mzk-cp-signin-field { flex: 1 0 100%; }

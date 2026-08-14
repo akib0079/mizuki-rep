@@ -79,11 +79,18 @@ export function CourseSections({ course }: { course: PublicCourse }) {
   )
 }
 
-/** A line, not a filled panel — one sentence never needed a box drawn round it. */
-export function CoursePrice({ course }: { course: PublicCourse }) {
+/**
+ * What it costs.
+ *
+ * A line inside the popup, where it sits among other facts. On a course's own page it is given a
+ * frame instead — for a student who has already paid, "there is nothing to pay for individual
+ * lessons" is the sentence they came to check, and it should not have to be found among bullets.
+ */
+export function CoursePrice({ course, framed = false }: { course: PublicCourse; framed?: boolean }) {
   if (!course.priceNote?.trim()) return null
+
   return (
-    <p className="mzk-course-price">
+    <p className={framed ? 'mzk-course-price mzk-course-price-framed' : 'mzk-course-price'}>
       <span className="mzk-course-price-label">Price</span>
       {course.priceNote}
     </p>

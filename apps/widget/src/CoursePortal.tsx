@@ -95,23 +95,35 @@ export function CoursePortal({ courseSlug }: { courseSlug: string }) {
 
   return (
     <Scope>
-      <article className="mzk-cp">
-        {course.imageUrl?.trim() && (
-          <img
-            className="mzk-cp-img"
-            src={course.imageUrl}
-            alt=""
-            onError={(e) => (e.currentTarget.style.display = 'none')}
-          />
-        )}
+      {/*
+        The course's own colour drives the accents, so IFDA's page and Preserved Flower's page are
+        recognisably different pages rather than the same template twice.
+      */}
+      <article className="mzk-cp" style={{ ['--mzk-course' as string]: course.colour }}>
+        <div className={course.imageUrl?.trim() ? 'mzk-cp-hero' : 'mzk-cp-hero mzk-cp-hero-plain'}>
+          {course.imageUrl?.trim() && (
+            <div className="mzk-cp-figure">
+              <img
+                className="mzk-cp-img"
+                src={course.imageUrl}
+                alt=""
+                onError={(e) => {
+                  // Take the frame with it, or an empty box holds the column open.
+                  const figure = e.currentTarget.parentElement
+                  if (figure) figure.style.display = 'none'
+                }}
+              />
+            </div>
+          )}
 
-        <header className="mzk-cp-head">
-          <span className="mzk-course-dot" style={{ background: course.colour }} aria-hidden />
-          <h2 className="mzk-cp-title">{course.name}</h2>
-        </header>
+          <header className="mzk-cp-intro">
+            <p className="mzk-cp-eyebrow">Course</p>
+            <h2 className="mzk-cp-title">{course.name}</h2>
+            {course.description?.trim() && <p className="mzk-cp-lede">{course.description}</p>}
+            <CoursePrice course={course} framed />
+          </header>
+        </div>
 
-        {course.description?.trim() && <p className="mzk-cp-lede">{course.description}</p>}
-        <CoursePrice course={course} />
         <CourseSections course={course} />
 
         {/*
