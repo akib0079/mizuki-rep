@@ -1,45 +1,62 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { DateTime } from 'luxon'
 import { STUDIO_TZ } from '@mizuki/shared'
 import { Scope } from './Scope.js'
 import { BookingCalendar } from './BookingCalendar.js'
 import { MyBookings } from './MyBookings.js'
-import { widgetApi, type PackageRow, type PublicCourse, type StudentProfile } from './api.js'
+import { CourseContact, CoursePrice, CourseSections } from './CourseBody.js'
+import { widgetApi, type PackageRow, type PublicCourse, type StudentProfile, type StudioContact } from './api.js'
 
 /**
- * A page for students who have already paid for a course.
+ * A course's own page: what it is, then a way to book it.
  *
- * The ordinary booking page is built for someone who has not decided yet: it shows every course,
- * asks who you are, and arranges payment. None of that applies here. An IFDA student paid for the
- * whole course months ago; what they need is their balance, their dates, and a way to put a lesson
- * in the diary — so this leads with the balance and hides everything else behind one button.
+ * It reads the same to everybody. The first version put signing in in front of the whole page, so
+ * anyone not already enrolled — including a student who had simply been logged out — met an email
+ * box and no way to find out what IFDA even was. The course comes first now, exactly as it appears
+ * in "Learn more" elsewhere, and signing in is a block further down for the people it applies to.
  *
  * Written against a course slug rather than IFDA specifically, because Preserved Flower is sold
  * the same way and will want the same page.
  */
 
 export function CoursePortal({ courseSlug }: { courseSlug: string }) {
-  const [state, setState] = useState<'loading' | 'signed-out' | 'ready' | 'error'>('loading')
+  const [loading, setLoading] = useState(true)
+  const [failed, setFailed] = useState(false)
+  const [course, setCourse] = useState<PublicCourse | null>(null)
+  const [studio, setStudio] = useState<StudioContact | null>(null)
+  /** Null while signed out — an ordinary state here, not a failure. */
   const [student, setStudent] = useState<StudentProfile | null>(null)
   const [packages, setPackages] = useState<PackageRow[]>([])
-  const [course, setCourse] = useState<PublicCourse | null>(null)
-  const [booking, setBooking] = useState(false)
-  const [showingBookings, setShowingBookings] = useState(false)
+  const [showing, setShowing] = useState<'none' | 'calendar' | 'lessons'>('none')
+
+  const revealRef = useRef<HTMLDivElement | null>(null)
 
   async function load() {
     try {
       const courses = await widgetApi.courses()
-      const found = courses.courses.find((c) => c.slug === courseSlug) ?? null
-      setCourse(found)
+      setCourse(courses.courses.find((c) => c.slug === courseSlug) ?? null)
+      setStudio(courses.studio ?? null)
+    } catch {
+      setFailed(true)
+      setLoading(false)
+      return
+    }
 
+    /*
+     * Whether they are signed in is a separate question, asked separately.
+     *
+     * A 401 here is the normal case for a visitor, so it must not take the course down with it —
+     * this page has to work for somebody who has never heard of the studio.
+     */
+    try {
       const me = await widgetApi.me()
       setStudent(me.student)
       setPackages(me.packages)
-      setState('ready')
-    } catch (err) {
-      // 401 is the ordinary case here, not a failure — nobody has signed in yet.
-      setState((err as { status?: number }).status === 401 ? 'signed-out' : 'error')
+    } catch {
+      setStudent(null)
+      setPackages([])
     }
+    setLoading(false)
   }
 
   useEffect(() => {
@@ -48,9 +65,17 @@ export function CoursePortal({ courseSlug }: { courseSlug: string }) {
 
   /** This course's package, if they hold one. */
   const pkg = course ? packages.find((p) => p.courseTypeId === course.id && p.status === 'active') ?? null : null
-  const courseName = course?.name ?? 'your course'
 
-  if (state === 'loading') {
+  // Bring what opened into view, or on a long page nothing appears to have happened.
+  useEffect(() => {
+    if (showing === 'none') return
+    const el = revealRef.current
+    if (el && el.getBoundingClientRect().top > window.innerHeight - 120) {
+      el.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    }
+  }, [showing])
+
+  if (loading) {
     return (
       <Scope>
         <div className="mzk-panel"><div className="mzk-empty">Loading…</div></div>
@@ -58,57 +83,139 @@ export function CoursePortal({ courseSlug }: { courseSlug: string }) {
     )
   }
 
-  if (state === 'error') {
+  if (failed || !course) {
     return (
       <Scope>
         <div className="mzk-note mzk-note-error">
-          We could not load your course just now. Please refresh the page.
+          We could not load this course just now. Please refresh the page.
         </div>
-      </Scope>
-    )
-  }
-
-  if (state === 'signed-out') {
-    return (
-      <Scope>
-        <SignIn courseName={courseName} onSignedIn={() => void load()} />
       </Scope>
     )
   }
 
   return (
     <Scope>
+      <article className="mzk-cp">
+        {course.imageUrl?.trim() && (
+          <img
+            className="mzk-cp-img"
+            src={course.imageUrl}
+            alt=""
+            onError={(e) => (e.currentTarget.style.display = 'none')}
+          />
+        )}
+
+        <header className="mzk-cp-head">
+          <span className="mzk-course-dot" style={{ background: course.colour }} aria-hidden />
+          <h2 className="mzk-cp-title">{course.name}</h2>
+        </header>
+
+        {course.description?.trim() && <p className="mzk-cp-lede">{course.description}</p>}
+        <CoursePrice course={course} />
+        <CourseSections course={course} />
+
+        {/*
+          The one action on the page, and the same button whether or not they are signed in.
+          Somebody not signed in can still open the calendar and see what runs when — being asked
+          to log in before you are allowed to look is what sends people away.
+        */}
+        <div className="mzk-cp-cta">
+          <button
+            type="button"
+            className="mzk-btn mzk-btn-primary mzk-btn-lg"
+            onClick={() => setShowing((s) => (s === 'calendar' ? 'none' : 'calendar'))}
+          >
+            {/* No course name in here: "Book a IFDA lesson" is wrong, "an IFDA" is right, and
+                the name is data — the same article trap as the empty-package notice. The heading
+                directly above already says which course this is. */}
+            {showing === 'calendar' ? 'Hide the calendar' : 'Book a lesson'}
+          </button>
+
+          {student && (
+            <button
+              type="button"
+              className="mzk-btn"
+              onClick={() => setShowing((s) => (s === 'lessons' ? 'none' : 'lessons'))}
+            >
+              {showing === 'lessons' ? 'Hide my lessons' : 'My lessons'}
+            </button>
+          )}
+        </div>
+
+        <div ref={revealRef}>
+          {/*
+            No payment step anywhere: this course is booked against a package, so the server
+            confirms the place and takes one lesson off the balance as soon as a date is chosen.
+          */}
+          {showing === 'calendar' && <BookingCalendar courseSlug={courseSlug} embedded />}
+          {showing === 'lessons' && <MyBookings embedded />}
+        </div>
+
+        {/*
+          The account block. Below the course rather than in front of it: it is what a student who
+          has already paid needs, and nothing at all to a visitor still reading.
+        */}
+        {student ? (
+          <Enrolled
+            student={student}
+            pkg={pkg}
+            courseName={course.name}
+            onSignedOut={() => {
+              setStudent(null)
+              setPackages([])
+              setShowing('none')
+            }}
+          />
+        ) : (
+          <SignIn courseName={course.name} onSignedIn={() => void load()} />
+        )}
+
+        <CourseContact studio={studio} />
+      </article>
+    </Scope>
+  )
+}
+
+/** The signed-in block: who they are, what they have left, and how long they have to use it. */
+function Enrolled({
+  student,
+  pkg,
+  courseName,
+  onSignedOut,
+}: {
+  student: StudentProfile
+  pkg: PackageRow | null
+  courseName: string
+  onSignedOut: () => void
+}) {
+  const [busy, setBusy] = useState(false)
+
+  return (
+    <section className="mzk-cp-account">
       <div className="mzk-portal-head">
         <div className="mzk-portal-who">
-          Hi <strong>{student?.email}</strong>
+          Hi <strong>{student.email}</strong>
         </div>
         <button
           type="button"
           className="mzk-linkbtn"
+          disabled={busy}
           onClick={async () => {
+            setBusy(true)
             await widgetApi.signOut()
-            setState('signed-out')
-            setStudent(null)
-            setBooking(false)
+            onSignedOut()
           }}
         >
-          Not you? Sign out
+          {busy ? 'Signing out…' : 'Not you? Sign out'}
         </button>
       </div>
 
-      {/*
-        The balance is the headline, because it is the only number that governs what they can do.
-        A student with none left needs to know that before they open a calendar and pick a date.
-      */}
       {pkg ? (
         <div className="mzk-portal-summary">
           {/*
-            One large number, not two.
-            
-            "4 lessons left" beside "4 of 8 used" set two figures of equal weight next to each
-            other and read, at a glance, as "4 4" — and the one that governs what they can do is
-            the first. Used is the same fact from the other side, so it becomes a bar and a line
-            underneath rather than a competing headline.
+            One large number. "4 lessons left" beside "4 of 8 used" set two figures of equal weight
+            next to each other, which at a glance reads as "4 4" — and only the first governs what
+            they can do. Used is the same fact from the other side, so it becomes a bar.
           */}
           <div className="mzk-portal-figure">
             <span className="mzk-portal-num">{pkg.remaining}</span>
@@ -120,9 +227,7 @@ export function CoursePortal({ courseSlug }: { courseSlug: string }) {
           <div className="mzk-portal-track">
             <div className="mzk-portal-bar" aria-hidden>
               <span
-                style={{
-                  width: `${pkg.totalSessions ? (pkg.usedSessions / pkg.totalSessions) * 100 : 0}%`,
-                }}
+                style={{ width: `${pkg.totalSessions ? (pkg.usedSessions / pkg.totalSessions) * 100 : 0}%` }}
               />
             </div>
             <div className="mzk-portal-track-meta">
@@ -135,62 +240,20 @@ export function CoursePortal({ courseSlug }: { courseSlug: string }) {
         </div>
       ) : (
         <div className="mzk-note mzk-note-info">
-          {/* No article: "a IFDA" is wrong, "an IFDA" is right, and the fallback name would make
-              either of them wrong again. Rewording sidesteps a grammar rule the data cannot know. */}
+          {/* No article: "a IFDA" is wrong, "an IFDA" is right, and the course name is data. */}
           There is no {courseName} course on your account yet. If you have paid for one, please get
           in touch and we will add it.
         </div>
       )}
-
-      <div className="mzk-portal-actions">
-        {/*
-          One button, as the studio asked. The calendar is not on screen until it is pressed —
-          which keeps the page about "you have 18 lessons left" rather than about a grid.
-        */}
-        <button
-          type="button"
-          className="mzk-btn mzk-btn-primary mzk-btn-lg"
-          onClick={() => {
-            setBooking((b) => !b)
-            setShowingBookings(false)
-          }}
-        >
-          {booking ? 'Hide the calendar' : 'Book a lesson'}
-        </button>
-        <button
-          type="button"
-          className="mzk-btn"
-          onClick={() => {
-            setShowingBookings((s) => !s)
-            setBooking(false)
-          }}
-        >
-          {showingBookings ? 'Hide my lessons' : 'My lessons'}
-        </button>
-      </div>
-
-      {pkg && pkg.remaining === 0 && booking && (
-        <div className="mzk-note mzk-note-info">
-          You have used all {pkg.totalSessions} lessons on this course. Get in touch if you would
-          like more — you can still look at the dates below.
-        </div>
-      )}
-
-      {/*
-        No payment step anywhere in here: this course is booked with a package, so the server
-        confirms the place and takes one lesson off the balance as soon as they choose a date.
-      */}
-      {booking && <BookingCalendar courseSlug={courseSlug} embedded />}
-      {showingBookings && <MyBookings embedded />}
-    </Scope>
+    </section>
   )
 }
 
 /**
- * Signing in.
+ * Signing in, as a block rather than a gate.
  *
- * Deliberately not the general "book a class" form: this page is only for people the studio has
- * already enrolled, so there is nothing to fill in but the address they were enrolled with.
+ * Only asks for the address they enrolled with. This is not a form for new students — the studio
+ * enrols them once the course fee is paid, so there is nothing here to sign up for.
  */
 function SignIn({ courseName, onSignedIn }: { courseName: string; onSignedIn: () => void }) {
   const [email, setEmail] = useState('')
@@ -198,15 +261,10 @@ function SignIn({ courseName, onSignedIn }: { courseName: string; onSignedIn: ()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  /*
-   * Come back to this page, not the general booking page.
-   *
-   * The link carries where to return to, so a student who signs in from here lands back on their
-   * own course rather than on the calendar of everything the studio teaches.
-   */
+  /* Come back to this page: signing in should not land them on the general booking calendar. */
   const returnTo = `${window.location.origin}${window.location.pathname}${window.location.search}`
 
-  // The link opens in this tab and the session cookie is set by then, so a reload signs them in.
+  // The link opens in this tab, so the session exists by the time the window is looked at again.
   useEffect(() => {
     const onFocus = () => void onSignedIn()
     window.addEventListener('focus', onFocus)
@@ -214,58 +272,58 @@ function SignIn({ courseName, onSignedIn }: { courseName: string; onSignedIn: ()
   }, [onSignedIn])
 
   return (
-    <div className="mzk-panel mzk-portal-signin">
-      <h2 className="mzk-portal-title">{courseName} students</h2>
-      <p className="mzk-muted">
-        Your lessons are included in your course fee, so there is nothing to pay here. Sign in with
-        the email address you enrolled with and book whichever dates suit you.
+    <section className="mzk-cp-account">
+      <h3 className="mzk-cp-signin-title">Already taking {courseName}?</h3>
+      <p className="mzk-muted mzk-small">
+        Your lessons are included in your course fee, so there is nothing to pay. Sign in with the
+        email address you enrolled with to book them and see how many you have left.
       </p>
 
       {sent ? (
         <div className="mzk-note mzk-note-ok">
-          If that address is enrolled with us, a sign-in link is on its way. It works once and
-          lasts 30 minutes — open it on this device and you will land back here.
+          If that address is enrolled with us, a sign-in link is on its way. It works once and lasts
+          30 minutes — open it on this device and you will land back here.
         </div>
       ) : (
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault()
-            if (!email.trim()) return
-            setBusy(true)
-            setError(null)
-            try {
-              await widgetApi.requestMagicLink(email.trim(), returnTo)
-              setSent(true)
-            } catch {
-              setError('We could not send that just now. Please try again in a moment.')
-            } finally {
-              setBusy(false)
-            }
-          }}
-        >
-          <label className="mzk-field">
-            <span>Email</span>
-            <input
-              type="email"
-              required
-              autoComplete="email"
-              value={email}
-              placeholder="you@example.com"
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </label>
-
-          {error && <div className="mzk-note mzk-note-error">{error}</div>}
-
-          <button type="submit" className="mzk-btn mzk-btn-primary" disabled={busy}>
-            {busy ? 'Sending…' : 'Email me a sign-in link'}
-          </button>
-          <p className="mzk-muted mzk-small" style={{ marginTop: 10 }}>
-            No password needed.
-          </p>
-        </form>
+        <>
+          <form
+            className="mzk-cp-signin-form"
+            onSubmit={async (e) => {
+              e.preventDefault()
+              if (!email.trim()) return
+              setBusy(true)
+              setError(null)
+              try {
+                await widgetApi.requestMagicLink(email.trim(), returnTo)
+                setSent(true)
+              } catch {
+                setError('We could not send that just now. Please try again in a moment.')
+              } finally {
+                setBusy(false)
+              }
+            }}
+          >
+            <label className="mzk-field mzk-cp-signin-field">
+              <span>Email</span>
+              <input
+                type="email"
+                required
+                autoComplete="email"
+                value={email}
+                placeholder="you@example.com"
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </label>
+            <button type="submit" className="mzk-btn mzk-btn-primary" disabled={busy}>
+              {busy ? 'Sending…' : 'Email me a sign-in link'}
+            </button>
+          </form>
+          <p className="mzk-muted mzk-small">No password needed.</p>
+        </>
       )}
-    </div>
+
+      {error && <div className="mzk-note mzk-note-error">{error}</div>}
+    </section>
   )
 }
 
