@@ -312,7 +312,14 @@ async function buildActions(
   }
 
   // Placeholder class sizes are a setup task the studio must finish before going public.
-  const placeholderCount = await SessionModel.countDocuments({ capacity: 8, startAt: { $gte: now } })
+  //
+  // "Every class is 8" is only evidence of an unfinished setup while 8 is still the number nobody
+  // chose. Once the studio has set a size deliberately — even if the size it chose is 8 — the
+  // task is done, and a warning that cannot be cleared by doing what it asks is just noise.
+  const everSet = await AuditLogModel.exists({ action: 'course.classSizeSet' })
+  const placeholderCount = everSet
+    ? 0
+    : await SessionModel.countDocuments({ capacity: 8, startAt: { $gte: now } })
   const totalUpcoming = await SessionModel.countDocuments({ startAt: { $gte: now } })
   if (totalUpcoming > 0 && placeholderCount === totalUpcoming) {
     actions.push({

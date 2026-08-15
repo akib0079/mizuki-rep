@@ -32,10 +32,70 @@ interface SeatDrift {
   actualSeatsTaken: number
 }
 
+interface ClassSizePlan {
+  courseName: string
+  capacity: number
+  willChange: number
+  alreadyCorrect: number
+  keptCustom: number
+  rulesChanged: number
+  blocked: { id: string; dateKey: string; title: string; occupied: number }[]
+}
+
+interface ClassSizeResult extends ClassSizePlan {
+  changed: number
+}
+
+const classes = (n: number) => `${n} class${n === 1 ? '' : 'es'}`
+
+/**
+ * The question asked before the size is written.
+ *
+ * Written as plain sentences rather than a count, because the studio is being asked to approve a
+ * change to classes it cannot see from this page — including, potentially, ones students have
+ * already booked into.
+ */
+function describeClassSizePlan(plan: ClassSizePlan): string {
+  const lines = [`Set ${plan.courseName} classes to ${plan.capacity} students?`, '']
+
+  if (plan.willChange > 0) lines.push(`• ${classes(plan.willChange)} on the calendar will change to ${plan.capacity}.`)
+  if (plan.alreadyCorrect > 0) lines.push(`• ${classes(plan.alreadyCorrect)} are already this size.`)
+  if (plan.rulesChanged > 0) lines.push(`• New classes from your weekly timetable will be created at ${plan.capacity}.`)
+  if (plan.keptCustom > 0) lines.push(`• ${classes(plan.keptCustom)} you sized by hand will be left as they are.`)
+
+  if (plan.blocked.length > 0) {
+    lines.push('', `${classes(plan.blocked.length)} cannot be made this small — students are already booked in:`)
+    for (const b of plan.blocked.slice(0, 5)) {
+      lines.push(`• ${b.dateKey} ${b.title} — ${b.occupied} place(s) taken`)
+    }
+    if (plan.blocked.length > 5) lines.push(`• …and ${plan.blocked.length - 5} more`)
+    lines.push('', 'These will keep their current size. Everything else will change.')
+  }
+
+  if (plan.willChange === 0 && plan.rulesChanged === 0 && plan.blocked.length === 0) {
+    lines.push('• Nothing on the calendar needs to change.')
+  }
+
+  return lines.join('\n')
+}
+
+/** What actually happened, in the same words the question used. */
+function describeClassSizeResult(result: ClassSizeResult): string {
+  const parts = [`${result.courseName} classes are now ${result.capacity} students.`]
+  if (result.changed > 0) parts.push(`${classes(result.changed)} updated.`)
+  if (result.keptCustom > 0) parts.push(`${classes(result.keptCustom)} sized by hand were left alone.`)
+  if (result.blocked.length > 0) {
+    parts.push(`${classes(result.blocked.length)} kept their size because students are already booked in.`)
+  }
+  return parts.join(' ')
+}
+
 /** Course policy, phone alerts, and the maintenance levers. */
 export function SettingsPage({ totpEnabled }: { totpEnabled: boolean }) {
   const queryClient = useQueryClient()
   const [message, setMessage] = useState<{ kind: 'ok' | 'danger'; text: string } | null>(null)
+  /** Bumped after every class-size attempt, to remount the size boxes from the saved values. */
+  const [classSizeRev, setClassSizeRev] = useState(0)
 
   const coursesQuery = useQuery({
     queryKey: ['courses'],
@@ -55,6 +115,41 @@ export function SettingsPage({ totpEnabled }: { totpEnabled: boolean }) {
       void queryClient.invalidateQueries({ queryKey: ['courses'] })
     },
     onError: (err) => setMessage({ kind: 'danger', text: err instanceof ApiError ? err.message : 'Could not save.' }),
+  })
+
+  /*
+   * Class size is not an ordinary course field, so it does not go through `courseMutation`.
+   *
+   * The number lives in three places — the course default, the weekly timetable rules, and every
+   * class already on the calendar — and writing only the first is what made this setting look
+   * like it worked while the calendar stayed full of classes for 8. So it is asked about first:
+   * the API says how many classes would change, how many were set by hand, and how many cannot
+   * shrink because students are already booked, and the studio confirms with those numbers in
+   * front of it.
+   */
+  const classSizeMutation = useMutation({
+    mutationFn: async (input: { id: string; capacity: number }) => {
+      const plan = await api.get<ClassSizePlan>(
+        `/api/admin/settings/courses/${input.id}/class-size?capacity=${input.capacity}`,
+      )
+      if (!confirm(describeClassSizePlan(plan))) return null
+      return api.post<ClassSizeResult>(`/api/admin/settings/courses/${input.id}/class-size`, {
+        capacity: input.capacity,
+      })
+    },
+    onSuccess: (result) => {
+      // Cancelling at the confirmation is not a failure and needs no announcement.
+      if (!result) return
+      setMessage({ kind: 'ok', text: describeClassSizeResult(result) })
+      void queryClient.invalidateQueries({ queryKey: ['courses'] })
+      void queryClient.invalidateQueries({ queryKey: ['admin-sessions'] })
+      void queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    },
+    onError: (err) => setMessage({ kind: 'danger', text: err instanceof ApiError ? err.message : 'Could not save.' }),
+    // Whatever the outcome, the box must show the size that is actually saved. Cancelling and
+    // failing both leave the typed number on screen otherwise, quietly claiming a size the
+    // studio does not have — so the input is remounted from the server's value every time.
+    onSettled: () => setClassSizeRev((rev) => rev + 1),
   })
 
   const repairMutation = useMutation({
@@ -87,7 +182,9 @@ export function SettingsPage({ totpEnabled }: { totpEnabled: boolean }) {
       <div className="card">
         <h2 className="card-title">Courses</h2>
         <p className="card-sub">
-          How each course is paid for, and how late a student may change their booking.
+          How each course is paid for, and how late a student may change their booking. Changing a
+          class size updates the classes already on your calendar as well, so you are asked to
+          confirm it first.
         </p>
 
         <div className="table-wrap">
@@ -99,7 +196,7 @@ export function SettingsPage({ totpEnabled }: { totpEnabled: boolean }) {
                 <th>Shop product</th>
                 <th>Confirm by hand</th>
                 <th>Notice to change</th>
-                <th>Default class size</th>
+                <th>Class size</th>
                 <th />
               </tr>
             </thead>
@@ -188,11 +285,13 @@ export function SettingsPage({ totpEnabled }: { totpEnabled: boolean }) {
                       max={200}
                       className="btn btn-sm"
                       style={{ width: 74 }}
+                      key={`${c.id}-${c.defaultCapacity}-${classSizeRev}`}
                       defaultValue={c.defaultCapacity}
+                      disabled={classSizeMutation.isPending}
                       onBlur={(e) => {
                         const value = Number(e.target.value)
-                        if (value !== c.defaultCapacity) {
-                          courseMutation.mutate({ id: c.id, patch: { defaultCapacity: value } as Partial<Course> })
+                        if (value !== c.defaultCapacity && Number.isInteger(value) && value >= 1) {
+                          classSizeMutation.mutate({ id: c.id, capacity: value })
                         }
                       }}
                     />

@@ -222,6 +222,18 @@ adminSessionsRouter.patch(
     }
 
     if (input.capacity !== undefined && input.capacity !== session.capacity) {
+      // A class can never be oversold — including from this side. Shrinking the room below the
+      // people already standing in it would leave `seatsTaken` above `capacity`, which every
+      // seat count, every "places left" line and the booking check itself read as nonsense.
+      // The studio has to move those students out first; that is not a decision to infer here.
+      const occupied = session.seatsTaken + session.heldBack
+      if (input.capacity < occupied) {
+        throw new AppError(
+          422,
+          'invalid_capacity',
+          `This class already has ${occupied} place(s) taken, so its size cannot be set to ${input.capacity}.`,
+        )
+      }
       session.capacity = input.capacity
       overridden.add('capacity')
     }

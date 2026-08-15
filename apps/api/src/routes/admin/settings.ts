@@ -37,6 +37,7 @@ import {
   setPlain,
   setSecret,
 } from '../../services/secretStore.js'
+import { applyClassSize, planClassSize } from '../../services/classSizeService.js'
 import { materializeSessions } from '../../services/scheduleService.js'
 import { findSeatDrift, repairSeatDrift } from '../../services/seatService.js'
 import { recordAudit } from '../../services/auditService.js'
@@ -103,6 +104,36 @@ adminSettingsRouter.patch(
     }
 
     res.json({ course: { id: String(course!._id), name: course!.name } })
+  }),
+)
+
+/**
+ * What setting this class size would do, before the studio commits to it.
+ *
+ * The size is stored in three places (see `classSizeService`), and one of them is the calendar
+ * the studio is looking at. Changing that many rows on a blind "save" would be the wrong shape
+ * of button, so the settings page asks first and shows these numbers in the question.
+ */
+adminSettingsRouter.get(
+  '/courses/:id/class-size',
+  asyncRoute(async (req, res) => {
+    const capacity = z.coerce.number().int().min(1).max(200).parse(req.query.capacity)
+    res.json(await planClassSize(req.params.id!, capacity))
+  }),
+)
+
+/**
+ * Set the class size for a course everywhere it is written down.
+ *
+ * Separate from the course PATCH above because it is a different operation: PATCH edits the
+ * course row, this reaches into the timetable rules and the classes already on the calendar.
+ * Folding it into PATCH would mean a settings save could quietly rewrite hundreds of classes.
+ */
+adminSettingsRouter.post(
+  '/courses/:id/class-size',
+  asyncRoute(async (req, res) => {
+    const { capacity } = z.object({ capacity: z.number().int().min(1).max(200) }).parse(req.body)
+    res.json(await applyClassSize(req.params.id!, capacity, actorOf(req)))
   }),
 )
 
