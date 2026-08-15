@@ -12,6 +12,9 @@ export default defineConfig({
       // In development the console talks to the API on another port; cookies need
       // a same-origin path, so proxy rather than calling across origins.
       '/api': { target: 'http://localhost:4000', changeOrigin: true },
+      // Country flags live with the API. In production the console is served from that same
+      // origin, so this only exists to make development match what the studio will see.
+      '/flags': { target: 'http://localhost:4000', changeOrigin: true },
     },
   },
 })

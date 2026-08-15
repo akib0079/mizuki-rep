@@ -1110,21 +1110,108 @@
  * separate questions. The picker takes only what it needs so the number keeps the room.
  */
 .mzk-phone-row { display: flex; gap: 8px; align-items: stretch; }
-.mzk-phone-country { flex: 0 0 auto; max-width: 44%; margin: 0; }
-.mzk-phone-country select {
+/* Only as wide as a flag and two letters, so the number gets the rest of the line. */
+.mzk-phone-country { position: relative; flex: 0 0 auto; margin: 0; }
+
+/*
+ * The real control, laid over the box below and made invisible.
+ *
+ * Every !important here is answering the shared field rule further up, which carries its own.
+ * Nothing about how a select normally looks survives — the point is that it is felt and not
+ * seen, so that clicking anywhere on the box opens the platform's own list of country names.
+ */
+.mzk .mzk-phone-country select {
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 2 !important;
+  width: 100% !important;
+  height: 100% !important;
+  padding: 0 !important;
+  border: 0 !important;
+  opacity: 0 !important;
+  cursor: pointer !important;
+  /* 16px still, because iOS zooms the page for anything smaller when it takes focus. */
+  font-size: 16px !important;
+}
+
+/* What is actually drawn: a field, to look like the one beside it. */
+.mzk-phone-chosen {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 100%;
+  padding: 11px 11px 11px 13px;
+  border: 1px solid var(--mzk-line);
+  border-radius: 10px;
+  background: var(--mzk-bg);
+  line-height: 1.4;
+}
+.mzk-phone-code { font-size: 16px; font-weight: 600; color: var(--mzk-ink); letter-spacing: 0.01em; }
+.mzk-phone-caret { flex: 0 0 auto; color: var(--mzk-soft); }
+
+/* The focus ring belongs on the box the eye is on, not on the invisible thing that has focus. */
+.mzk .mzk-phone-country select:focus-visible + .mzk-phone-chosen {
+  border-color: var(--mzk-accent);
+  outline: 2px solid var(--mzk-accent-light);
+  outline-offset: 0;
+}
+
+.mzk-phone-number { flex: 1; min-width: 0; }
+
+/*
+ * The flag itself: flat, hairline-edged, no gloss and no wave.
+ *
+ * The country code is real text inside the box and the picture covers it, so a flag that never
+ * loads leaves "MY" behind rather than a broken-image icon — and the box holds its size either
+ * way, so nothing on the line moves when the picture arrives.
+ */
+.mzk-flag {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 21px;
+  height: 15px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--mzk-canvas);
+  /*
+   * The edge has to be visible, not merely present: a third of these flags are white along the
+   * bottom or the sides — Singapore, Indonesia, Japan, Poland — and against a white dialog they
+   * read as a red blob with a rounded corner unless something draws the rectangle for them.
+   */
+  box-shadow: inset 0 0 0 1px rgba(38, 49, 58, 0.32);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--mzk-soft);
+  vertical-align: -3px;
+}
+/* The fallback, drawn rather than written, so it never lands in a copied line or a screen reader. */
+.mzk-flag::before { content: attr(data-code); }
+.mzk-flag img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--mzk-line);
-  border-radius: 8px;
-  background: var(--mzk-bg);
-  font: inherit;
-  color: var(--mzk-ink);
+  object-fit: cover;
+  display: block;
+  /* The theme's own image rules would otherwise give it a border or a margin here. */
+  border: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  max-width: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
-.mzk-phone-number { flex: 1; min-width: 0; }
 
 /* Sits under the field it qualifies, quieter than a field label. */
 .mzk-abroad { margin: -4px 0 14px; font-size: 14px; }
+/* The flag and the words either side of it, evenly spaced and on the same centre line. */
+.mzk-abroad > span { display: inline-flex; align-items: center; gap: 6px; }
+.mzk-abroad .mzk-flag { vertical-align: baseline; }
 
 /* Reachable by a screen reader, invisible on screen — the select is labelled by its own options. */
 .mzk-sr {
@@ -1137,8 +1224,8 @@
   border: 0;
 }
 
-@media (max-width: 480px) {
-  /* Two controls on a 390px line leaves the number four characters wide. */
-  .mzk-phone-row { flex-direction: column; }
-  .mzk-phone-country { max-width: none; }
-}
+/*
+ * These used to stack on a phone: the picker carried a full country name and a dialling code, and
+ * two of those on a 390px line left the number four characters wide. A flag and two letters is
+ * about 85px, so they share the line now even on the narrowest phone.
+ */

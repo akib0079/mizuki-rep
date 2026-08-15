@@ -1856,3 +1856,40 @@ h3 { letter-spacing: -0.01em; }
   .courses-layout { grid-template-columns: minmax(0, 1fr); }
   .course-editor-head { flex-direction: column; }
 }
+
+/* --- A country's flag, drawn flat -------------------------------------------- */
+
+/*
+ * The same icon the booking form shows, so a number reads identically in both places.
+ *
+ * Not the flag emoji: that is drawn by the operating system, and Windows — which is what the
+ * studio uses — ships no flag glyphs at all, so it rendered the bare letters while a phone
+ * rendered a glossy waving one. The country code sits underneath the picture here too, so a flag
+ * that fails to load leaves something readable rather than a broken-image icon.
+ */
+.flag {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 19px;
+  height: 14px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--canvas);
+  box-shadow: inset 0 0 0 1px rgba(31, 39, 51, 0.32);
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ink-faint);
+  vertical-align: -2px;
+  margin-right: 5px;
+}
+/* The fallback, drawn rather than written, so it never lands in a copied row or a screen reader. */
+.flag::before { content: attr(data-code); }
+.flag img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Keeps the flag, the country code and the number together when a narrow column wraps. */
+.phone-abroad { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.phone-abroad .flag { margin-right: 1px; }

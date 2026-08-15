@@ -44,24 +44,21 @@ export interface Country {
   code: string
   name: string
   dial: string
-  flag: string
 }
 
 /**
- * The flag as an emoji, built from the country code itself.
+ * Where a country's flag lives, under whatever host is serving /flags.
  *
- * Two regional-indicator letters, which every emoji font composes into a flag — no image files,
- * no CDN, and nothing to load inside a shadow root. Windows is the exception: it ships no flag
- * glyphs and renders the two letters instead, which still reads correctly ("SG"), so this
- * degrades to something useful rather than to a blank.
+ * Flat artwork rather than the flag emoji. An emoji flag is drawn by the operating system, so the
+ * same page shows Apple's glossy waving version on a Mac, a flat one on Android, and — because
+ * Windows ships no flag glyphs at all — the bare letters "SG" on the studio's own laptop. A file
+ * we serve looks the same everywhere and matches the rest of the interface.
+ *
+ * Anything that cannot be a country code is stripped rather than passed through: this value ends
+ * up in a URL.
  */
-export function flagEmoji(code: string): string {
-  return code
-    .toUpperCase()
-    .replace(/[^A-Z]/g, '')
-    .split('')
-    .map((c) => String.fromCodePoint(0x1f1e6 + c.charCodeAt(0) - 65))
-    .join('')
+export function flagFile(code: string): string {
+  return `${code.toLowerCase().replace(/[^a-z]/g, '')}.svg`
 }
 
 /** A country's name in English, from the platform's own list. */
@@ -84,7 +81,6 @@ export function countryList(): Country[] {
     code,
     name: countryName(code),
     dial: DIAL_CODES[code]!,
-    flag: flagEmoji(code),
   }))
 
   const home = all.filter((c) => c.code === STUDIO_COUNTRY)

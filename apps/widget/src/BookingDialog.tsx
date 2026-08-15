@@ -3,13 +3,13 @@ import { DateTime } from 'luxon'
 import {
   STUDIO_COUNTRY,
   countryList,
-  flagEmoji,
   formatDuration,
   formatInternational,
   formatTimeRange,
   toStudio,
   type PublicSession,
 } from '@mizuki/shared'
+import { CountryFlag } from './CountryFlag.js'
 import { ApiError, widgetApi, type StartBookingResult, type StudentProfile } from './api.js'
 
 /**
@@ -225,6 +225,16 @@ export function BookingDialog({
                     <div className="mzk-field">
                       <span>Phone</span>
                       <div className="mzk-phone-row">
+                        {/*
+                          Closed, this shows a flag and two letters and nothing else, so the
+                          number keeps the line. Open, it has to show two hundred country names,
+                          or nobody can find theirs.
+
+                          A native menu cannot do both — it draws whatever the chosen option says.
+                          So the select is stretched over this box and made invisible: it still
+                          takes the click, still opens the platform's own list with the full names
+                          in it, and still gives a phone its scroll wheel. What is drawn is ours.
+                        */}
                         <label className="mzk-phone-country">
                           <span className="mzk-sr">Country</span>
                           <select
@@ -233,10 +243,17 @@ export function BookingDialog({
                           >
                             {countries.map((c) => (
                               <option key={c.code} value={c.code}>
-                                {c.flag} {c.name} +{c.dial}
+                                {c.name} ({c.code}) +{c.dial}
                               </option>
                             ))}
                           </select>
+                          <span className="mzk-phone-chosen" aria-hidden>
+                            <CountryFlag code={form.phoneCountry || STUDIO_COUNTRY} />
+                            <span className="mzk-phone-code">{form.phoneCountry || STUDIO_COUNTRY}</span>
+                            <svg className="mzk-phone-caret" viewBox="0 0 12 8" width="10" height="7">
+                              <path d="M1 1.5 6 6.5 11 1.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          </span>
                         </label>
                         <input
                           type="tel"
@@ -287,7 +304,13 @@ export function BookingDialog({
                         setForm((f) => ({ ...f, phone: '', phoneCountry: e.target.checked ? '' : '' }))
                       }}
                     />
-                    <span>Not from {flagEmoji(STUDIO_COUNTRY)} Singapore?</span>
+                    {/* Split so the spacing either side of the flag comes from one gap rather
+                        than from a literal space on one side and none on the other. */}
+                    <span>
+                      {'Not from'}
+                      <CountryFlag code={STUDIO_COUNTRY} />
+                      {'Singapore?'}
+                    </span>
                   </label>
                 </>
               )}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { sessionAvailability } from './rules.js'
-import { STUDIO_COUNTRY, dialCode, flagEmoji, formatInternational } from './countries.js'
+import { STUDIO_COUNTRY, countryList, dialCode, flagFile, formatInternational } from './countries.js'
 
 /**
  * The two rules a student sees the result of but never the working of.
@@ -82,10 +82,22 @@ describe('a number from outside Singapore', () => {
     expect(formatInternational(null, '9123 4567')).toBe('9123 4567')
   })
 
-  it('builds a flag from the country code itself', () => {
-    // Two regional indicators — 🇸🇬 — so there is no image to load inside a shadow root.
-    expect(flagEmoji('SG')).toBe('\u{1F1F8}\u{1F1EC}')
-    expect(flagEmoji(STUDIO_COUNTRY)).toBe('\u{1F1F8}\u{1F1EC}')
-    expect([...flagEmoji('MY')]).toHaveLength(2)
+  it('names the flag file after the country code', () => {
+    expect(flagFile('SG')).toBe('sg.svg')
+    expect(flagFile(STUDIO_COUNTRY)).toBe('sg.svg')
+    expect(flagFile('my')).toBe('my.svg')
+  })
+
+  it('strips anything that is not a country code, because this value reaches a URL', () => {
+    expect(flagFile('../../etc/passwd')).toBe('etcpasswd.svg')
+    expect(flagFile('sg/../..')).toBe('sg.svg')
+  })
+
+  it('offers every country with a name and a code, and puts Singapore first', () => {
+    const list = countryList()
+    expect(list[0]!.code).toBe(STUDIO_COUNTRY)
+    expect(list[0]!.name).toBe('Singapore')
+    expect(list).toHaveLength(224)
+    expect(list.every((c) => c.code.length === 2 && c.name && c.dial)).toBe(true)
   })
 })

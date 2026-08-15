@@ -1,3 +1,4 @@
+import { flagFile } from '@mizuki/shared'
 import type { PublicCalendarDay, PublicSession } from '@mizuki/shared'
 
 /** How a student reaches the studio, shown wherever they might need to ask something. */
@@ -166,6 +167,12 @@ export const widgetApi = {
 
   /** Absolute, because the browser downloads it directly rather than fetching it. */
   calendarUrl: (bookingId: string) => `${apiBase}/api/bookings/${bookingId}/calendar.ics`,
+
+  /**
+   * A country's flat flag. Absolute for the same reason: the widget runs on the WordPress site,
+   * and the picture is served by the booking system.
+   */
+  flagUrl: (country: string) => `${apiBase}/flags/${flagFile(country)}`,
 
   requestMagicLink: (email: string, redirectTo?: string) =>
     request<{ ok: boolean; message: string }>('/api/auth/magic-link', {

@@ -1,5 +1,6 @@
 import path from 'node:path'
 import { existsSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import express, { type Express } from 'express'
 import helmet from 'helmet'
@@ -119,12 +120,52 @@ export function createApp(): Express {
   app.use('/api/admin/notifications', requireAdmin, adminNotificationsRouter)
   app.use('/api/admin/admins', requireAdmin, adminAdminsRouter)
 
+  mountFlags(app)
   mountAdminConsole(app)
 
   app.use(notFoundHandler)
   app.use(errorHandler)
 
   return app
+}
+
+/**
+ * Serve the flat country flags at /flags/sg.svg.
+ *
+ * Flags appear in two places — the country picker on the booking form, and beside a foreign phone
+ * number in the console — and both need the same picture. Serving them from here rather than
+ * bundling them means the widget stays one small file: at most one flag is ever on screen, so the
+ * browser fetches one 1KB SVG instead of the student downloading all two hundred.
+ *
+ * The artwork comes straight from the installed package rather than a copy in this repository, so
+ * there is nothing to keep in step by hand. Anything that fails to load falls back to the country
+ * code in the interface, which is why a missing folder here is a warning and not a failure.
+ */
+function mountFlags(app: Express): void {
+  let dir: string
+  try {
+    const require = createRequire(import.meta.url)
+    dir = path.join(path.dirname(require.resolve('flag-icons/package.json')), 'flags', '4x3')
+  } catch {
+    logger.warn('Country flags are not installed — the picker will show country codes instead')
+    return
+  }
+
+  if (!existsSync(dir)) {
+    logger.warn({ dir }, 'Country flags are not installed — the picker will show country codes instead')
+    return
+  }
+
+  app.use(
+    '/flags',
+    express.static(dir, {
+      index: false,
+      // A country's flag is the same picture tomorrow, and the filename is the country code, so
+      // there is no version to bust — a year in the browser cache costs one request per student.
+      maxAge: '365d',
+      immutable: true,
+    }),
+  )
 }
 
 /**

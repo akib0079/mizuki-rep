@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { STUDIO_COUNTRY, flagEmoji } from '@mizuki/shared'
+import { STUDIO_COUNTRY } from '@mizuki/shared'
 import { ApiError, api, type StudentSummary } from '../api.js'
+import { CountryFlag } from '../components/CountryFlag.js'
 import { StudentDrawer } from '../components/StudentDrawer.js'
 import { NewStudentDialog } from '../components/NewStudentDialog.js'
 import { Icon } from './../components/Icon.js'
@@ -246,8 +247,9 @@ export function StudentsPage() {
 function PhoneWithFlag({ phone, country }: { phone: string; country?: string }) {
   if (!country || country === STUDIO_COUNTRY) return <>{phone}</>
   return (
-    <span title={country}>
-      <span aria-hidden>{flagEmoji(country)}</span> {phone}
+    <span className="phone-abroad" title={country}>
+      <CountryFlag code={country} />
+      {country} {phone}
     </span>
   )
 }
