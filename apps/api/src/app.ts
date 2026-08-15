@@ -12,6 +12,7 @@ import { authRouter } from './routes/auth.js'
 import { bookingRouter } from './routes/bookings.js'
 import { adminSessionsRouter } from './routes/admin/sessions.js'
 import { adminStudentsRouter } from './routes/admin/students.js'
+import { adminProgrammesRouter } from './routes/admin/programmes.js'
 import { adminClosedDatesRouter } from './routes/admin/closedDates.js'
 import { adminSettingsRouter } from './routes/admin/settings.js'
 import { adminNotificationsRouter } from './routes/admin/notifications.js'
@@ -117,6 +118,7 @@ export function createApp(): Express {
   app.use('/api/admin/students', requireAdmin, adminStudentsRouter)
   app.use('/api/admin/closed-dates', requireAdmin, adminClosedDatesRouter)
   app.use('/api/admin/settings', requireAdmin, adminSettingsRouter)
+  app.use('/api/admin/programmes', requireAdmin, adminProgrammesRouter)
   app.use('/api/admin/notifications', requireAdmin, adminNotificationsRouter)
   app.use('/api/admin/admins', requireAdmin, adminAdminsRouter)
 

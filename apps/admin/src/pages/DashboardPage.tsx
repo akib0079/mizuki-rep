@@ -49,6 +49,8 @@ interface Dashboard {
     bookingsThisMonth: number
     activeStudents: number
   }
+  /** Courses shown on their own page, and therefore left out of everything above. */
+  separateCourses: string[]
   actions: DashboardAction[]
   todayClasses: ClassRow[]
   upcomingClasses: ClassRow[]
@@ -113,6 +115,20 @@ export function DashboardPage() {
         </button>
       </div>
 
+      {/*
+        Say what this page is not counting.
+        Without this line the numbers below are quietly wrong to read: "2 classes today" looks
+        like the whole studio, when IFDA's classes are on their own page. Naming the courses is
+        what makes the figures trustworthy rather than merely accurate.
+      */}
+      {data.separateCourses.length > 0 && (
+        <div className="banner banner-info">
+          {data.separateCourses.join(' and ')} {data.separateCourses.length === 1 ? 'has' : 'have'} a
+          separate page, so {data.separateCourses.length === 1 ? 'its' : 'their'} classes and
+          bookings are not counted below.
+        </div>
+      )}
+
       {/* Decisions before figures. */}
       <div className="actions-panel">
         <h2>
@@ -163,7 +179,9 @@ export function DashboardPage() {
         <StatCard
           label="Students on file"
           value={data.stats.activeStudents}
-          foot="All time"
+          // The one figure here that is deliberately whole-studio: it is the address book, and
+          // a student who does IFDA and a workshop is still one person on it.
+          foot="Everyone, including separate courses"
           icon="◍"
           tone="amber"
         />

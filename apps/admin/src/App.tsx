@@ -11,6 +11,7 @@ import { TemplatesPage } from './pages/TemplatesPage.js'
 import { SettingsPage } from './pages/SettingsPage.js'
 import { PaymentsPage } from './pages/PaymentsPage.js'
 import { CoursesPage } from './pages/CoursesPage.js'
+import { ProgrammePage } from './pages/ProgrammePage.js'
 import { TeamPage } from './pages/TeamPage.js'
 import { AcceptInvitePage } from './pages/AcceptInvitePage.js'
 import { NotificationBell } from './components/NotificationBell.js'
@@ -52,6 +53,18 @@ export function App() {
     queryFn: () => api.get<Me>('/api/auth/admin/me'),
     retry: false,
   })
+
+  /*
+   * Which courses have their own section. Driven by a setting rather than a constant, so moving
+   * a course in or out of its own page is something the studio can do from the settings page.
+   * Only fetched once signed in — before that there is nothing to navigate.
+   */
+  const { data: programmeData } = useQuery({
+    queryKey: ['programmes'],
+    queryFn: () => api.get<{ programmes: { id: string; name: string; colour: string }[] }>('/api/admin/programmes'),
+    enabled: Boolean(data),
+  })
+  const programmes = programmeData?.programmes ?? []
 
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('mzk.sidebar') === 'collapsed')
   const [paletteOpen, setPaletteOpen] = useState(false)
@@ -175,6 +188,23 @@ export function App() {
           </NavLink>
         ))}
 
+        {/*
+          Courses run as programmes get their own heading rather than a row among the rest.
+          IFDA is a different kind of thing from "Calendar" or "Emails" — it is a place the
+          studio goes to work on one course — and a heading is what says so at a glance.
+        */}
+        {programmes.length > 0 && (
+          <>
+            <div className="side-heading">Courses</div>
+            {programmes.map((p) => (
+              <NavLink key={p.id} to={`/programme/${p.id}`} className={navClass} title={p.name}>
+                <span className="nav-icon"><Icon name="programme" /></span>
+                <span className="nav-label">{p.name}</span>
+              </NavLink>
+            ))}
+          </>
+        )}
+
         <div className="side-heading">Studio</div>
         {NAV.map((item) => (
           <NavLink
@@ -250,6 +280,7 @@ export function App() {
             <Route path="/students" element={<StudentsPage />} />
             <Route path="/payments" element={<PaymentsPage />} />
             <Route path="/courses" element={<CoursesPage />} />
+            <Route path="/programme/:id" element={<ProgrammePage />} />
             <Route path="/closed-dates" element={<ClosedDatesPage />} />
             <Route path="/templates" element={<TemplatesPage adminEmail={data.admin.email} />} />
             <Route path="/team" element={<TeamPage currentAdminId={data.admin.id} />} />

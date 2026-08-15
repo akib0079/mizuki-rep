@@ -108,6 +108,8 @@ export interface Course {
   rescheduleCutoffHours: number
   defaultCapacity: number
   defaultDurationMins: number
+  /** True when this course has its own section of the console instead of the shared dashboard. */
+  managedSeparately: boolean
   /** Shop products that sell a place on this course. Empty means it cannot be bought yet. */
   wooProductIds: number[]
   /** True when a paid place waits for the studio to check the payment before it is confirmed. */

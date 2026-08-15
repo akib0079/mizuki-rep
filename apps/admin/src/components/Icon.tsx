@@ -29,10 +29,18 @@ export type IconName =
   | 'phone'
   | 'note'
   | 'ticket'
+  | 'programme'
   | 'close'
   | 'bell'
 
 const PATHS: Record<IconName, JSX.Element> = {
+  /* A certificate rosette: a course someone enrols in and completes, not a class they attend. */
+  programme: (
+    <>
+      <circle cx="12" cy="9" r="6" />
+      <path d="M8.5 14.5 7 22l5-2.5 5 2.5-1.5-7.5" />
+    </>
+  ),
   dashboard: (
     <>
       <rect x="3" y="3" width="7" height="9" rx="1.5" />

@@ -197,6 +197,7 @@ export function SettingsPage({ totpEnabled }: { totpEnabled: boolean }) {
                 <th>Confirm by hand</th>
                 <th>Notice to change</th>
                 <th>Class size</th>
+                <th>Own section</th>
                 <th />
               </tr>
             </thead>
@@ -299,6 +300,28 @@ export function SettingsPage({ totpEnabled }: { totpEnabled: boolean }) {
                         }
                       }}
                     />
+                  </td>
+                  <td>
+                    {/*
+                      A course big enough to bury the others — IFDA runs three times a week all
+                      year — gets its own page instead of competing with them on the dashboard.
+                    */}
+                    <label className="switch-label">
+                      <input
+                        type="checkbox"
+                        checked={c.managedSeparately}
+                        aria-label={`Give ${c.name} its own section`}
+                        onChange={(e) =>
+                          courseMutation.mutate({
+                            id: c.id,
+                            patch: { managedSeparately: e.target.checked } as Partial<Course>,
+                          })
+                        }
+                      />
+                      <span className="small muted">
+                        {c.managedSeparately ? 'Has its own page' : 'On the main dashboard'}
+                      </span>
+                    </label>
                   </td>
                   <td className="row-actions">
                     {/*

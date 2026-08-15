@@ -123,6 +123,8 @@ export const courseTypeInputSchema = z.object({
   cancelCutoffHours: z.number().int().min(0).max(720),
   defaultDurationMins: z.number().int().min(15).max(600),
   defaultCapacity: z.number().int().min(1).max(200),
+  /** Give this course its own section in the console rather than mixing it into the rest. */
+  managedSeparately: z.boolean().default(false),
   wooProductIds: z.array(z.number().int().positive()).default([]),
   requiresManualConfirmation: z.boolean().default(false),
   packageGrantSessions: z.number().int().min(0).max(200).default(0),

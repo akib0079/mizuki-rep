@@ -25,6 +25,21 @@ const courseTypeSchema = new Schema(
     defaultDurationMins: { type: Number, required: true, default: 150, min: 15 },
     defaultCapacity: { type: Number, required: true, default: 8, min: 1 },
 
+    /**
+     * Give this course its own section in the console, instead of mixing it into the rest.
+     *
+     * IFDA is the reason this exists. It is not one more workshop: it runs three times a week
+     * all year, it is bought as a block of sessions rather than a ticket, and its students are
+     * enrolled for months. On the shared dashboard it drowned everything else — 121 of 139
+     * classes — so the studio could not see the workshops at all, and the thing it actually
+     * needed to track about IFDA (who is enrolled, how many sessions they have left) was not
+     * on that dashboard in the first place.
+     *
+     * A flag rather than a hardcoded slug: the studio can move another course in or out of its
+     * own section from the settings page, without anyone editing code.
+     */
+    managedSeparately: { type: Boolean, default: false },
+
     /** WooCommerce products that sell a seat (or a package) for this course. */
     wooProductIds: { type: [Number], default: [] },
 

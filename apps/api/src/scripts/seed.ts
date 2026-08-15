@@ -35,8 +35,13 @@ async function seedCourses(): Promise<Map<string, string>> {
           sortOrder: course.sortOrder,
           active: true,
         },
-        // Only applied on insert, so a class size the studio has since corrected is never clobbered.
-        $setOnInsert: { defaultCapacity: PLACEHOLDER_CAPACITY, wooProductIds: [] },
+        // Only applied on insert, so a class size the studio has since corrected is never
+        // clobbered — and neither is a course they have since moved out of its own section.
+        $setOnInsert: {
+          defaultCapacity: PLACEHOLDER_CAPACITY,
+          wooProductIds: [],
+          managedSeparately: course.managedSeparately ?? false,
+        },
       },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     )

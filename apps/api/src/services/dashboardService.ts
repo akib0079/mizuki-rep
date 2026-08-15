@@ -1,4 +1,5 @@
 import { DateTime } from 'luxon'
+import type { Types } from 'mongoose'
 import { STUDIO_TZ, isOverCapacity, seatsLeft, sessionsRemaining } from '@mizuki/shared'
 import {
   AuditLogModel,
@@ -45,6 +46,14 @@ export interface DashboardData {
     bookingsThisMonth: number
     activeStudents: number
   }
+  /**
+   * Courses shown on their own page instead of this one.
+   *
+   * Sent so the page can say where they went. A dashboard that silently omits most of the
+   * studio's classes is worse than one that never had them: the studio would reasonably read
+   * "2 classes today" as "the studio has 2 classes today" and plan around it.
+   */
+  separateCourses: string[]
   actions: DashboardAction[]
   todayClasses: ClassRow[]
   upcomingClasses: ClassRow[]
@@ -78,10 +87,32 @@ export async function buildDashboard(now: Date = new Date()): Promise<DashboardD
   const courses = await CourseTypeModel.find().lean()
   const courseById = new Map(courses.map((c) => [String(c._id), c]))
 
+  /*
+   * Courses with their own section are left out of this page entirely.
+   *
+   * Not a display preference — it is the whole point of separating them. IFDA runs three times
+   * a week all year, so on a shared dashboard it was 121 of 139 classes: every workshop, which
+   * is what this page exists to show, sat underneath a wall of IFDA. Counting it in the stats
+   * too would mean "12 students this week" was really "11 IFDA and 1 workshop", which answers
+   * nothing. Its own page counts it instead, so nothing is lost and nothing is counted twice.
+   */
+  const separated = courses.filter((c) => c.managedSeparately).map((c) => c._id)
+  const mainCourses = separated.length > 0 ? { courseTypeId: { $nin: separated } } : {}
+  const separatedNames = courses.filter((c) => c.managedSeparately).map((c) => c.name)
+
   const [todaySessions, weekSessions, upcoming] = await Promise.all([
-    SessionModel.find({ dateKey: todayKey, status: 'scheduled' }).sort({ startAt: 1 }).lean(),
-    SessionModel.find({ dateKey: { $gte: todayKey, $lte: weekEndKey }, status: 'scheduled' }).lean(),
-    SessionModel.find({ startAt: { $gte: now }, status: 'scheduled' }).sort({ startAt: 1 }).limit(8).lean(),
+    SessionModel.find({ ...mainCourses, dateKey: todayKey, status: 'scheduled' })
+      .sort({ startAt: 1 })
+      .lean(),
+    SessionModel.find({
+      ...mainCourses,
+      dateKey: { $gte: todayKey, $lte: weekEndKey },
+      status: 'scheduled',
+    }).lean(),
+    SessionModel.find({ ...mainCourses, startAt: { $gte: now }, status: 'scheduled' })
+      .sort({ startAt: 1 })
+      .limit(8)
+      .lean(),
   ])
 
   const toRow = (s: (typeof weekSessions)[number]): ClassRow => {
@@ -105,8 +136,26 @@ export async function buildDashboard(now: Date = new Date()): Promise<DashboardD
 
   const monthStart = studioNow.startOf('month').toJSDate()
 
+  /*
+   * This month's bookings, for the courses this page is about.
+   *
+   * A booking names a class, not a course, so the classes have to be joined to know which
+   * bookings belong here. Worth the aggregation: the page states that a separated course is not
+   * counted, and a headline figure that quietly counted it anyway would make that a lie.
+   */
+  const bookingsScoped =
+    separated.length > 0
+      ? BookingModel.aggregate<{ n: number }>([
+          { $match: { createdAt: { $gte: monthStart }, status: { $ne: 'cancelled' } } },
+          { $lookup: { from: 'sessions', localField: 'sessionId', foreignField: '_id', as: 'session' } },
+          { $unwind: '$session' },
+          { $match: { 'session.courseTypeId': { $nin: separated } } },
+          { $count: 'n' },
+        ]).then((rows) => rows[0]?.n ?? 0)
+      : BookingModel.countDocuments({ createdAt: { $gte: monthStart }, status: { $ne: 'cancelled' } })
+
   const [bookingsThisMonth, confirmedCount, heldCount, cancelledCount, activeStudents] = await Promise.all([
-    BookingModel.countDocuments({ createdAt: { $gte: monthStart }, status: { $ne: 'cancelled' } }),
+    bookingsScoped,
     BookingModel.countDocuments({ status: 'confirmed' }),
     BookingModel.countDocuments({ status: 'hold' }),
     BookingModel.countDocuments({ status: 'cancelled', cancelledAt: { $gte: monthStart } }),
@@ -120,7 +169,7 @@ export async function buildDashboard(now: Date = new Date()): Promise<DashboardD
 
   const [actions, packagesLow, recentActivity] = await Promise.all([
     buildActions(now, todayKey, weekSessions, courseById),
-    findLowPackages(now),
+    findLowPackages(now, separated),
     recentAudit(),
   ])
 
@@ -135,6 +184,7 @@ export async function buildDashboard(now: Date = new Date()): Promise<DashboardD
       bookingsThisMonth,
       activeStudents,
     },
+    separateCourses: separatedNames,
     actions,
     todayClasses: todaySessions.map(toRow),
     upcomingClasses: upcoming.map(toRow),
@@ -335,8 +385,16 @@ async function buildActions(
   return actions.sort((a, b) => order[a.severity] - order[b.severity]).slice(0, 12)
 }
 
-async function findLowPackages(now: Date) {
-  const packages = await PackageModel.find({ status: 'active' }).limit(60).lean()
+async function findLowPackages(now: Date, separated: Types.ObjectId[]) {
+  // A separated course tracks its own running-out balances on its own page, beside the rest of
+  // that student's enrolment. Listing them here as well would have the studio chasing the same
+  // person from two screens.
+  const packages = await PackageModel.find({
+    status: 'active',
+    ...(separated.length > 0 ? { courseTypeId: { $nin: separated } } : {}),
+  })
+    .limit(60)
+    .lean()
 
   const rows = []
   for (const pkg of packages) {

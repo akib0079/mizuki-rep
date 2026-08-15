@@ -140,6 +140,8 @@ export interface CourseSeed {
   defaultDurationMins: number
   sortOrder: number
   description: string
+  /** Runs in its own section of the console rather than mixed in with the workshops. */
+  managedSeparately?: boolean
 }
 
 /**
@@ -158,6 +160,9 @@ export const COURSES: CourseSeed[] = [
     defaultDurationMins: DURATIONS.morning3h,
     sortOrder: 1,
     description: 'Official Korean-style floral design certification course, booked against a course package.',
+    // Three classes a week all year, students enrolled for months: it needs its own section,
+    // or it buries every workshop on the shared dashboard.
+    managedSeparately: true,
   },
   {
     name: 'Preserved Flower',
