@@ -329,6 +329,12 @@ function SessionRow({
           // who navigates by button.
           aria-label={`Learn more about ${session.courseName}`}
         >
+          {/* An information mark, so the pill reads as "details" before the words are read. */}
+          <svg className="mzk-learn-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden focusable="false">
+            <circle cx="8" cy="8" r="6.7" fill="none" stroke="currentColor" strokeWidth="1.3" />
+            <circle cx="8" cy="4.9" r="0.95" fill="currentColor" />
+            <path d="M8 7.3v4.1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
           Learn more
         </button>
       )}

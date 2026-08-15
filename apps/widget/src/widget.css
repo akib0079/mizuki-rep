@@ -703,28 +703,52 @@
 /* --- Learn more ------------------------------------------------------------ */
 
 /*
- * A quiet text control inside the card, sitting just before the places tag.
+ * "Learn more": a bordered pill with an information mark, sitting just before the places tag.
  *
- * It was a bordered button hanging off the end of the row, which read as a second, competing
- * call to action next to "book" — and outweighed the one number people are actually scanning
- * for. Underlined on hover rather than always, so a column of these does not become a column of
- * blue rules.
+ * Every declaration carries !important, and it has to. The block that defends the widget from
+ * WordPress themes flattens `button` outright — no colour, no border, no padding — so the first
+ * version of this was styled and then quietly stripped back to plain text by our own stylesheet.
+ * It rendered as an unclickable-looking label in body colour, which is what a reset for someone
+ * else's CSS does when it is not scoped away from ours.
+ *
+ * Three weights on the row now, and they have to stay distinct: the card itself is the primary
+ * action, this outlined pill is the secondary one, and the availability tag is filled because it
+ * is a state and not a thing to press.
  */
-.mzk-learn {
-  flex-shrink: 0;
-  padding: 4px 2px;
-  border: 0;
-  background: transparent;
-  color: var(--mzk-accent);
-  font: inherit;
-  font-size: 13.5px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  text-decoration: none;
-  transition: color 0.15s ease;
+.mzk .mzk-learn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  flex-shrink: 0 !important;
+  padding: 7px 13px 7px 11px !important;
+  border: 1px solid var(--mzk-line) !important;
+  border-radius: 999px !important;
+  background: var(--mzk-bg) !important;
+  color: var(--mzk-accent) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
-.mzk-learn:hover { color: var(--mzk-accent-dark); text-decoration: underline; text-underline-offset: 3px; }
+/*
+ * Filling on hover rather than only changing the text colour: the row underneath goes to canvas
+ * when the pointer is anywhere on it, and a white pill on canvas already looks lit — the hover
+ * state has to be more than that or it reads as though the whole card responded and this did not.
+ */
+.mzk .mzk-learn:hover {
+  background: var(--mzk-accent-light) !important;
+  border-color: var(--mzk-accent) !important;
+  color: var(--mzk-accent-dark) !important;
+}
+.mzk .mzk-learn:focus-visible {
+  border-color: var(--mzk-accent) !important;
+  outline: 2px solid var(--mzk-accent-light) !important;
+  outline-offset: 1px !important;
+}
+.mzk-learn-icon { flex: 0 0 auto; opacity: 0.85; }
 
 /* --- The course panel ------------------------------------------------------ */
 
@@ -808,8 +832,17 @@
    */
   .mzk-session-row { flex-wrap: wrap; gap: 0 10px; }
   .mzk-session { flex: 1 0 100%; }
-  .mzk-learn { order: 2; margin-top: 8px; }
-  .mzk-session-right { order: 3; margin-top: 8px; margin-left: auto; }
+  /* A rule across the card, so the two pills read as its footer rather than as strays. */
+  .mzk .mzk-learn { order: 2; margin-top: 11px !important; }
+  .mzk-session-right { order: 3; margin-top: 11px; margin-left: auto; align-self: center; }
+  .mzk-session-row::before {
+    content: '';
+    order: 1;
+    flex: 1 0 100%;
+    height: 1px;
+    margin-top: 12px;
+    background: var(--mzk-line);
+  }
   .mzk-course-img { height: 130px; }
 }
 
