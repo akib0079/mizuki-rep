@@ -223,6 +223,7 @@ export function SettingsPage({ totpEnabled }: { totpEnabled: boolean }) {
                       min={1}
                       className="btn btn-sm"
                       style={{ width: 92 }}
+                      aria-label={`Shop product ID for ${c.name}`}
                       placeholder={c.bookingMode === 'free' ? 'not needed' : 'e.g. 1234'}
                       defaultValue={c.wooProductIds[0] ?? ''}
                       disabled={c.bookingMode === 'free'}
@@ -285,6 +286,9 @@ export function SettingsPage({ totpEnabled }: { totpEnabled: boolean }) {
                       max={200}
                       className="btn btn-sm"
                       style={{ width: 74 }}
+                      // The column heading names this box on screen, but nothing names it to a
+                      // screen reader, which otherwise reads five identical unlabelled spinners.
+                      aria-label={`Class size for ${c.name}`}
                       key={`${c.id}-${c.defaultCapacity}-${classSizeRev}`}
                       defaultValue={c.defaultCapacity}
                       disabled={classSizeMutation.isPending}
@@ -320,8 +324,10 @@ export function SettingsPage({ totpEnabled }: { totpEnabled: boolean }) {
         <NewCourseForm onMessage={setMessage} />
 
         <div className="banner banner-info" style={{ marginTop: 14, marginBottom: 0 }}>
-          Changing the class size here only affects classes created from now on. To change one that
-          already exists, open it on the calendar.
+          Changing the class size updates the classes already on your calendar, and the ones your
+          weekly timetable will create. A class you sized by hand keeps its own size, and a class
+          with more students booked than the new size keeps its own too — open those on the
+          calendar to change them.
         </div>
       </div>
 
