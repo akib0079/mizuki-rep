@@ -12,6 +12,7 @@ import {
   SessionModel,
 } from '../models/index.js'
 import { makeStudent, makePackage } from '../test/factories.js'
+import { atSeedTime } from '../test/clock.js'
 import { expireHolds, sendReminders } from '../jobs/index.js'
 import { createBooking } from '../services/bookingService.js'
 
@@ -34,7 +35,7 @@ describe('public calendar', () => {
   })
 
   it('shows the time, length and places left for each class', async () => {
-    const res = await request(app).get('/api/public/calendar').query(WINDOW).expect(200)
+    const res = await atSeedTime(() => request(app).get('/api/public/calendar').query(WINDOW).expect(200))
 
     const aug22 = res.body.days.find((d: { date: string }) => d.date === '2026-08-22')
     expect(aug22.sessions).toHaveLength(2)
@@ -59,19 +60,19 @@ describe('public calendar', () => {
     const session = await SessionModel.findOne({ dateKey: '2026-08-22' }).sort({ startAt: 1 })
     await SessionModel.updateOne({ _id: session!._id }, { $set: { seatsTaken: session!.capacity } })
 
-    const res = await request(app).get('/api/public/calendar').query(WINDOW).expect(200)
+    const res = await atSeedTime(() => request(app).get('/api/public/calendar').query(WINDOW).expect(200))
     const day = res.body.days.find((d: { date: string }) => d.date === '2026-08-22')
 
     expect(day.sessions[0]).toMatchObject({ isFull: true, seatsLeft: 0 })
   })
 
   it('hides a day the moment it is marked closed', async () => {
-    const before = await request(app).get('/api/public/calendar').query(WINDOW).expect(200)
+    const before = await atSeedTime(() => request(app).get('/api/public/calendar').query(WINDOW).expect(200))
     expect(before.body.days.find((d: { date: string }) => d.date === '2026-08-22').sessions).toHaveLength(2)
 
     await ClosedDateModel.create({ startDate: '2026-08-22', endDate: '2026-08-23', reason: 'Away' })
 
-    const after = await request(app).get('/api/public/calendar').query(WINDOW).expect(200)
+    const after = await atSeedTime(() => request(app).get('/api/public/calendar').query(WINDOW).expect(200))
     const day = after.body.days.find((d: { date: string }) => d.date === '2026-08-22')
 
     expect(day.isClosed).toBe(true)
@@ -101,10 +102,12 @@ describe('booking endpoint', () => {
   it('routes a paid Ikebana workshop to the shop', async () => {
     const session = await SessionModel.findOne({ dateKey: '2026-08-22' }).sort({ startAt: 1 })
 
-    const res = await request(app)
-      .post('/api/bookings/start')
-      .send({ sessionId: String(session!._id), email: 'aiko@example.com', name: 'Aiko Tan', phone: '+65 9123 4567' })
-      .expect(200)
+    const res = await atSeedTime(() =>
+      request(app)
+        .post('/api/bookings/start')
+        .send({ sessionId: String(session!._id), email: 'aiko@example.com', name: 'Aiko Tan', phone: '+65 9123 4567' })
+        .expect(200),
+    )
 
     expect(res.body.outcome).toBe('checkout_required')
   })

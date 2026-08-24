@@ -7,6 +7,7 @@ import { BookingModel, OutboxModel, SessionModel, StudentModel, type CourseTypeD
 import { createBooking } from '../services/bookingService.js'
 import { seedEmailTemplates } from '../services/emailTemplates.js'
 import { makeCourseType, makeSession, makeStudent } from '../test/factories.js'
+import { atSeedTime } from '../test/clock.js'
 
 const app = createApp()
 const SECRET = 'test-woo-webhook-secret'
@@ -134,7 +135,7 @@ describe('payment confirms a held place', () => {
     // Someone bought the workshop straight from the shop, bypassing the calendar.
     const session = await makeSession({ courseTypeId: ikebana._id, capacity: 6, date: '2026-08-22' })
 
-    const res = await send(orderFor(String(session._id))).expect(200)
+    const res = await atSeedTime(() => send(orderFor(String(session._id))).expect(200), '2026-08-11', '10:00')
     expect(res.body.ok).toBe(true)
 
     const student = await StudentModel.findOne({ email: 'aiko@example.com' })
@@ -157,7 +158,11 @@ describe('payment arriving after the place is gone', () => {
       now: NOW,
     })
 
-    const res = await send(orderFor(String(session._id), 'expired-hold')).expect(200)
+    const res = await atSeedTime(
+      () => send(orderFor(String(session._id), 'expired-hold')).expect(200),
+      '2026-08-11',
+      '10:00',
+    )
 
     expect(res.body.ok).toBe(false)
     expect(res.body.problems).toHaveLength(1)
