@@ -35,6 +35,18 @@ Two records on `mizuki.com.sg`:
 - **SPF and DKIM** for Resend. Without these, confirmations and reminders go to spam — which
   looks identical to the system being broken.
 
+Once the domain verifies, the sending address has to move onto it — and that address is **not**
+`MAIL_FROM` in the environment. Whatever was last saved under Settings → Email in the console
+lives in the database and wins over the environment every time, so changing the deployed
+environment variable and restarting appears to work and changes nothing. Set it in the console:
+Settings → Email → Send from → `bookings@mizuki.com.sg`.
+
+It matters most at exactly this moment. A new Resend key is scoped to the domains that key's
+account has verified, so a key issued for `mizuki.com.sg` cannot send from anywhere else — swap
+the key while the stored address still points at the old domain and *every* message is rejected.
+The console refuses an address it cannot send from at the moment you save it, and the outbox
+reports the rejection rather than retrying it, but neither helps if nobody goes and changes it.
+
 Both domains must be on HTTPS. The student session cookie is `SameSite=None; Secure` in
 production, because the widget runs on the WordPress site and calls the API on a subdomain;
 browsers drop that cookie entirely over plain HTTP.
