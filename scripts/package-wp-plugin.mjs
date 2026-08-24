@@ -15,7 +15,7 @@
  * the work it was supposed to deliver, with the API correctly updated underneath it — which
  * looks, from the outside, like a feature that simply does not work.
  */
-import { cp, mkdir, rm, access, readFile } from 'node:fs/promises'
+import { cp, mkdir, rm, access, readFile, readdir } from 'node:fs/promises'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import path from 'node:path'
@@ -59,6 +59,7 @@ async function main() {
   }
 
   await assertWidgetSurface(path.join(assetsDir, 'widget.js'))
+  await assertPluginLoads()
 
   await rm(outputZip, { force: true })
   // `zip` ships with macOS and every Linux host the studio might build on.
@@ -92,6 +93,61 @@ async function assertWidgetSurface(builtFile) {
     )
     process.exit(1)
   }
+}
+
+/**
+ * Does the PHP parse, and does the plugin survive being loaded?
+ *
+ * A plugin that fatals does not fail gracefully: WordPress serves a white page on every URL of
+ * the site, wp-admin included, and the only way back in is a file manager. That happened once
+ * here. `wp-plugin/tests/load-plugin.php` stubs enough of WordPress and Elementor to run the
+ * plugin's own code, and the states it covers are the ones that have actually bitten.
+ *
+ * Skipped with a warning where PHP is absent — a build machine without it should still be able
+ * to produce a zip, and this check runs wherever anybody has PHP, which is everybody working on
+ * a WordPress plugin.
+ */
+async function assertPluginLoads() {
+  if (!(await hasPhp())) {
+    console.warn('PHP is not installed here, so the plugin was packaged without being loaded once.')
+    return
+  }
+
+  const phpFiles = await collectPhp(pluginDir)
+  for (const file of phpFiles) {
+    try {
+      await run('php', ['-l', file])
+    } catch (error) {
+      console.error(`${path.relative(root, file)} does not parse:\n${error.stdout || error.message}`)
+      process.exit(1)
+    }
+  }
+
+  try {
+    await run('php', [path.join(root, 'wp-plugin/tests/load-plugin.php')])
+  } catch (error) {
+    console.error('The plugin does not survive being loaded:\n' + (error.stdout || error.message))
+    process.exit(1)
+  }
+}
+
+async function hasPhp() {
+  try {
+    await run('php', ['-v'])
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function collectPhp(dir) {
+  const found = []
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name)
+    if (entry.isDirectory()) found.push(...(await collectPhp(full)))
+    else if (entry.name.endsWith('.php')) found.push(full)
+  }
+  return found
 }
 
 main().catch((err) => {

@@ -3,7 +3,7 @@
  * Plugin Name:       Mizuki Booking Bridge
  * Plugin URI:        https://mizuki.com.sg
  * Description:       Embeds the Mizuki Flora class calendar into WordPress and connects WooCommerce checkout to the booking system, so a paid workshop holds its place until payment lands.
- * Version:           1.2.0
+ * Version:           1.2.1
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Mizuki Flora
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'MIZUKI_BRIDGE_VERSION', '1.2.0' );
+define( 'MIZUKI_BRIDGE_VERSION', '1.2.1' );
 define( 'MIZUKI_BRIDGE_FILE', __FILE__ );
 
 /** Query args carried from the booking widget into the shop. */
@@ -204,8 +204,30 @@ function mizuki_asset_version( $relative ) {
  */
 add_action( 'plugins_loaded', 'mizuki_maybe_load_elementor', 20 );
 function mizuki_maybe_load_elementor() {
-	if ( did_action( 'elementor/loaded' ) ) {
-		require_once plugin_dir_path( MIZUKI_BRIDGE_FILE ) . 'includes/elementor.php';
+	if ( ! did_action( 'elementor/loaded' ) ) {
+		return;
+	}
+
+	$file = plugin_dir_path( MIZUKI_BRIDGE_FILE ) . 'includes/elementor.php';
+	if ( ! file_exists( $file ) ) {
+		return;
+	}
+
+	/*
+	 * Contained, because the cost of being wrong here is the whole site.
+	 *
+	 * These widgets are an extra. The calendar has worked as a shortcode since the first release
+	 * and still does. If anything in the file below fails — an Elementor version that moved a
+	 * class, a hook fired with something unexpected — the right outcome is a site with no
+	 * Elementor widgets, not a site with a white page on every URL including wp-admin, which is
+	 * what happened the first time this shipped.
+	 */
+	try {
+		require_once $file;
+	} catch ( Throwable $error ) {
+		if ( function_exists( 'error_log' ) ) {
+			error_log( 'Mizuki Booking: the Elementor widgets could not be loaded — ' . $error->getMessage() );
+		}
 	}
 }
 

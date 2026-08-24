@@ -43,7 +43,18 @@ function mizuki_elementor_category( $manager ) {
 add_action( 'elementor/widgets/register', 'mizuki_elementor_register' );
 add_action( 'elementor/widgets/widgets_registered', 'mizuki_elementor_register' );
 
-function mizuki_elementor_register( $widgets_manager ) {
+function mizuki_elementor_register( $widgets_manager = null ) {
+	/*
+	 * Both a default and a check, because WordPress does not pass what you might assume. A hook
+	 * fired with no arguments calls back with an empty string, not with nothing — so a missing
+	 * parameter is an ArgumentCountError and a present-but-empty one is "call to a member
+	 * function on string". Either takes the whole site down, and both are reachable: this is
+	 * hooked to a deprecated Elementor hook that other plugins are free to fire themselves.
+	 */
+	if ( ! is_object( $widgets_manager ) ) {
+		return;
+	}
+
 	static $done = false;
 	if ( $done ) {
 		return;
@@ -80,12 +91,24 @@ function mizuki_elementor_courses() {
 		return $cached;
 	}
 
+	/*
+	 * Only ever fetched from the admin side.
+	 *
+	 * The list is for a picker in the Elementor panel, and nobody looking at the page needs it —
+	 * but Elementor builds a widget's controls on the front end too. Left unguarded, a booking
+	 * system that is slow to answer becomes a visitor waiting for a request they get nothing
+	 * from, and one that never answers becomes a page that exceeds its time limit and dies.
+	 */
+	if ( ! is_admin() ) {
+		return array();
+	}
+
 	$api_base = mizuki_api_base();
 	if ( ! $api_base ) {
 		return array();
 	}
 
-	$response = wp_remote_get( $api_base . '/api/public/courses', array( 'timeout' => 5 ) );
+	$response = wp_remote_get( $api_base . '/api/public/courses', array( 'timeout' => 4 ) );
 
 	if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
 		set_transient( 'mizuki_course_list', array(), 2 * MINUTE_IN_SECONDS );
@@ -243,6 +266,33 @@ trait Mizuki_Elementor_Shared {
 	}
 
 	/**
+	 * Drawing, wrapped.
+	 *
+	 * A widget that throws while rendering takes the page with it, and on a page built out of
+	 * widgets that means the visitor sees nothing at all rather than the one section that failed.
+	 * The studio is told what happened; a visitor is shown the rest of the page.
+	 */
+	protected function render() {
+		try {
+			$this->render_widget();
+		} catch ( \Throwable $error ) {
+			if ( function_exists( 'error_log' ) ) {
+				error_log( 'Mizuki Booking: ' . $this->get_name() . ' could not render — ' . $error->getMessage() );
+			}
+			if ( current_user_can( 'manage_options' ) ) {
+				echo '<p><strong>' . esc_html( sprintf(
+					/* translators: %s: the reason it failed. */
+					__( 'Mizuki Booking could not draw this: %s', 'mizuki-booking' ),
+					$error->getMessage()
+				) ) . '</strong></p>';
+			}
+		}
+	}
+
+	/** What each widget actually draws. */
+	abstract protected function render_widget();
+
+	/**
 	 * A stand-in for the editor, for when the real thing would be in the way.
 	 *
 	 * Off by default: a placeholder is never the height of the thing it stands for, so a page laid
@@ -336,7 +386,7 @@ class Mizuki_Elementor_Calendar extends \Elementor\Widget_Base {
 		$this->add_palette_section();
 	}
 
-	protected function render() {
+	protected function render_widget() {
 		$settings = $this->get_settings_for_display();
 		$editing  = \Elementor\Plugin::$instance->editor->is_edit_mode();
 
@@ -450,7 +500,7 @@ class Mizuki_Elementor_Account extends \Elementor\Widget_Base {
 		$this->add_palette_section();
 	}
 
-	protected function render() {
+	protected function render_widget() {
 		$settings = $this->get_settings_for_display();
 		$editing  = \Elementor\Plugin::$instance->editor->is_edit_mode();
 
@@ -636,7 +686,7 @@ class Mizuki_Elementor_Book_Button extends \Elementor\Widget_Base {
 		$this->end_controls_section();
 	}
 
-	protected function render() {
+	protected function render_widget() {
 		$settings = $this->get_settings_for_display();
 		$target   = sanitize_title( $settings['target'] );
 		$course   = mizuki_elementor_course_value( $settings );
