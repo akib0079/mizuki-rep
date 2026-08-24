@@ -3,7 +3,7 @@
  * Plugin Name:       Mizuki Booking Bridge
  * Plugin URI:        https://mizuki.com.sg
  * Description:       Embeds the Mizuki Flora class calendar into WordPress and connects WooCommerce checkout to the booking system, so a paid workshop holds its place until payment lands.
- * Version:           1.1.0
+ * Version:           1.2.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Mizuki Flora
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'MIZUKI_BRIDGE_VERSION', '1.1.0' );
+define( 'MIZUKI_BRIDGE_VERSION', '1.2.0' );
 define( 'MIZUKI_BRIDGE_FILE', __FILE__ );
 
 /** Query args carried from the booking widget into the shop. */
@@ -196,6 +196,19 @@ function mizuki_asset_version( $relative ) {
 	return $mtime ? MIZUKI_BRIDGE_VERSION . '.' . $mtime : MIZUKI_BRIDGE_VERSION;
 }
 
+/**
+ * The Elementor widgets.
+ *
+ * Loaded only when Elementor is, so the plugin stays useful on a site that does not run it —
+ * the shortcodes above do the same job without a page builder.
+ */
+add_action( 'plugins_loaded', 'mizuki_maybe_load_elementor', 20 );
+function mizuki_maybe_load_elementor() {
+	if ( did_action( 'elementor/loaded' ) ) {
+		require_once plugin_dir_path( MIZUKI_BRIDGE_FILE ) . 'includes/elementor.php';
+	}
+}
+
 add_action( 'wp_enqueue_scripts', 'mizuki_register_assets' );
 function mizuki_register_assets() {
 	$base = plugin_dir_url( MIZUKI_BRIDGE_FILE );
@@ -203,13 +216,21 @@ function mizuki_register_assets() {
 	// No stylesheet to enqueue: the widget renders inside a shadow root and carries its own CSS,
 	// which is the only way to be sure the theme cannot restyle it.
 	wp_register_script( 'mizuki-booking', $base . 'assets/widget.js', array(), mizuki_asset_version( 'assets/widget.js' ), true );
+
+	// Elementor's lifecycle, and the booking buttons. Tiny, and useful without Elementor too:
+	// any button with the class `mizuki-book` opens the calendar, shortcode pages included.
+	wp_register_script( 'mizuki-elementor', $base . 'js/elementor.js', array(), mizuki_asset_version( 'js/elementor.js' ), true );
 }
 
 /**
  * Renders the mount point. The script reads its configuration from the element's data
  * attributes, so two shortcodes on one page can show different views.
+ *
+ * `$extra` carries anything the caller wants on the element beyond the basics — the Elementor
+ * widgets use it for replaced wording and for the colour variables, which cross into the shadow
+ * root when nothing else does.
  */
-function mizuki_render_widget( $atts, $view ) {
+function mizuki_render_widget( $atts, $view, $extra = array() ) {
 	$api_base = mizuki_api_base();
 
 	if ( ! $api_base ) {
@@ -230,6 +251,12 @@ function mizuki_render_widget( $atts, $view ) {
 
 	if ( ! empty( $atts['course'] ) ) {
 		$attributes['data-course'] = sanitize_title( $atts['course'] );
+	}
+
+	foreach ( $extra as $name => $value ) {
+		if ( '' !== $value && null !== $value ) {
+			$attributes[ $name ] = $value;
+		}
 	}
 
 	$rendered = '';

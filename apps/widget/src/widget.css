@@ -8,10 +8,20 @@
  * font-family is the deliberate exception — the widget should read in the site's own typeface.
  */
 
-.mzk {
-  /* Sampled from the studio's logo: #00b8d8 turquoise, #a0c838 lime. Used as-is for
-     decoration; --mzk-accent is that turquoise darkened to the lightest step that carries
-     white text readably (4.59:1), since the logo colour itself measures only 2.37:1. */
+/*
+ * The palette, one level above .mzk on purpose.
+ *
+ * Declared on .mzk these could not be changed from outside. A colour set on the host element —
+ * by the Elementor pickers, by a theme — reaches the host and inherits inward, but an element's
+ * own declaration beats an inherited value, so .mzk would overwrite it with the default every
+ * time. Set here, and embed.tsx copies anything found on the host onto this same element as an
+ * inline style, which wins. The page can restyle the widget; nothing is forced to.
+ *
+ * Sampled from the studio's logo: #00b8d8 turquoise, #a0c838 lime. Used as-is for decoration;
+ * --mzk-accent is that turquoise darkened to the lightest step that carries white text readably
+ * (4.59:1), since the logo colour itself measures only 2.37:1.
+ */
+[data-mizuki-root] {
   --mzk-brand: #00b8d8;
   --mzk-green: #a0c838;
   --mzk-accent: #008197;
@@ -24,7 +34,9 @@
   --mzk-canvas: #f7fafb;
   --mzk-danger: #b3382c;
   --mzk-ok: #2f7d5f;
+}
 
+.mzk {
   /* Everything a child could inherit from the page, given a definite value here. */
   font-family: inherit;   /* the one we do want from the site, so the widget matches its pages */
   font-size: 16px;
