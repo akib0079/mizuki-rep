@@ -21,59 +21,21 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * -----------------------------------------------------------------------------
- * Registration
+ * The widgets themselves
  * -----------------------------------------------------------------------------
+ *
+ * Nothing hooks anything here, and that is the point. Every class below extends a class that
+ * belongs to Elementor, so this file may only be read once Elementor can resolve one — which is
+ * later than it sounds. The plugin file hooks `elementor/widgets/register` and reads this then.
  */
 
-add_action( 'elementor/elements/categories_registered', 'mizuki_elementor_category' );
-function mizuki_elementor_category( $manager ) {
-	$manager->add_category(
-		'mizuki',
-		array(
-			'title' => __( 'Mizuki Booking', 'mizuki-booking' ),
-			'icon'  => 'eicon-calendar',
-		)
-	);
-}
-
-/*
- * Elementor renamed this hook in 3.5. Both are wired so the plugin does not silently register
- * nothing on a site that has not updated — which looks exactly like the widgets not existing.
- */
-add_action( 'elementor/widgets/register', 'mizuki_elementor_register' );
-add_action( 'elementor/widgets/widgets_registered', 'mizuki_elementor_register' );
-
-function mizuki_elementor_register( $widgets_manager = null ) {
-	/*
-	 * Both a default and a check, because WordPress does not pass what you might assume. A hook
-	 * fired with no arguments calls back with an empty string, not with nothing — so a missing
-	 * parameter is an ArgumentCountError and a present-but-empty one is "call to a member
-	 * function on string". Either takes the whole site down, and both are reachable: this is
-	 * hooked to a deprecated Elementor hook that other plugins are free to fire themselves.
-	 */
-	if ( ! is_object( $widgets_manager ) ) {
-		return;
-	}
-
-	static $done = false;
-	if ( $done ) {
-		return;
-	}
-	$done = true;
-
-	$widgets = array(
+/** Built on demand, so the classes are only ever needed at the moment Elementor asks for them. */
+function mizuki_elementor_widget_instances() {
+	return array(
 		new Mizuki_Elementor_Calendar(),
 		new Mizuki_Elementor_Account(),
 		new Mizuki_Elementor_Book_Button(),
 	);
-
-	foreach ( $widgets as $widget ) {
-		if ( method_exists( $widgets_manager, 'register' ) ) {
-			$widgets_manager->register( $widget );
-		} else {
-			$widgets_manager->register_widget_type( $widget );
-		}
-	}
 }
 
 /**
@@ -312,6 +274,10 @@ trait Mizuki_Elementor_Shared {
  * -----------------------------------------------------------------------------
  * The calendar
  * -----------------------------------------------------------------------------
+ *
+ * Every setting below is read with a fallback rather than directly. Elementor hands back exactly
+ * what was saved, so a page built before a control existed simply does not have it — and a widget
+ * that assumes otherwise fills the studio's error log with warnings on every page view.
  */
 
 class Mizuki_Elementor_Calendar extends \Elementor\Widget_Base {
@@ -390,7 +356,7 @@ class Mizuki_Elementor_Calendar extends \Elementor\Widget_Base {
 		$settings = $this->get_settings_for_display();
 		$editing  = \Elementor\Plugin::$instance->editor->is_edit_mode();
 
-		if ( $editing && 'yes' !== $settings['live_preview'] ) {
+		if ( $editing && ( ! isset( $settings['live_preview'] ) || 'yes' !== $settings['live_preview'] ) ) {
 			echo $this->editor_placeholder(  // phpcs:ignore WordPress.Security.EscapeOutput
 				__( 'Booking calendar', 'mizuki-booking' ),
 				__( 'The real calendar appears on the published page.', 'mizuki-booking' )
@@ -398,8 +364,8 @@ class Mizuki_Elementor_Calendar extends \Elementor\Widget_Base {
 			return;
 		}
 
-		$anchor = sanitize_title( $settings['anchor'] );
-		$view   = 'all' === $settings['view'] ? 'all' : 'calendar';
+		$anchor = sanitize_title( isset( $settings['anchor'] ) ? $settings['anchor'] : 'book' );
+		$view   = isset( $settings['view'] ) && 'all' === $settings['view'] ? 'all' : 'calendar';
 
 		$embed = mizuki_render_widget(
 			array( 'course' => mizuki_elementor_course_value( $settings ) ),
@@ -504,7 +470,7 @@ class Mizuki_Elementor_Account extends \Elementor\Widget_Base {
 		$settings = $this->get_settings_for_display();
 		$editing  = \Elementor\Plugin::$instance->editor->is_edit_mode();
 
-		if ( $editing && 'yes' !== $settings['live_preview'] ) {
+		if ( $editing && ( ! isset( $settings['live_preview'] ) || 'yes' !== $settings['live_preview'] ) ) {
 			echo $this->editor_placeholder(  // phpcs:ignore WordPress.Security.EscapeOutput
 				__( 'Student sign-in', 'mizuki-booking' ),
 				__( 'The real block appears on the published page.', 'mizuki-booking' )
@@ -516,8 +482,8 @@ class Mizuki_Elementor_Account extends \Elementor\Widget_Base {
 			array( 'course' => mizuki_elementor_course_value( $settings ) ),
 			'account',
 			array(
-				'data-heading' => sanitize_text_field( $settings['heading'] ),
-				'data-intro'   => sanitize_textarea_field( $settings['intro'] ),
+				'data-heading' => sanitize_text_field( isset( $settings['heading'] ) ? $settings['heading'] : '' ),
+				'data-intro'   => sanitize_textarea_field( isset( $settings['intro'] ) ? $settings['intro'] : '' ),
 			)
 		);
 	}
@@ -688,14 +654,14 @@ class Mizuki_Elementor_Book_Button extends \Elementor\Widget_Base {
 
 	protected function render_widget() {
 		$settings = $this->get_settings_for_display();
-		$target   = sanitize_title( $settings['target'] );
+		$target   = sanitize_title( isset( $settings['target'] ) ? $settings['target'] : 'book' );
 		$course   = mizuki_elementor_course_value( $settings );
 
 		printf(
 			'<div class="mizuki-book-wrap" style="display:flex;flex-direction:column"><a class="mizuki-book-btn" href="#%1$s" data-mizuki-book="1" data-target="%1$s"%2$s style="display:inline-block;text-align:center;text-decoration:none;cursor:pointer">%3$s</a></div>',
 			esc_attr( $target ),
 			$course ? ' data-course="' . esc_attr( $course ) . '"' : '',
-			esc_html( $settings['label'] )
+			esc_html( isset( $settings['label'] ) ? $settings['label'] : __( 'Book a lesson', 'mizuki-booking' ) )
 		);
 	}
 }

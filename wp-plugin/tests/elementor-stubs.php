@@ -32,10 +32,10 @@ class Widget_Base {
 	public function end_controls_tabs() {}
 	public function start_controls_tab( $id, $args = array() ) {}
 	public function end_controls_tab() {}
-	public function get_settings_for_display( $key = null ) {
-		return array( 'course' => 'ifda', 'course_custom' => '', 'view' => 'calendar', 'anchor' => 'book',
-			'live_preview' => 'yes', 'heading' => 'Hi', 'intro' => 'There', 'label' => 'Book', 'target' => 'book' );
-	}
+	/* Overwritten with array() to stand in for a widget saved before a control existed. */
+	public $settings = array( 'course' => 'ifda', 'course_custom' => '', 'view' => 'calendar', 'anchor' => 'book',
+		'live_preview' => 'yes', 'heading' => 'Hi', 'intro' => 'There', 'label' => 'Book', 'target' => 'book' );
+	public function get_settings_for_display( $key = null ) { return $this->settings; }
 	public function run_controls() { $this->register_controls(); }
 	public function run_render() { $this->render(); }
 }

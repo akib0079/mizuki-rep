@@ -3,7 +3,7 @@
  * Plugin Name:       Mizuki Booking Bridge
  * Plugin URI:        https://mizuki.com.sg
  * Description:       Embeds the Mizuki Flora class calendar into WordPress and connects WooCommerce checkout to the booking system, so a paid workshop holds its place until payment lands.
- * Version:           1.2.1
+ * Version:           1.2.2
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Mizuki Flora
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'MIZUKI_BRIDGE_VERSION', '1.2.1' );
+define( 'MIZUKI_BRIDGE_VERSION', '1.2.2' );
 define( 'MIZUKI_BRIDGE_FILE', __FILE__ );
 
 /** Query args carried from the booking widget into the shop. */
@@ -197,16 +197,66 @@ function mizuki_asset_version( $relative ) {
 }
 
 /**
- * The Elementor widgets.
+ * -----------------------------------------------------------------------------
+ * Elementor
+ * -----------------------------------------------------------------------------
  *
- * Loaded only when Elementor is, so the plugin stays useful on a site that does not run it —
- * the shortcodes above do the same job without a page builder.
+ * Only these hooks live here. The widget classes are in includes/elementor.php and are read at
+ * the last possible moment, inside the callback below.
+ *
+ * That timing is the whole of it. The obvious place to load them is `plugins_loaded`, once
+ * `did_action( 'elementor/loaded' )` says Elementor is there — and that is what the first
+ * release did. Elementor announces itself before its autoloader can resolve `Widget_Base`, so
+ * every class in that file failed to declare, and a plugin whose classes half-exist is a fatal
+ * on the next line that mentions one. On a WordPress site a fatal is not a broken feature: it is
+ * a white page on every URL including wp-admin, with a file manager as the only way back in.
+ *
+ * `elementor/widgets/register` fires when Elementor is genuinely ready and is asking for
+ * widgets. Nothing needs to be guessed about whether its classes exist, because it would not be
+ * asking otherwise.
  */
-add_action( 'plugins_loaded', 'mizuki_maybe_load_elementor', 20 );
-function mizuki_maybe_load_elementor() {
-	if ( ! did_action( 'elementor/loaded' ) ) {
+
+add_action( 'elementor/elements/categories_registered', 'mizuki_elementor_add_category' );
+function mizuki_elementor_add_category( $manager = null ) {
+	/* Defaulted for the same reason as the widget hook below: a hook fired with no arguments
+	   calls back with nothing, and a missing parameter is a fatal, not a warning. */
+	if ( ! is_object( $manager ) || ! method_exists( $manager, 'add_category' ) ) {
 		return;
 	}
+
+	$manager->add_category(
+		'mizuki',
+		array(
+			'title' => __( 'Mizuki Booking', 'mizuki-booking' ),
+			'icon'  => 'eicon-calendar',
+		)
+	);
+}
+
+/*
+ * Elementor renamed this hook in 3.5. Both are wired so the plugin does not silently register
+ * nothing on a site that has not updated — which looks exactly like the widgets not existing.
+ */
+add_action( 'elementor/widgets/register', 'mizuki_elementor_register_widgets' );
+add_action( 'elementor/widgets/widgets_registered', 'mizuki_elementor_register_widgets' );
+
+function mizuki_elementor_register_widgets( $widgets_manager = null ) {
+	/*
+	 * Both a default and a check, because WordPress does not pass what you might assume. A hook
+	 * fired with no arguments calls back with an empty string, not with nothing — so a missing
+	 * parameter is an ArgumentCountError and a present-but-empty one is "call to a member
+	 * function on string". Either takes the whole site down, and both are reachable: the second
+	 * hook above is deprecated, and anything on the site may fire it.
+	 */
+	if ( ! is_object( $widgets_manager ) ) {
+		return;
+	}
+
+	static $done = false;
+	if ( $done ) {
+		return;
+	}
+	$done = true;
 
 	$file = plugin_dir_path( MIZUKI_BRIDGE_FILE ) . 'includes/elementor.php';
 	if ( ! file_exists( $file ) ) {
@@ -217,16 +267,23 @@ function mizuki_maybe_load_elementor() {
 	 * Contained, because the cost of being wrong here is the whole site.
 	 *
 	 * These widgets are an extra. The calendar has worked as a shortcode since the first release
-	 * and still does. If anything in the file below fails — an Elementor version that moved a
-	 * class, a hook fired with something unexpected — the right outcome is a site with no
-	 * Elementor widgets, not a site with a white page on every URL including wp-admin, which is
-	 * what happened the first time this shipped.
+	 * and still does. If anything below fails — an Elementor version that moved a class, a hook
+	 * fired with something unexpected — the right outcome is a site with no Elementor widgets
+	 * and a line in the error log, not a site nobody can reach.
 	 */
 	try {
 		require_once $file;
+
+		foreach ( mizuki_elementor_widget_instances() as $widget ) {
+			if ( method_exists( $widgets_manager, 'register' ) ) {
+				$widgets_manager->register( $widget );
+			} else {
+				$widgets_manager->register_widget_type( $widget );
+			}
+		}
 	} catch ( Throwable $error ) {
 		if ( function_exists( 'error_log' ) ) {
-			error_log( 'Mizuki Booking: the Elementor widgets could not be loaded — ' . $error->getMessage() );
+			error_log( 'Mizuki Booking: the Elementor widgets could not be registered — ' . $error->getMessage() );
 		}
 	}
 }
