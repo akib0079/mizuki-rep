@@ -1,0 +1,718 @@
+/*
+ * The Ikebana workshops page.
+ *
+ * Same bargain as the IFDA page and same reasons, so the same two rules apply.
+ *
+ * It is enforced, not declared: this lands inside a theme that styles bare headings, buttons and
+ * lists and wins on ordinary specificity, so everything that matters carries !important and is
+ * anchored to .mzk-ike. And every selector below carries at least two classes — the element
+ * reset is `.mzk-ike <element>`, a class plus a type, so a single-class layout rule loses to it.
+ * That exact mistake left the IFDA page hard against the left edge on a wide screen, invisible
+ * on a narrow one. wp-plugin/tests/ifda-css.php checks both files for it now.
+ */
+
+.mzk-ike {
+	--ike-navy: #1f3344;
+	--ike-navy-alt: #315f7b;
+	--ike-teal: #0f8ba0;
+	--ike-teal-dark: #0c7182;
+	--ike-sage: #6e8a78;
+	--ike-ivory: #f9f7f0;
+	--ike-cream: #f5f3ec;
+	--ike-grey: #f2f6f6;
+	--ike-charcoal: #2d343b;
+	--ike-body: #68737a;
+
+	--ike-sans: "DM Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+	--ike-serif: "Playfair Display", ui-serif, Georgia, "Times New Roman", serif;
+
+	--ike-max: 1200px;
+	--ike-pad: 20px;
+
+	/* Measured by js/elementor.js; 100vw includes the scrollbar and would run the whole site a
+	   dozen pixels wide. The fallback is only reached with the script blocked. */
+	--ike-vw: var(--mzk-vw, 100vw);
+
+	display: block !important;
+	width: var(--ike-vw) !important;
+	max-width: var(--ike-vw) !important;
+	margin-left: calc(50% - var(--ike-vw) / 2) !important;
+	margin-right: calc(50% - var(--ike-vw) / 2) !important;
+	padding: 0 !important;
+
+	font-family: var(--ike-sans) !important;
+	font-size: 16px !important;
+	font-weight: 400 !important;
+	line-height: 1.6 !important;
+	color: var(--ike-body) !important;
+	text-align: left !important;
+	-webkit-font-smoothing: antialiased;
+}
+
+.elementor-widget-mizuki-ikebana-page,
+.elementor-widget-mizuki-ikebana-page > .elementor-widget-container {
+	width: 100% !important;
+	max-width: none !important;
+	padding: 0 !important;
+	margin: 0 !important;
+}
+
+@media (min-width: 768px)  { .mzk-ike { --ike-pad: 40px; } }
+@media (min-width: 1024px) { .mzk-ike { --ike-pad: 64px; } }
+
+/* ------------------------------------------------------------- the reset */
+
+.mzk-ike *,
+.mzk-ike *::before,
+.mzk-ike *::after { box-sizing: border-box !important; }
+
+.mzk-ike section {
+	width: 100% !important;
+	max-width: none !important;
+	float: none !important;
+	clear: both !important;
+	border: 0;
+	margin: 0 !important;
+}
+
+/* Only what has a margin of its own to remove. Zeroing every div outranks the layout rules. */
+.mzk-ike h1,
+.mzk-ike h2,
+.mzk-ike h3,
+.mzk-ike h4,
+.mzk-ike p,
+.mzk-ike ul,
+.mzk-ike ol,
+.mzk-ike li {
+	margin: 0 !important;
+	padding: 0 !important;
+}
+
+.mzk-ike h1,
+.mzk-ike h2,
+.mzk-ike h3,
+.mzk-ike h4,
+.mzk-ike p,
+.mzk-ike ul,
+.mzk-ike ol,
+.mzk-ike li,
+.mzk-ike span,
+.mzk-ike div {
+	text-transform: none !important;
+	letter-spacing: normal !important;
+	text-shadow: none !important;
+	float: none !important;
+	background: none;
+}
+
+.mzk-ike h1,
+.mzk-ike h2,
+.mzk-ike h3,
+.mzk-ike h4 {
+	font-family: inherit !important;
+	font-weight: inherit;
+	line-height: inherit;
+	color: inherit;
+	border: 0 !important;
+}
+
+.mzk-ike ul,
+.mzk-ike ol { list-style: none !important; }
+.mzk-ike li::marker { content: none !important; }
+
+.mzk-ike img {
+	display: block !important;
+	max-width: 100% !important;
+	height: auto;
+	border: 0 !important;
+	border-radius: 0 !important;
+	box-shadow: none;
+}
+
+.mzk-ike a {
+	text-decoration: none !important;
+	box-shadow: none !important;
+	border-bottom: 0 !important;
+}
+
+.mzk-ike button {
+	font-family: inherit !important;
+	-webkit-appearance: none !important;
+	appearance: none !important;
+	text-shadow: none !important;
+	box-shadow: none !important;
+	min-height: 0 !important;
+	line-height: inherit !important;
+}
+
+.mzk-ike .mzk-ike__inner {
+	max-width: var(--ike-max) !important;
+	margin-left: auto !important;
+	margin-right: auto !important;
+	width: 100% !important;
+}
+
+.mzk-ike .mzk-ike__eyebrow {
+	display: block !important;
+	font-family: var(--ike-sans) !important;
+	font-size: 12px !important;
+	font-weight: 700 !important;
+	letter-spacing: 0.15em !important;
+	text-transform: uppercase !important;
+	line-height: 1.4 !important;
+	margin: 0 0 16px !important;
+}
+
+/* ----------------------------------------------------------- the buttons */
+
+.mzk-ike .mzk-ike__btn {
+	display: inline-flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+	padding: 16px 32px !important;
+	font-family: var(--ike-sans) !important;
+	font-size: 12px !important;
+	font-weight: 700 !important;
+	line-height: 1.4 !important;
+	letter-spacing: 0.1em !important;
+	text-transform: uppercase !important;
+	text-align: center !important;
+	text-decoration: none !important;
+	border: 1px solid transparent !important;
+	border-radius: 0 !important;
+	box-shadow: none !important;
+	cursor: pointer !important;
+	transition: background-color .3s, color .3s, border-color .3s !important;
+}
+@media (min-width: 768px) { .mzk-ike .mzk-ike__btn { font-size: 13px !important; } }
+
+.mzk-ike .mzk-ike__btn--solid,
+.mzk-ike .mzk-ike__btn--solid:visited { background: var(--ike-teal) !important; color: #fff !important; }
+.mzk-ike .mzk-ike__btn--solid:hover,
+.mzk-ike .mzk-ike__btn--solid:focus  { background: var(--ike-teal-dark) !important; color: #fff !important; }
+
+.mzk-ike .mzk-ike__btn--outline,
+.mzk-ike .mzk-ike__btn--outline:visited {
+	background: transparent !important;
+	border-color: var(--ike-charcoal) !important;
+	color: var(--ike-charcoal) !important;
+}
+.mzk-ike .mzk-ike__btn--outline:hover,
+.mzk-ike .mzk-ike__btn--outline:focus { background: var(--ike-charcoal) !important; color: #fff !important; }
+
+/* ---------------------------------------------------------------- hero */
+
+.mzk-ike .mzk-ike-hero {
+	position: relative !important;
+	display: flex !important;
+	align-items: center !important;
+	overflow: hidden !important;
+	min-height: 500px !important;
+	height: 85vh !important;
+	max-height: 800px !important;
+	padding: 64px var(--ike-pad) !important;
+	background: var(--ike-grey) !important;
+	color: #fff !important;
+}
+
+.mzk-ike .mzk-ike-hero__bg { position: absolute !important; inset: 0 !important; z-index: 0 !important; }
+.mzk-ike .mzk-ike-hero__bg img {
+	width: 100% !important;
+	height: 100% !important;
+	object-fit: cover !important;
+	object-position: center !important;
+}
+/*
+ * The design fades left to right, which is right for a headline sitting on the left — but it
+ * fades to nothing, and the picture is a control, so the next one is unknown. The floor is
+ * raised enough that white type holds over a bright photograph.
+ */
+.mzk-ike .mzk-ike-hero__bg::after {
+	content: "" !important;
+	position: absolute !important;
+	inset: 0 !important;
+	background:
+		linear-gradient(to right, rgba(31,51,68,.74), rgba(31,51,68,.46) 55%, rgba(31,51,68,.28)),
+		rgba(31,51,68,.16) !important;
+}
+
+.mzk-ike .mzk-ike-hero__content {
+	position: relative !important;
+	z-index: 1 !important;
+	width: 100% !important;
+	max-width: var(--ike-max) !important;
+	margin-left: auto !important;
+	margin-right: auto !important;
+}
+.mzk-ike .mzk-ike-hero__box { max-width: 36rem !important; }
+@media (min-width: 768px) { .mzk-ike .mzk-ike-hero__box { max-width: 42rem !important; } }
+
+.mzk-ike .mzk-ike-hero__title {
+	font-family: var(--ike-serif) !important;
+	font-weight: 500 !important;
+	font-size: clamp(2.25rem, 5vw, 4.5rem) !important;
+	line-height: 1.1 !important;
+	color: #fff !important;
+	margin: 0 0 24px !important;
+	text-shadow: 0 1px 14px rgba(15,25,35,.4) !important;
+	text-wrap: balance;
+}
+@media (min-width: 768px) { .mzk-ike .mzk-ike-hero__title { margin-bottom: 32px !important; } }
+
+.mzk-ike .mzk-ike-hero__intro {
+	font-size: 16px !important;
+	font-weight: 300 !important;
+	line-height: 1.7 !important;
+	color: rgba(255,255,255,.94) !important;
+	margin: 0 0 32px !important;
+	max-width: 34rem !important;
+	text-shadow: 0 1px 10px rgba(15,25,35,.35) !important;
+}
+
+.mzk-ike .mzk-ike-hero__actions { display: flex !important; flex-direction: column !important; gap: 16px !important; }
+@media (min-width: 640px) { .mzk-ike .mzk-ike-hero__actions { flex-direction: row !important; flex-wrap: wrap !important; } }
+
+/* --------------------------------------------------------------- intro */
+
+.mzk-ike .mzk-ike-intro { background: var(--ike-ivory) !important; padding: 64px var(--ike-pad) !important; }
+@media (min-width: 768px)  { .mzk-ike .mzk-ike-intro { padding-top: 96px !important; padding-bottom: 96px !important; } }
+@media (min-width: 1024px) { .mzk-ike .mzk-ike-intro { padding-top: 128px !important; padding-bottom: 128px !important; } }
+
+.mzk-ike .mzk-ike-intro__grid { display: flex !important; flex-direction: column !important; align-items: center !important; gap: 48px !important; }
+@media (min-width: 1024px) { .mzk-ike .mzk-ike-intro__grid { flex-direction: row !important; gap: 96px !important; } }
+.mzk-ike .mzk-ike-intro__text,
+.mzk-ike .mzk-ike-intro__media { width: 100% !important; }
+@media (min-width: 1024px) {
+	.mzk-ike .mzk-ike-intro__text  { width: 50% !important; order: 1 !important; }
+	.mzk-ike .mzk-ike-intro__media { width: 50% !important; order: 2 !important; }
+}
+/* Picture first on a phone: it is what makes somebody keep reading. */
+.mzk-ike .mzk-ike-intro__media { order: 1 !important; }
+.mzk-ike .mzk-ike-intro__text  { order: 2 !important; }
+
+.mzk-ike .mzk-ike-intro__eyebrow { color: var(--ike-sage) !important; }
+.mzk-ike .mzk-ike-intro__title {
+	font-family: var(--ike-serif) !important;
+	font-weight: 400 !important;
+	font-size: clamp(1.875rem, 4vw, 3rem) !important;
+	line-height: 1.2 !important;
+	color: var(--ike-navy) !important;
+	margin: 0 0 24px !important;
+	text-wrap: balance;
+}
+@media (min-width: 768px) { .mzk-ike .mzk-ike-intro__title { margin-bottom: 32px !important; } }
+.mzk-ike .mzk-ike-intro__accent { display: block !important; font-style: italic !important; color: var(--ike-teal) !important; }
+
+.mzk-ike .mzk-ike-intro__body,
+.mzk-ike .mzk-ike-intro__body p {
+	color: var(--ike-body) !important;
+	font-weight: 300 !important;
+	font-size: 16px !important;
+	line-height: 1.75 !important;
+}
+.mzk-ike .mzk-ike-intro__body p + p { margin-top: 24px !important; }
+@media (min-width: 1024px) {
+	.mzk-ike .mzk-ike-intro__body,
+	.mzk-ike .mzk-ike-intro__body p { font-size: 18px !important; }
+}
+
+/* The white frame is part of the design, so it is drawn on a wrapper rather than the image —
+   the reset strips borders off images to stop a theme adding its own. */
+.mzk-ike .mzk-ike__framed {
+	background: #fff !important;
+	border: 8px solid #fff !important;
+	box-shadow: 0 1px 3px rgba(0,0,0,.06) !important;
+	overflow: hidden !important;
+}
+.mzk-ike .mzk-ike-intro__media img { width: 100% !important; aspect-ratio: 4 / 5 !important; object-fit: cover !important; }
+
+/* ----------------------------------------------------------- workshops */
+
+.mzk-ike .mzk-ike-workshops { background: #fff !important; padding: 64px 0 !important; overflow: hidden !important; scroll-margin-top: 90px !important; }
+@media (min-width: 768px)  { .mzk-ike .mzk-ike-workshops { padding-top: 96px !important; padding-bottom: 96px !important; } }
+@media (min-width: 1024px) { .mzk-ike .mzk-ike-workshops { padding-top: 128px !important; padding-bottom: 128px !important; } }
+
+.mzk-ike .mzk-ike-workshops__inner { padding-left: var(--ike-pad) !important; padding-right: var(--ike-pad) !important; }
+
+.mzk-ike .mzk-ike-workshops__head {
+	display: flex !important;
+	flex-direction: column !important;
+	gap: 32px !important;
+	margin: 0 0 48px !important;
+	text-align: center !important;
+}
+@media (min-width: 768px) {
+	.mzk-ike .mzk-ike-workshops__head {
+		flex-direction: row !important;
+		align-items: flex-end !important;
+		justify-content: space-between !important;
+		text-align: left !important;
+		margin-bottom: 64px !important;
+	}
+}
+.mzk-ike .mzk-ike-workshops__blurb { max-width: 42rem !important; margin-left: auto !important; margin-right: auto !important; }
+@media (min-width: 768px) { .mzk-ike .mzk-ike-workshops__blurb { margin-left: 0 !important; margin-right: 0 !important; } }
+
+.mzk-ike .mzk-ike-workshops__title {
+	font-family: var(--ike-serif) !important;
+	font-weight: 400 !important;
+	font-size: clamp(1.875rem, 4vw, 3rem) !important;
+	line-height: 1.2 !important;
+	color: var(--ike-navy) !important;
+	margin: 0 0 16px !important;
+}
+@media (min-width: 768px) { .mzk-ike .mzk-ike-workshops__title { margin-bottom: 24px !important; } }
+.mzk-ike .mzk-ike-workshops__intro { color: var(--ike-body) !important; font-weight: 300 !important; line-height: 1.75 !important; }
+@media (min-width: 1024px) { .mzk-ike .mzk-ike-workshops__intro { font-size: 18px !important; } }
+
+.mzk-ike .mzk-ike-slider__nav { display: none !important; }
+@media (min-width: 768px) {
+	.mzk-ike .mzk-ike-slider__nav { display: flex !important; align-items: center !important; gap: 8px !important; flex: none !important; }
+}
+.mzk-ike .mzk-ike-slider__arrow {
+	width: 48px !important;
+	height: 48px !important;
+	display: inline-flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+	padding: 0 !important;
+	background: transparent !important;
+	border: 1px solid var(--ike-charcoal) !important;
+	border-radius: 0 !important;
+	color: var(--ike-charcoal) !important;
+	cursor: pointer !important;
+	transition: background-color .3s, color .3s !important;
+}
+.mzk-ike .mzk-ike-slider__arrow:hover:not([disabled]) { background: var(--ike-charcoal) !important; color: #fff !important; }
+.mzk-ike .mzk-ike-slider__arrow[disabled] { opacity: .3 !important; cursor: default !important; }
+.mzk-ike .mzk-ike-slider__arrow svg { width: 20px !important; height: 20px !important; fill: none !important; stroke: currentColor !important; stroke-width: 1.75 !important; }
+
+/*
+ * A scroll-snap track rather than a JavaScript carousel. It is a real scrollable list, so it
+ * works with a finger, a trackpad, a keyboard and a screen reader before any script runs — the
+ * arrows and dots only scroll it.
+ */
+.mzk-ike .mzk-ike-slider__track {
+	display: flex !important;
+	align-items: stretch !important;
+	gap: 20px !important;
+	overflow-x: auto !important;
+	/*
+	 * proximity, not mandatory, and this is not a style preference.
+	 *
+	 * A mandatory snap container cancels any smooth programmatic scroll: the animation starts,
+	 * the container re-snaps to the point it is still nearest — the one it started from — and it
+	 * ends exactly where it began. No error, no warning; the arrows and dots simply did nothing,
+	 * while an instant scroll to the same place worked. proximity still snaps a swipe or a
+	 * trackpad flick to a card, which is the part a reader notices.
+	 */
+	scroll-snap-type: x proximity !important;
+	padding: 0 0 16px !important;
+	margin: 0 !important;
+	-ms-overflow-style: none !important;
+	scrollbar-width: none !important;
+}
+.mzk-ike .mzk-ike-slider__track::-webkit-scrollbar { display: none !important; }
+@media (min-width: 768px) { .mzk-ike .mzk-ike-slider__track { gap: 32px !important; } }
+
+.mzk-ike .mzk-ike-card {
+	flex: 0 0 auto !important;
+	width: 85% !important;
+	scroll-snap-align: start !important;
+	display: flex !important;
+	flex-direction: column !important;
+	background: var(--ike-ivory) !important;
+	border: 1px solid rgba(242,246,246,.9) !important;
+	border-radius: 0 !important;
+}
+@media (min-width: 640px)  { .mzk-ike .mzk-ike-card { width: calc(50% - 10px) !important; } }
+@media (min-width: 768px)  { .mzk-ike .mzk-ike-card { width: calc(50% - 16px) !important; } }
+@media (min-width: 1024px) { .mzk-ike .mzk-ike-card { width: calc(33.333% - 21.34px) !important; } }
+
+.mzk-ike .mzk-ike-card__figure { position: relative !important; overflow: hidden !important; background: #fff !important; }
+.mzk-ike .mzk-ike-card__figure img { width: 100% !important; aspect-ratio: 4 / 3 !important; object-fit: cover !important; }
+.mzk-ike .mzk-ike-card__tag {
+	position: absolute !important;
+	top: 16px !important;
+	left: 16px !important;
+	z-index: 1 !important;
+	background: #fff !important;
+	color: var(--ike-navy) !important;
+	padding: 6px 12px !important;
+	font-size: 10px !important;
+	font-weight: 700 !important;
+	letter-spacing: .12em !important;
+	text-transform: uppercase !important;
+	line-height: 1.4 !important;
+}
+@media (min-width: 768px) { .mzk-ike .mzk-ike-card__tag { font-size: 12px !important; } }
+
+.mzk-ike .mzk-ike-card__body { padding: 24px !important; display: flex !important; flex-direction: column !important; flex: 1 1 auto !important; }
+@media (min-width: 768px) { .mzk-ike .mzk-ike-card__body { padding: 32px !important; } }
+
+.mzk-ike .mzk-ike-card__title {
+	font-family: var(--ike-serif) !important;
+	font-weight: 400 !important;
+	font-size: 20px !important;
+	line-height: 1.3 !important;
+	color: var(--ike-navy) !important;
+	margin: 0 0 24px !important;
+}
+@media (min-width: 768px) { .mzk-ike .mzk-ike-card__title { font-size: 24px !important; } }
+
+.mzk-ike .mzk-ike-card__facts { display: flex !important; flex-direction: column !important; gap: 16px !important; margin: 0 0 32px !important; flex: 1 1 auto !important; }
+.mzk-ike .mzk-ike-card__facts li {
+	display: flex !important;
+	align-items: center !important;
+	gap: 12px !important;
+	font-size: 14px !important;
+	font-weight: 300 !important;
+	line-height: 1.5 !important;
+	color: var(--ike-charcoal) !important;
+}
+.mzk-ike .mzk-ike-card__icon { flex: none !important; display: inline-flex !important; color: var(--ike-teal) !important; font-size: 18px !important; line-height: 1 !important; }
+.mzk-ike .mzk-ike-card__icon svg { width: 18px !important; height: 18px !important; fill: currentColor !important; }
+.mzk-ike .mzk-ike-card__icon i { color: var(--ike-teal) !important; }
+
+.mzk-ike .mzk-ike-card__action { margin-top: auto !important; padding-top: 16px !important; }
+.mzk-ike .mzk-ike-card__action .mzk-ike__btn { width: 100% !important; padding-top: 14px !important; padding-bottom: 14px !important; }
+
+.mzk-ike .mzk-ike-slider__dots { display: flex !important; justify-content: center !important; align-items: center !important; gap: 12px !important; margin: 32px 0 0 !important; }
+@media (min-width: 768px) { .mzk-ike .mzk-ike-slider__dots { margin-top: 48px !important; } }
+.mzk-ike .mzk-ike-slider__dot {
+	width: 8px !important;
+	height: 8px !important;
+	padding: 0 !important;
+	border: 1px solid rgba(45,52,59,.2) !important;
+	border-radius: 0 !important;
+	background: var(--ike-grey) !important;
+	cursor: pointer !important;
+	transition: background-color .3s, border-color .3s !important;
+}
+.mzk-ike .mzk-ike-slider__dot[aria-current="true"] { background: var(--ike-navy) !important; border-color: var(--ike-navy) !important; }
+
+/* ------------------------------------------------------------ featured */
+
+.mzk-ike .mzk-ike-featured {
+	background: var(--ike-ivory) !important;
+	border-top: 1px solid #fff !important;
+	border-bottom: 1px solid #fff !important;
+	padding: 64px var(--ike-pad) !important;
+}
+@media (min-width: 768px)  { .mzk-ike .mzk-ike-featured { padding-top: 96px !important; padding-bottom: 96px !important; } }
+@media (min-width: 1024px) { .mzk-ike .mzk-ike-featured { padding-top: 128px !important; padding-bottom: 128px !important; } }
+
+.mzk-ike .mzk-ike-featured__grid { display: flex !important; flex-direction: column !important; align-items: center !important; gap: 48px !important; }
+@media (min-width: 1024px) { .mzk-ike .mzk-ike-featured__grid { flex-direction: row !important; gap: 80px !important; } }
+.mzk-ike .mzk-ike-featured__media,
+.mzk-ike .mzk-ike-featured__text { width: 100% !important; }
+@media (min-width: 1024px) {
+	.mzk-ike .mzk-ike-featured__media,
+	.mzk-ike .mzk-ike-featured__text { width: 50% !important; }
+}
+.mzk-ike .mzk-ike-featured__media img { width: 100% !important; aspect-ratio: 1 / 1 !important; object-fit: cover !important; }
+@media (min-width: 768px) { .mzk-ike .mzk-ike-featured__media img { aspect-ratio: 4 / 5 !important; } }
+
+.mzk-ike .mzk-ike-featured__eyebrow { color: var(--ike-teal) !important; }
+.mzk-ike .mzk-ike-featured__title {
+	font-family: var(--ike-serif) !important;
+	font-weight: 400 !important;
+	font-size: clamp(1.875rem, 4vw, 3rem) !important;
+	line-height: 1.2 !important;
+	color: var(--ike-navy) !important;
+	margin: 0 0 24px !important;
+}
+.mzk-ike .mzk-ike-featured__body,
+.mzk-ike .mzk-ike-featured__body p {
+	color: var(--ike-body) !important;
+	font-weight: 300 !important;
+	font-size: 16px !important;
+	line-height: 1.75 !important;
+}
+.mzk-ike .mzk-ike-featured__body { margin: 0 0 40px !important; }
+.mzk-ike .mzk-ike-featured__body p + p { margin-top: 16px !important; }
+@media (min-width: 1024px) {
+	.mzk-ike .mzk-ike-featured__body,
+	.mzk-ike .mzk-ike-featured__body p { font-size: 18px !important; }
+}
+
+.mzk-ike .mzk-ike-facts { margin: 0 0 40px !important; }
+.mzk-ike .mzk-ike-facts li {
+	display: flex !important;
+	align-items: center !important;
+	gap: 20px !important;
+	padding: 20px 0 !important;
+	border-top: 1px solid rgba(31,51,68,.1) !important;
+}
+.mzk-ike .mzk-ike-facts li:last-child { border-bottom: 1px solid rgba(31,51,68,.1) !important; }
+.mzk-ike .mzk-ike-facts__icon { flex: none !important; width: 24px !important; display: inline-flex !important; color: var(--ike-teal) !important; font-size: 24px !important; line-height: 1 !important; }
+.mzk-ike .mzk-ike-facts__icon svg { width: 24px !important; height: 24px !important; fill: currentColor !important; }
+.mzk-ike .mzk-ike-facts__icon i { color: var(--ike-teal) !important; }
+.mzk-ike .mzk-ike-facts__label {
+	font-size: 10px !important;
+	font-weight: 700 !important;
+	letter-spacing: .12em !important;
+	text-transform: uppercase !important;
+	color: var(--ike-navy) !important;
+	margin: 0 0 4px !important;
+}
+.mzk-ike .mzk-ike-facts__value { font-size: 14px !important; font-weight: 500 !important; color: var(--ike-charcoal) !important; }
+
+/* ------------------------------------------------------------ benefits */
+
+.mzk-ike .mzk-ike-benefits { background: var(--ike-navy) !important; padding: 64px var(--ike-pad) !important; }
+@media (min-width: 768px) { .mzk-ike .mzk-ike-benefits { padding-top: 96px !important; padding-bottom: 96px !important; } }
+
+.mzk-ike .mzk-ike-benefits__grid { display: grid !important; grid-template-columns: 1fr !important; gap: 48px !important; }
+@media (min-width: 640px)  { .mzk-ike .mzk-ike-benefits__grid { grid-template-columns: repeat(2, 1fr) !important; gap: 40px !important; } }
+@media (min-width: 1024px) { .mzk-ike .mzk-ike-benefits__grid { grid-template-columns: repeat(4, 1fr) !important; gap: 32px !important; } }
+
+.mzk-ike .mzk-ike-benefit { display: flex !important; flex-direction: column !important; align-items: flex-start !important; text-align: left !important; }
+.mzk-ike .mzk-ike-benefit__icon { color: var(--ike-teal) !important; font-size: 30px !important; line-height: 1 !important; margin: 0 0 20px !important; }
+.mzk-ike .mzk-ike-benefit__icon svg { width: 30px !important; height: 30px !important; fill: currentColor !important; }
+.mzk-ike .mzk-ike-benefit__icon i { color: var(--ike-teal) !important; }
+.mzk-ike .mzk-ike-benefit h3 {
+	font-family: var(--ike-serif) !important;
+	font-weight: 400 !important;
+	font-size: 20px !important;
+	line-height: 1.3 !important;
+	color: #fff !important;
+	margin: 0 0 12px !important;
+}
+.mzk-ike .mzk-ike-benefit p { font-size: 14px !important; font-weight: 300 !important; line-height: 1.7 !important; color: rgba(255,255,255,.7) !important; }
+
+/* ------------------------------------------------------------- gallery */
+
+.mzk-ike .mzk-ike-gallery { background: #fff !important; padding: 64px var(--ike-pad) !important; }
+@media (min-width: 768px)  { .mzk-ike .mzk-ike-gallery { padding-top: 96px !important; padding-bottom: 96px !important; } }
+@media (min-width: 1024px) { .mzk-ike .mzk-ike-gallery { padding-top: 128px !important; padding-bottom: 128px !important; } }
+
+.mzk-ike .mzk-ike-gallery__head { text-align: center !important; margin: 0 0 48px !important; }
+@media (min-width: 768px) { .mzk-ike .mzk-ike-gallery__head { margin-bottom: 64px !important; } }
+.mzk-ike .mzk-ike-gallery__eyebrow { color: var(--ike-teal) !important; }
+.mzk-ike .mzk-ike-gallery__title {
+	font-family: var(--ike-serif) !important;
+	font-weight: 400 !important;
+	font-size: clamp(1.875rem, 4vw, 3rem) !important;
+	line-height: 1.2 !important;
+	color: var(--ike-navy) !important;
+}
+
+/* Columns, so pictures of different heights pack without gaps and without measuring anything. */
+.mzk-ike .mzk-ike-gallery__grid { column-count: 1 !important; column-gap: 24px !important; }
+@media (min-width: 768px)  { .mzk-ike .mzk-ike-gallery__grid { column-count: 2 !important; } }
+@media (min-width: 1024px) { .mzk-ike .mzk-ike-gallery__grid { column-count: 3 !important; } }
+
+.mzk-ike .mzk-ike-gallery__item {
+	break-inside: avoid !important;
+	margin: 0 0 24px !important;
+	padding: 0 !important;
+	display: block !important;
+	width: 100% !important;
+	background: var(--ike-grey) !important;
+	border: 0 !important;
+	border-radius: 0 !important;
+	overflow: hidden !important;
+	position: relative !important;
+	cursor: zoom-in !important;
+}
+.mzk-ike .mzk-ike-gallery__item img { width: 100% !important; height: auto !important; transition: transform .7s ease-out !important; }
+.mzk-ike .mzk-ike-gallery__item:hover img,
+.mzk-ike .mzk-ike-gallery__item:focus-visible img { transform: scale(1.05) !important; }
+.mzk-ike .mzk-ike-gallery__item:focus-visible { outline: 3px solid var(--ike-teal) !important; outline-offset: 2px !important; }
+
+@media (prefers-reduced-motion: reduce) {
+	.mzk-ike .mzk-ike-gallery__item img { transition: none !important; }
+	.mzk-ike .mzk-ike-gallery__item:hover img { transform: none !important; }
+}
+
+/* ------------------------------------------------------------- lightbox */
+
+/*
+ * Rendered once at the end of the widget and moved to <body> by the script, because a fixed
+ * element inside anything with a transform or a filter is positioned against that ancestor
+ * rather than the window — and page builders apply both. It stays inert until opened.
+ */
+.mzk-ike-lightbox[hidden] { display: none !important; }
+.mzk-ike-lightbox {
+	position: fixed !important;
+	inset: 0 !important;
+	z-index: 2147483000 !important;
+	display: flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+	padding: 24px !important;
+	background: rgba(20,28,36,.94) !important;
+	font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif !important;
+}
+@media (min-width: 768px) { .mzk-ike-lightbox { padding: 48px !important; } }
+
+.mzk-ike-lightbox__figure {
+	margin: 0 !important;
+	max-width: 100% !important;
+	max-height: 100% !important;
+	display: flex !important;
+	flex-direction: column !important;
+	align-items: center !important;
+	justify-content: center !important;
+	gap: 16px !important;
+}
+.mzk-ike-lightbox__img {
+	display: block !important;
+	max-width: 100% !important;
+	max-height: 78vh !important;
+	width: auto !important;
+	height: auto !important;
+	object-fit: contain !important;
+	border-radius: 0 !important;
+	box-shadow: 0 24px 60px rgba(0,0,0,.5) !important;
+}
+.mzk-ike-lightbox__caption { color: rgba(255,255,255,.8) !important; font-size: 14px !important; text-align: center !important; margin: 0 !important; }
+
+.mzk-ike-lightbox__btn {
+	position: absolute !important;
+	top: 50% !important;
+	transform: translateY(-50%) !important;
+	width: 48px !important;
+	height: 48px !important;
+	display: inline-flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+	padding: 0 !important;
+	background: rgba(255,255,255,.12) !important;
+	border: 1px solid rgba(255,255,255,.3) !important;
+	border-radius: 999px !important;
+	color: #fff !important;
+	cursor: pointer !important;
+	transition: background-color .2s !important;
+}
+.mzk-ike-lightbox__btn:hover { background: rgba(255,255,255,.26) !important; }
+.mzk-ike-lightbox__btn svg { width: 22px !important; height: 22px !important; fill: none !important; stroke: currentColor !important; stroke-width: 1.75 !important; }
+.mzk-ike-lightbox__prev  { left: 12px !important; }
+.mzk-ike-lightbox__next  { right: 12px !important; }
+@media (min-width: 768px) {
+	.mzk-ike-lightbox__prev { left: 24px !important; }
+	.mzk-ike-lightbox__next { right: 24px !important; }
+}
+.mzk-ike-lightbox__close {
+	position: absolute !important;
+	top: 16px !important;
+	right: 16px !important;
+	transform: none !important;
+}
+@media (min-width: 768px) { .mzk-ike-lightbox__close { top: 24px !important; right: 24px !important; } }
+
+/* One picture needs no way to reach the next one. */
+.mzk-ike-lightbox--single .mzk-ike-lightbox__prev,
+.mzk-ike-lightbox--single .mzk-ike-lightbox__next { display: none !important; }
+
+.mzk-ike-lightbox__count {
+	position: absolute !important;
+	bottom: 16px !important;
+	left: 0 !important;
+	right: 0 !important;
+	text-align: center !important;
+	color: rgba(255,255,255,.6) !important;
+	font-size: 12px !important;
+	letter-spacing: .08em !important;
+}

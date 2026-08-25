@@ -8,6 +8,7 @@ class Controls_Manager {
 	const DIMENSIONS = 'dimensions'; const RAW_HTML = 'raw_html'; const SLIDER = 'slider';
 	const TAB_STYLE = 'style'; const TAB_CONTENT = 'content';
 	const MEDIA = 'media'; const WYSIWYG = 'wysiwyg'; const REPEATER = 'repeater'; const ICONS = 'icons';
+	const GALLERY = 'gallery'; const URL = 'url'; const NUMBER = 'number'; const HEADING = 'heading';
 }
 
 /* Collects its fields and hands them back, which is all a widget asks of it. */

@@ -12,10 +12,13 @@
  * looks identical to one that can. It only appeared on a wider screen, which is to say on the
  * studio's.
  *
- *   php wp-plugin/tests/ifda-css.php
+ *   php wp-plugin/tests/page-css.php
  */
 
-$css  = file_get_contents( dirname( __DIR__ ) . '/mizuki-booking-bridge/css/ifda.css' );
+$sheets = array(
+	'ifda.css'    => file_get_contents( dirname( __DIR__ ) . '/mizuki-booking-bridge/css/ifda.css' ),
+	'ikebana.css' => file_get_contents( dirname( __DIR__ ) . '/mizuki-booking-bridge/css/ikebana.css' ),
+);
 $fail = 0;
 
 function check( $label, callable $run ) {
@@ -47,19 +50,24 @@ function rules( $css ) {
 	return $rules;
 }
 
-echo "The stylesheet cannot outrank itself\n";
+echo "The stylesheets cannot outrank themselves\n";
 
 /*
  * The reset is written as `.mzk-ifda <element>` — one class and one type. Anything laying out a
  * component with a single class loses to it, which is how a centred container stopped centring.
  */
-check( 'every component rule outranks the element reset', function () use ( $css ) {
+foreach ( $sheets as $name => $css ) {
+check( $name . ': every component rule outranks the element reset', function () use ( $css ) {
 	$weak = array();
 
 	foreach ( rules( $css ) as $rule ) {
 		list( $selector, $body ) = $rule;
 
-		if ( 0 !== strpos( $selector, '.mzk-ifda' ) || '.mzk-ifda' === $selector ) {
+		if ( 0 !== strpos( $selector, '.mzk-' ) || in_array( $selector, array( '.mzk-ifda', '.mzk-ike' ), true ) ) {
+			continue;
+		}
+		/* The lightbox lives on <body>, outside the page wrapper, so it is its own root. */
+		if ( 0 === strpos( $selector, '.mzk-ike-lightbox' ) ) {
 			continue;
 		}
 		// The universal selector carries box-sizing only, and competes with nothing.
@@ -79,14 +87,18 @@ check( 'every component rule outranks the element reset', function () use ( $css
 		}
 	}
 
-	return $weak ? implode( ', ', $weak ) . ' — prefix with `.mzk-ifda `' : null;
+	return $weak ? implode( ', ', $weak ) . ' — prefix with the page class' : null;
 } );
+}
 
-echo "\nThe page is centred, not left-aligned\n";
+echo "\nBoth pages are centred, not left-aligned\n";
 
-check( 'the container centres itself', function () use ( $css ) {
-	if ( ! preg_match( '/\.mzk-ifda\s+\.mzk-ifda__inner\s*\{([^}]*)\}/', $css, $m ) ) {
-		return 'no `.mzk-ifda .mzk-ifda__inner` rule at all';
+foreach ( array( 'ifda.css' => 'mzk-ifda', 'ikebana.css' => 'mzk-ike' ) as $name => $root ) {
+check( $name . ': the container centres itself', function () use ( $sheets, $name, $root ) {
+	$pattern = '/\.' . $root . '\s+\.' . $root . '__inner\s*\{([^}]*)\}/';
+
+	if ( ! preg_match( $pattern, $sheets[ $name ], $m ) ) {
+		return 'no `.' . $root . ' .' . $root . '__inner` rule at all';
 	}
 	foreach ( array( 'margin-left: auto', 'margin-right: auto' ) as $needed ) {
 		if ( false === strpos( $m[1], $needed ) ) {
@@ -95,6 +107,7 @@ check( 'the container centres itself', function () use ( $css ) {
 	}
 	return null;
 } );
+}
 
 echo "\nThe theme cannot reach in\n";
 
@@ -103,10 +116,17 @@ $forced = array(
 	'.mzk-ifda .mzk-ifda-tab'           => array( 'background', 'font-family', 'border-radius' ),
 	'.mzk-ifda .mzk-ifda-course__title' => array( 'font-family', 'font-size' ),
 	'.mzk-ifda .mzk-ifda__btn'          => array( 'background', 'padding' ),
+	'.mzk-ike .mzk-ike__btn'            => array( 'background', 'padding', 'border-radius' ),
+	'.mzk-ike .mzk-ike-card__title'     => array( 'font-family', 'font-size' ),
+	'.mzk-ike .mzk-ike-slider__dot'     => array( 'background', 'border-radius' ),
+	'.mzk-ike .mzk-ike-gallery__item'   => array( 'background', 'padding' ),
 );
 
+$all = implode( "\n", $sheets );
+
 foreach ( $forced as $selector => $properties ) {
-	check( $selector, function () use ( $css, $selector, $properties ) {
+	check( $selector, function () use ( $all, $selector, $properties ) {
+		$css = $all;
 		$quoted = preg_quote( $selector, '/' );
 		if ( ! preg_match( '/' . $quoted . '\s*[,{]/', $css ) ) {
 			return 'no such rule';

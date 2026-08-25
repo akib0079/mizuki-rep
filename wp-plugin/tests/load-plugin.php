@@ -93,10 +93,10 @@ step( 'the category is added', function () {
 	return implode( ', ', $manager->categories );
 } );
 
-step( 'all four widgets register', function () {
+step( 'all five widgets register', function () {
 	$manager = manager();
 	do_action( 'elementor/widgets/register', $manager );
-	if ( 4 !== count( $manager->widgets ) ) {
+	if ( 5 !== count( $manager->widgets ) ) {
 		throw new RuntimeException( 'registered ' . count( $manager->widgets ) . ': ' . implode( ',', $manager->widgets ) );
 	}
 	return implode( ', ', $manager->widgets );
@@ -276,6 +276,333 @@ step( 'both course lists are drawn the same way', function () {
 	}
 
 	return 'one list style, both tabs';
+} );
+
+
+echo "\nThe Ikebana page, with the content it ships with\n";
+
+step( 'it draws every section', function () {
+	Mizuki_Elementor_Ikebana_Page::$lightbox_drawn = false;
+	$widget           = new Mizuki_Elementor_Ikebana_Page();
+	$widget->settings = $widget->run_defaults();
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	$wanted = array(
+		'mzk-ike-hero'            => 'the hero',
+		'mzk-ike-intro'           => 'the introduction',
+		'mzk-ike-intro__accent'   => 'the italic second line',
+		'mzk-ike-workshops'       => 'the workshops',
+		'mzk-ike-slider__track'   => 'the slider',
+		'mzk-ike-card'            => 'the workshop cards',
+		'mzk-ike-slider__dot'     => 'the slider dots',
+		'mzk-ike-slider__prev'    => 'the slider arrows',
+		'mzk-ike-featured'        => 'the featured course',
+		'mzk-ike-facts'           => 'the course details',
+		'mzk-ike-benefits'        => 'what is included',
+		'mzk-ike-gallery__grid'   => 'the gallery',
+		'mzk-ike-gallery__item'   => 'the gallery pictures',
+		'mzk-ike-lightbox'        => 'the lightbox',
+		'id="workshops"'          => 'the anchor the hero button scrolls to',
+	);
+
+	$missing = array();
+	foreach ( $wanted as $needle => $label ) {
+		if ( false === strpos( $html, $needle ) ) {
+			$missing[] = $label;
+		}
+	}
+
+	if ( $missing ) {
+		throw new RuntimeException( 'nothing drawn for: ' . implode( ', ', $missing ) );
+	}
+
+	return strlen( $html ) . ' bytes, every section present';
+} );
+
+/*
+ * The switches are the point of this widget, so each one is exercised on its own. Turning a
+ * section off must remove that section and leave the other five alone — an off switch that also
+ * silences its neighbour is worse than no switch.
+ */
+step( 'every section can be turned off on its own', function () {
+	$sections = array(
+		'hero_show'      => 'mzk-ike-hero',
+		'intro_show'     => 'mzk-ike-intro',
+		'workshops_show' => 'mzk-ike-workshops',
+		'featured_show'  => 'mzk-ike-featured',
+		'benefits_show'  => 'mzk-ike-benefits',
+		'gallery_show'   => 'mzk-ike-gallery',
+	);
+
+	foreach ( $sections as $switch => $marker ) {
+		Mizuki_Elementor_Ikebana_Page::$lightbox_drawn = false;
+	$widget           = new Mizuki_Elementor_Ikebana_Page();
+		$widget->settings = array_merge( $widget->run_defaults(), array( $switch => '' ) );
+
+		ob_start();
+		$widget->run_render();
+		$html = ob_get_clean();
+
+		if ( false !== strpos( $html, $marker ) ) {
+			throw new RuntimeException( $switch . ' was off and ' . $marker . ' was drawn anyway' );
+		}
+
+		foreach ( $sections as $other => $otherMarker ) {
+			if ( $other === $switch ) {
+				continue;
+			}
+			if ( false === strpos( $html, $otherMarker ) ) {
+				throw new RuntimeException( $switch . ' was off and it took ' . $otherMarker . ' with it' );
+			}
+		}
+	}
+
+	return count( $sections ) . ' switches, each independent';
+} );
+
+step( 'all six off draws nothing but the wrapper', function () {
+	Mizuki_Elementor_Ikebana_Page::$lightbox_drawn = false;
+	$widget           = new Mizuki_Elementor_Ikebana_Page();
+	$widget->settings = array_merge( $widget->run_defaults(), array(
+		'hero_show' => '', 'intro_show' => '', 'workshops_show' => '',
+		'featured_show' => '', 'benefits_show' => '', 'gallery_show' => '',
+	) );
+
+	ob_start();
+	$widget->run_render();
+	$html = trim( ob_get_clean() );
+
+	if ( '<div class="mzk-ike"></div>' !== $html ) {
+		throw new RuntimeException( 'left something behind: ' . substr( $html, 0, 120 ) );
+	}
+
+	return 'an empty wrapper, no stray markup';
+} );
+
+step( 'the lightbox can be turned off without losing the pictures', function () {
+	Mizuki_Elementor_Ikebana_Page::$lightbox_drawn = false;
+	$widget           = new Mizuki_Elementor_Ikebana_Page();
+	$widget->settings = array_merge( $widget->run_defaults(), array( 'gallery_lightbox' => '' ) );
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	if ( false !== strpos( $html, 'mzk-ike-lightbox' ) ) {
+		throw new RuntimeException( 'the lightbox was drawn anyway' );
+	}
+	if ( false === strpos( $html, 'mzk-ike-gallery__item' ) ) {
+		throw new RuntimeException( 'the pictures went with it' );
+	}
+	/* No button, because nothing happens when it is pressed. */
+	if ( false !== strpos( $html, '<button type="button" class="mzk-ike-gallery__item' ) ) {
+		throw new RuntimeException( 'a picture that opens nothing is still a button' );
+	}
+
+	return 'pictures kept, lightbox gone';
+} );
+
+step( 'one workshop draws no slider controls', function () {
+	$defaults = ( new Mizuki_Elementor_Ikebana_Page() )->run_defaults();
+
+	Mizuki_Elementor_Ikebana_Page::$lightbox_drawn = false;
+	$widget           = new Mizuki_Elementor_Ikebana_Page();
+	$widget->settings = array_merge( $defaults, array( 'workshops' => array_slice( $defaults['workshops'], 0, 1 ) ) );
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	// Arrows and dots for a list of one are controls that do nothing.
+	foreach ( array( 'mzk-ike-slider__dot', 'mzk-ike-slider__prev' ) as $needle ) {
+		if ( false !== strpos( $html, $needle ) ) {
+			throw new RuntimeException( $needle . ' drawn for a single workshop' );
+		}
+	}
+	if ( false === strpos( $html, 'mzk-ike-card' ) ) {
+		throw new RuntimeException( 'the one workshop was not drawn' );
+	}
+
+	return 'the card, and nothing to scroll it with';
+} );
+
+step( 'a workshop typed with blank lines still lists cleanly', function () {
+	$defaults = ( new Mizuki_Elementor_Ikebana_Page() )->run_defaults();
+	$cards    = $defaults['workshops'];
+	$cards[0]['facts'] = "  2.5 Hours  \n\n\n  Small Group  \n";
+
+	Mizuki_Elementor_Ikebana_Page::$lightbox_drawn = false;
+	$widget           = new Mizuki_Elementor_Ikebana_Page();
+	$widget->settings = array_merge( $defaults, array( 'workshops' => $cards ) );
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	if ( false !== strpos( $html, '<span></span>' ) ) {
+		throw new RuntimeException( 'a blank line became an empty row' );
+	}
+	if ( false === strpos( $html, '>2.5 Hours<' ) || false === strpos( $html, '>Small Group<' ) ) {
+		throw new RuntimeException( 'the trimmed rows did not survive' );
+	}
+
+	return 'blank lines dropped, spacing trimmed';
+} );
+
+step( 'the lightbox is drawn once even with two galleries', function () {
+	Mizuki_Elementor_Ikebana_Page::$lightbox_drawn = false;
+	$first            = new Mizuki_Elementor_Ikebana_Page();
+	$first->settings  = $first->run_defaults();
+	$second           = new Mizuki_Elementor_Ikebana_Page();
+	$second->settings = $second->run_defaults();
+
+	ob_start();
+	$first->run_render();
+	$second->run_render();
+	$html = ob_get_clean();
+
+	$count = substr_count( $html, 'id="mzk-ike-lightbox"' );
+	if ( 1 !== $count ) {
+		throw new RuntimeException( 'drew it ' . $count . ' times — duplicate ids' );
+	}
+
+	return 'one dialog, one id';
+} );
+
+
+/*
+ * The gap that let the above through.
+ *
+ * A WordPress function the plugin calls and this harness does not define is not an error here:
+ * the widget catches it, logs it, and draws nothing, which is exactly what containment is for
+ * and exactly what makes it invisible. Checked in the source instead.
+ */
+step( 'the harness defines every WordPress function the plugin calls', function () {
+	$plugin = dirname( __DIR__ ) . '/mizuki-booking-bridge';
+	$files  = array_merge(
+		glob( $plugin . '/*.php' ),
+		glob( $plugin . '/includes/*.php' )
+	);
+
+	$called = array();
+	foreach ( $files as $file ) {
+		/* (?<![>:$\w]) keeps method calls out: $this->add_control() and $order->get_total() are
+		   not WordPress functions and stubbing them would be nonsense. */
+		preg_match_all(
+			'/(?<![>:$\w])\b(esc_[a-z_]+|wp_[a-z_]+|sanitize_[a-z_]+|tag_escape|absint|apply_filters|untrailingslashit|trailingslashit|selected|checked|get_post_meta|get_option|get_bloginfo|get_transient|set_transient|current_user_can|plugin_dir_path|plugin_dir_url|did_action|add_action|add_filter|add_shortcode|home_url|admin_url)\s*\(/',
+			file_get_contents( $file ),
+			$matches
+		);
+		foreach ( $matches[1] as $name ) {
+			$called[ $name ] = true;
+		}
+	}
+
+	$missing = array();
+	foreach ( array_keys( $called ) as $name ) {
+		if ( ! function_exists( $name ) ) {
+			$missing[] = $name;
+		}
+	}
+
+	sort( $missing );
+
+	if ( $missing ) {
+		throw new RuntimeException( 'not stubbed: ' . implode( ', ', $missing ) );
+	}
+
+	return count( $called ) . ' functions, all present';
+} );
+
+
+/*
+ * The slider's controls must sit inside the slider.
+ *
+ * The script finds which slider to scroll by walking up from whatever was clicked. The arrows
+ * shipped rendered outside the wrapper, one level up in the section heading, so every press did
+ * nothing at all — no error, no console warning, just a dead button. Nothing that reads the HTML
+ * as text catches that, so this walks the tree.
+ */
+step( 'the slider controls are inside the slider', function () {
+	Mizuki_Elementor_Ikebana_Page::$lightbox_drawn = false;
+	$widget           = new Mizuki_Elementor_Ikebana_Page();
+	$widget->settings = $widget->run_defaults();
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	$document = new DOMDocument();
+	libxml_use_internal_errors( true );
+	$document->loadHTML( '<?xml encoding="UTF-8">' . $html );
+	libxml_clear_errors();
+
+	$xpath = new DOMXPath( $document );
+
+	foreach ( array( 'mzk-ike-slider__prev', 'mzk-ike-slider__next', 'mzk-ike-slider__dot', 'mzk-ike-slider__track' ) as $part ) {
+		$nodes = $xpath->query( '//*[contains(@class, "' . $part . '")]' );
+		if ( ! $nodes->length ) {
+			throw new RuntimeException( $part . ' was not drawn at all' );
+		}
+
+		$node   = $nodes->item( 0 );
+		$inside = false;
+
+		for ( $parent = $node->parentNode; $parent instanceof DOMElement; $parent = $parent->parentNode ) {
+			$classes = explode( ' ', (string) $parent->getAttribute( 'class' ) );
+			if ( in_array( 'mzk-ike-slider', $classes, true ) ) {
+				$inside = true;
+				break;
+			}
+		}
+
+		if ( ! $inside ) {
+			throw new RuntimeException( $part . ' is outside .mzk-ike-slider, so the script cannot reach it' );
+		}
+	}
+
+	return 'arrows, dots and track all within the wrapper';
+} );
+
+/* Same walk for the gallery: a picture the script cannot find its grid from opens nothing. */
+step( 'every gallery picture is inside its grid', function () {
+	Mizuki_Elementor_Ikebana_Page::$lightbox_drawn = false;
+	$widget           = new Mizuki_Elementor_Ikebana_Page();
+	$widget->settings = $widget->run_defaults();
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	$document = new DOMDocument();
+	libxml_use_internal_errors( true );
+	$document->loadHTML( '<?xml encoding="UTF-8">' . $html );
+	libxml_clear_errors();
+
+	$xpath = new DOMXPath( $document );
+	$items = $xpath->query( '//*[contains(@class, "mzk-ike-gallery__item")]' );
+
+	if ( ! $items->length ) {
+		throw new RuntimeException( 'no pictures drawn' );
+	}
+
+	foreach ( $items as $item ) {
+		$inside = false;
+		for ( $parent = $item->parentNode; $parent instanceof DOMElement; $parent = $parent->parentNode ) {
+			if ( false !== strpos( (string) $parent->getAttribute( 'class' ), 'mzk-ike-gallery__grid' ) ) {
+				$inside = true;
+				break;
+			}
+		}
+		if ( ! $inside ) {
+			throw new RuntimeException( 'a picture is outside the grid' );
+		}
+	}
+
+	return $items->length . ' pictures, all inside the grid';
 } );
 
 echo "\n";

@@ -172,7 +172,7 @@ async function assertPluginLoads() {
 
   /* The stylesheet has to beat the theme, and it has to not beat itself. Both have gone wrong. */
   try {
-    await run('php', [path.join(root, 'wp-plugin/tests/ifda-css.php')])
+    await run('php', [path.join(root, 'wp-plugin/tests/page-css.php')])
   } catch (error) {
     console.error('The IFDA stylesheet is not sound:\n' + (error.stdout || error.message))
     process.exit(1)

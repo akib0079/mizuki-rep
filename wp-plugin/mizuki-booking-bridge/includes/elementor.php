@@ -34,12 +34,14 @@ function mizuki_elementor_widget_instances() {
 	// Required here rather than at the top of the file: it extends Widget_Base too, so it is
 	// under the same rule about when Elementor can resolve one.
 	require_once __DIR__ . '/elementor-ifda.php';
+	require_once __DIR__ . '/elementor-ikebana.php';
 
 	return array(
 		new Mizuki_Elementor_Calendar(),
 		new Mizuki_Elementor_Account(),
 		new Mizuki_Elementor_Book_Button(),
 		new Mizuki_Elementor_IFDA_Page(),
+		new Mizuki_Elementor_Ikebana_Page(),
 	);
 }
 

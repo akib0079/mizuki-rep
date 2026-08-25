@@ -74,3 +74,17 @@ function wp_http_validate_url( $u ) { return $u; }
 function get_bloginfo_rss( $s ) { return ''; }
 function wp_strip_all_tags( $v ) { return strip_tags( (string) $v ); }
 function maybe_unserialize( $v ) { return $v; }
+
+/*
+ * Five that the plugin reaches for and this file did not have.
+ *
+ * Their absence never showed as a missing-function error, because the widgets catch a Throwable
+ * while drawing and log it — containment doing its job, and hiding the gap while it did. The
+ * section simply did not appear. So the harness now covers every WordPress function the plugin
+ * calls, and there is a test below that keeps it that way.
+ */
+function esc_attr__( $t, $d = null ) { return htmlspecialchars( (string) $t, ENT_QUOTES ); }
+function get_post_meta( $id, $key = '', $single = false ) { return $single ? '' : array(); }
+function wp_date( $format, $timestamp = null, $tz = null ) { return gmdate( $format, $timestamp ?: time() ); }
+function wp_register_style( $h, $s = '', $d = array(), $v = false, $m = 'all' ) { return true; }
+function wp_remote_post( $url, $args = array() ) { return array( 'response' => array( 'code' => 200 ), 'body' => '{}' ); }
