@@ -55,7 +55,7 @@ step( 'plugins_loaded', function () { do_action( 'plugins_loaded' ); } );
  * class that fails to declare turns the next line that names it into a fatal.
  */
 step( 'nothing that needs Elementor has been touched', function () {
-	foreach ( array( 'Mizuki_Elementor_Calendar', 'Mizuki_Elementor_Account', 'Mizuki_Elementor_Book_Button' ) as $class ) {
+	foreach ( array( 'Mizuki_Elementor_Calendar', 'Mizuki_Elementor_Account', 'Mizuki_Elementor_Book_Button', 'Mizuki_Elementor_IFDA_Page' ) as $class ) {
 		if ( class_exists( $class, false ) ) {
 			throw new RuntimeException( $class . ' was declared at plugins_loaded, which is too early' );
 		}
@@ -93,10 +93,10 @@ step( 'the category is added', function () {
 	return implode( ', ', $manager->categories );
 } );
 
-step( 'all three widgets register', function () {
+step( 'all four widgets register', function () {
 	$manager = manager();
 	do_action( 'elementor/widgets/register', $manager );
-	if ( 3 !== count( $manager->widgets ) ) {
+	if ( 4 !== count( $manager->widgets ) ) {
 		throw new RuntimeException( 'registered ' . count( $manager->widgets ) . ': ' . implode( ',', $manager->widgets ) );
 	}
 	return implode( ', ', $manager->widgets );
@@ -112,7 +112,7 @@ step( 'registering twice does not register twice', function () {
 } );
 
 echo "\nEvery control panel builds\n";
-foreach ( array( 'Mizuki_Elementor_Calendar', 'Mizuki_Elementor_Account', 'Mizuki_Elementor_Book_Button' ) as $class ) {
+foreach ( array( 'Mizuki_Elementor_Calendar', 'Mizuki_Elementor_Account', 'Mizuki_Elementor_Book_Button', 'Mizuki_Elementor_IFDA_Page' ) as $class ) {
 	step( $class, function () use ( $class ) {
 		$widget = new $class();
 		$widget->run_controls();
@@ -144,7 +144,7 @@ foreach ( $states as $label => $world ) {
 			public function is_edit_mode() { return $this->editing; }
 		};
 
-		foreach ( array( 'Mizuki_Elementor_Calendar', 'Mizuki_Elementor_Account', 'Mizuki_Elementor_Book_Button' ) as $class ) {
+		foreach ( array( 'Mizuki_Elementor_Calendar', 'Mizuki_Elementor_Account', 'Mizuki_Elementor_Book_Button', 'Mizuki_Elementor_IFDA_Page' ) as $class ) {
 			$widget = new $class();
 			if ( ! empty( $world['no_settings'] ) ) {
 				$widget->settings = array();
@@ -155,6 +155,98 @@ foreach ( $states as $label => $world ) {
 		}
 	} );
 }
+
+echo "\nThe IFDA page, with the content it ships with\n";
+step( 'it draws every section', function () {
+	$widget           = new Mizuki_Elementor_IFDA_Page();
+	$widget->settings = $widget->run_defaults();
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	/*
+	 * Checked by what reaches the page rather than by length, because the failure that matters
+	 * here is a section quietly drawing nothing — a settings key renamed, a repeater read under
+	 * the wrong name. That produces a shorter page, not an error.
+	 */
+	$wanted = array(
+		'mzk-ifda-hero'      => 'the hero',
+		'mzk-ifda-about'     => 'about IFDA',
+		'mzk-ifda-cert__card'=> 'the certification cards',
+		'mzk-ifda-tab'       => 'the course tabs',
+		'mzk-ifda-learn'     => 'what you will learn',
+		'mzk-ifda-projects'  => 'the pieces',
+		'mzk-ifda-callout'   => 'the note',
+		'mzk-ifda-booking'   => 'the booking block',
+		'mizuki-book'        => 'a button wired to the calendar',
+		'data-course="ifda"'        => 'the calendar opening on IFDA rather than everything',
+	);
+
+	$missing = array();
+	foreach ( $wanted as $needle => $label ) {
+		if ( false === strpos( $html, $needle ) ) {
+			$missing[] = $label;
+		}
+	}
+
+	if ( $missing ) {
+		throw new RuntimeException( 'nothing drawn for: ' . implode( ', ', $missing ) );
+	}
+
+	return strlen( $html ) . ' bytes, every section present';
+} );
+
+step( 'both courses are on the page, not just the open one', function () {
+	$widget           = new Mizuki_Elementor_IFDA_Page();
+	$widget->settings = $widget->run_defaults();
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	// The closed tab is hidden, not absent — otherwise find-in-page and a reader with the script
+	// blocked never see half the page.
+	if ( 2 !== substr_count( $html, 'role="tabpanel"' ) ) {
+		throw new RuntimeException( 'expected two panels in the markup' );
+	}
+	if ( false === strpos( $html, 'Beginner Course' ) || false === strpos( $html, 'Master Course' ) ) {
+		throw new RuntimeException( 'a course is missing from the markup' );
+	}
+
+	return 'both panels present, one hidden';
+} );
+
+step( 'every list item survives being typed with stray blank lines', function () {
+	$widget   = new Mizuki_Elementor_IFDA_Page();
+	$defaults = $widget->run_defaults();
+
+	// One course, so what is counted below can only have come from the lines under test.
+	$defaults['courses'] = array( $defaults['courses'][0] );
+	$defaults['courses'][0]['learn_items']    = "  One  \n\n\n  Two  \n";
+	$defaults['courses'][0]['projects_items'] = "\nAlpha\n\nBeta\n\n";
+	$widget->settings = $defaults;
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	if ( 2 !== substr_count( $html, '<li><span>' ) ) {
+		throw new RuntimeException( 'expected two list items, got ' . substr_count( $html, '<li><span>' ) );
+	}
+	if ( 2 !== substr_count( $html, 'mzk-ifda-projects__n' ) ) {
+		throw new RuntimeException( 'expected two pieces, got ' . substr_count( $html, 'mzk-ifda-projects__n' ) );
+	}
+	// A single course is a heading, not a control, so no tab list is drawn for it.
+	if ( false !== strpos( $html, 'mzk-ifda-tab' ) ) {
+		throw new RuntimeException( 'a lone course still drew a tab' );
+	}
+	if ( false === strpos( $html, '>01<' ) || false === strpos( $html, '>02<' ) ) {
+		throw new RuntimeException( 'the pieces are not numbered from one' );
+	}
+
+	return 'blank lines dropped, numbering starts at 01';
+} );
 
 echo "\n";
 if ( $fail ) {

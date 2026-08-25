@@ -61,6 +61,7 @@ function home_url( $p = '' ) { return 'https://example.test' . $p; }
 function wc_get_order( $id ) { return null; }
 function is_admin() { return true; }
 function wp_kses_post( $v ) { return $v; }
+function tag_escape( $v ) { return strtolower( preg_replace( '/[^a-zA-Z0-9_:]/', '', (string) $v ) ); }
 function absint( $v ) { return abs( (int) $v ); }
 function filemtime_safe( $p ) { return 0; }
 function trailingslashit( $p ) { return rtrim( $p, '/' ) . '/'; }

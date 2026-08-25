@@ -47,8 +47,9 @@ async function main() {
   await rm(assetsDir, { recursive: true, force: true })
   await mkdir(assetsDir, { recursive: true })
 
-  // Just the one file: the stylesheet is compiled into the bundle and injected into the widget's
-  // shadow root, so there is no separate widget.css to ship.
+  // assets/ is build output only, and is emptied above. The booking widget's own stylesheet is
+  // compiled into the bundle and injected into its shadow root, so there is no widget.css to
+  // ship; the IFDA page's stylesheet is hand-written source and lives in css/ for that reason.
   for (const file of ['widget.js']) {
     const source = path.join(widgetDist, file)
     if (!(await exists(source))) {
@@ -59,6 +60,7 @@ async function main() {
   }
 
   await assertWidgetSurface(path.join(assetsDir, 'widget.js'))
+  await assertEverythingReferencedShips()
   await assertPluginLoads()
 
   await rm(outputZip, { force: true })
@@ -90,6 +92,44 @@ async function assertWidgetSurface(builtFile) {
       `The built widget does not expose ${missing.join(' or ')} on window.MizukiBooking.\n` +
         'Everything the plugin calls has to be exported from apps/widget/src/embed.tsx — the IIFE\n' +
         'wrapper overwrites the global with the exports, so an internal function is not enough.',
+    )
+    process.exit(1)
+  }
+}
+
+/**
+ * Every file the plugin enqueues has to actually be in the plugin.
+ *
+ * This is here because it already went wrong once. `assets/` is emptied and rebuilt from the
+ * widget build on every package, so a stylesheet written by hand and left in there was deleted
+ * by the next build — and nothing complained. The plugin installed, activated, rendered, and
+ * served an unstyled page, because a missing stylesheet is a 404 in the network panel and
+ * nothing at all in PHP.
+ *
+ * So the rule is read off the source rather than kept in a list here: whatever the plugin
+ * registers, this checks is on disk.
+ */
+async function assertEverythingReferencedShips() {
+  const php = await readFile(path.join(pluginDir, 'mizuki-booking-bridge.php'), 'utf8')
+
+  // wp_register_style( 'handle', $base . 'css/ifda.css', ... ) and the script equivalent.
+  const referenced = [...php.matchAll(/wp_register_(?:style|script)\(\s*'[^']+',\s*\$base \. '([^']+)'/g)]
+    .map((match) => match[1])
+
+  if (!referenced.length) {
+    console.error('No registered assets found in the plugin file. Has the registration moved?')
+    process.exit(1)
+  }
+
+  const missing = []
+  for (const file of referenced) {
+    if (!(await exists(path.join(pluginDir, file)))) missing.push(file)
+  }
+
+  if (missing.length) {
+    console.error(
+      `The plugin registers ${missing.join(', ')} but ${missing.length > 1 ? 'they are' : 'it is'} not in the plugin.\n` +
+        'Note that assets/ is emptied on every package — anything hand-written belongs in css/ or js/.',
     )
     process.exit(1)
   }

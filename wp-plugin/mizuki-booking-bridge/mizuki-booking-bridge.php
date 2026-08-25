@@ -3,7 +3,7 @@
  * Plugin Name:       Mizuki Booking Bridge
  * Plugin URI:        https://mizuki.com.sg
  * Description:       Embeds the Mizuki Flora class calendar into WordPress and connects WooCommerce checkout to the booking system, so a paid workshop holds its place until payment lands.
- * Version:           1.2.2
+ * Version:           1.3.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Mizuki Flora
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'MIZUKI_BRIDGE_VERSION', '1.2.2' );
+define( 'MIZUKI_BRIDGE_VERSION', '1.3.0' );
 define( 'MIZUKI_BRIDGE_FILE', __FILE__ );
 
 /** Query args carried from the booking widget into the shop. */
@@ -288,7 +288,13 @@ function mizuki_elementor_register_widgets( $widgets_manager = null ) {
 	}
 }
 
-add_action( 'wp_enqueue_scripts', 'mizuki_register_assets' );
+/*
+ * Registered on `init` rather than on `wp_enqueue_scripts`, which only fires on the front end.
+ * Nothing is enqueued here — a handle is only declared, so whoever needs it later can ask for it
+ * by name. Elementor asks for the IFDA stylesheet from the widget's own get_style_depends(), and
+ * it does that while building the editor too, where `wp_enqueue_scripts` has never run.
+ */
+add_action( 'init', 'mizuki_register_assets' );
 function mizuki_register_assets() {
 	$base = plugin_dir_url( MIZUKI_BRIDGE_FILE );
 
@@ -296,9 +302,38 @@ function mizuki_register_assets() {
 	// which is the only way to be sure the theme cannot restyle it.
 	wp_register_script( 'mizuki-booking', $base . 'assets/widget.js', array(), mizuki_asset_version( 'assets/widget.js' ), true );
 
-	// Elementor's lifecycle, and the booking buttons. Tiny, and useful without Elementor too:
-	// any button with the class `mizuki-book` opens the calendar, shortcode pages included.
+	// Elementor's lifecycle, the booking buttons, and the course tabs. Tiny, and useful without
+	// Elementor too: any button with the class `mizuki-book` opens the calendar, shortcode pages
+	// included.
 	wp_register_script( 'mizuki-elementor', $base . 'js/elementor.js', array(), mizuki_asset_version( 'js/elementor.js' ), true );
+
+	/*
+	 * The IFDA page, which is the one widget that draws a whole page rather than mounting the
+	 * booking app, so it is the one widget with a stylesheet. Loaded only where it is used —
+	 * Elementor enqueues it from the widget's own get_style_depends().
+	 */
+	$fonts = array();
+
+	/*
+	 * The design is set in Playfair Display and DM Sans. Most Elementor sites already load their
+	 * own faces, and a site that does should not fetch these twice — hence the filter:
+	 *
+	 *   add_filter( 'mizuki_booking_load_fonts', '__return_false' );
+	 */
+	if ( apply_filters( 'mizuki_booking_load_fonts', true ) ) {
+		wp_register_style(
+			'mizuki-ifda-fonts',
+			'https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,400&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&display=swap',
+			array(),
+			null
+		);
+		$fonts[] = 'mizuki-ifda-fonts';
+	}
+
+	// In css/ rather than assets/, because assets/ is emptied and rebuilt from the widget build
+	// on every package — a hand-written file left in there is deleted, silently, and the page
+	// ships unstyled.
+	wp_register_style( 'mizuki-ifda', $base . 'css/ifda.css', $fonts, mizuki_asset_version( 'css/ifda.css' ) );
 }
 
 /**

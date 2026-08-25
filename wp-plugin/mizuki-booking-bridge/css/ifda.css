@@ -1,0 +1,409 @@
+/*
+ * The IFDA page design.
+ *
+ * The look lives here rather than in Elementor controls, deliberately. Every string and every
+ * image on the page is editable in the panel; the spacing, colour and type are not, because a
+ * page with sixty style controls is a page nobody can keep looking consistent.
+ *
+ * Everything is scoped under .mzk-ifda so it cannot leak into the rest of the theme, and the
+ * booking block at the foot of the page renders inside a shadow root, so none of this reaches
+ * it either — that block carries its own styles and is styled from the plugin's own palette.
+ */
+
+.mzk-ifda {
+	--ifda-navy: #1f3344;
+	--ifda-teal: #0f8ba0;
+	--ifda-teal-alt: #168a9b;
+	--ifda-sage: #6e8a78;
+	--ifda-ivory: #f8f6f1;
+	--ifda-grey: #f2f6f6;
+	--ifda-aqua: #e3f4f6;
+	--ifda-lilac: #a76ef0;
+	--ifda-terracotta: #c86640;
+	--ifda-charcoal: #29333b;
+
+	--ifda-sans: "DM Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+	--ifda-serif: "Playfair Display", ui-serif, Georgia, "Times New Roman", serif;
+
+	--ifda-max: 1280px;
+	--ifda-pad: 20px;
+
+	font-family: var(--ifda-sans);
+	color: var(--ifda-charcoal);
+	line-height: 1.6;
+	-webkit-font-smoothing: antialiased;
+}
+
+@media (min-width: 768px)  { .mzk-ifda { --ifda-pad: 48px; } }
+@media (min-width: 1024px) { .mzk-ifda { --ifda-pad: 72px; } }
+
+/* Elementor drops the widget inside its own padded container; these sections are full-bleed by
+   design, so they undo it rather than fighting it. */
+.mzk-ifda__inner { max-width: var(--ifda-max); margin-inline: auto; }
+
+.mzk-ifda h1, .mzk-ifda h2, .mzk-ifda h3, .mzk-ifda h4, .mzk-ifda p, .mzk-ifda ul, .mzk-ifda li {
+	margin: 0;
+	padding: 0;
+}
+.mzk-ifda ul { list-style: none; }
+.mzk-ifda img { display: block; max-width: 100%; }
+
+.mzk-ifda__eyebrow {
+	display: block;
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.15em;
+	text-transform: uppercase;
+	margin-bottom: 16px;
+}
+
+.mzk-ifda__btn {
+	display: inline-block;
+	padding: 16px 32px;
+	/* A media query watches the viewport, but the column this sits in can be far narrower than
+	   the window — which is how a two-word button ends up four lines tall. */
+	flex: 0 1 auto;
+	min-width: max-content;
+	font-size: 14px;
+	font-weight: 500;
+	text-decoration: none;
+	text-align: center;
+	border: 1px solid transparent;
+	transition: background-color .3s, color .3s, border-color .3s;
+	cursor: pointer;
+}
+.mzk-ifda__btn--solid   { background: var(--ifda-teal); color: #fff; }
+.mzk-ifda__btn--solid:hover  { background: var(--ifda-teal-alt); color: #fff; }
+.mzk-ifda__btn--navy    { background: var(--ifda-navy); color: #fff; }
+.mzk-ifda__btn--navy:hover   { background: var(--ifda-charcoal); color: #fff; }
+.mzk-ifda__btn--outline { border-color: var(--ifda-charcoal); color: var(--ifda-charcoal); background: transparent; }
+.mzk-ifda__btn--outline:hover { background: var(--ifda-charcoal); color: #fff; }
+.mzk-ifda__btn--ghost {
+	background: rgba(255,255,255,.1);
+	border-color: rgba(255,255,255,.3);
+	color: #fff;
+	backdrop-filter: blur(4px);
+}
+.mzk-ifda__btn--ghost:hover { background: rgba(255,255,255,.2); color: #fff; }
+
+/* ---------------------------------------------------------------- hero */
+
+.mzk-ifda-hero {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+	min-height: 560px;
+	padding: 80px var(--ifda-pad);
+	text-align: center;
+	color: #fff;
+}
+@media (min-width: 768px)  { .mzk-ifda-hero { min-height: 650px; } }
+@media (min-width: 1024px) { .mzk-ifda-hero { min-height: 760px; } }
+
+.mzk-ifda-hero__bg { position: absolute; inset: 0; z-index: 0; }
+.mzk-ifda-hero__bg img { width: 100%; height: 100%; object-fit: cover; object-position: center; }
+.mzk-ifda-hero__bg::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background:
+		linear-gradient(to top, rgba(31,51,68,.6), rgba(31,51,68,.2) 50%, transparent),
+		rgba(31,51,68,.2);
+}
+
+.mzk-ifda-hero__content { position: relative; z-index: 1; max-width: var(--ifda-max); margin-inline: auto; }
+.mzk-ifda-hero__mark { width: 40px; height: 40px; margin: 0 auto 24px; opacity: .9; filter: brightness(0) invert(1); }
+.mzk-ifda-hero__eyebrow { color: rgba(255,255,255,.9); font-weight: 600; letter-spacing: .2em; }
+.mzk-ifda-hero__title {
+	font-family: var(--ifda-serif);
+	font-weight: 500;
+	font-size: clamp(2.25rem, 5vw, 4.5rem);
+	line-height: 1.1;
+	margin-bottom: 24px;
+	max-width: 56rem;
+	margin-inline: auto;
+	text-wrap: balance;
+}
+.mzk-ifda-hero__intro {
+	font-size: 16px;
+	font-weight: 300;
+	line-height: 1.7;
+	max-width: 42rem;
+	margin: 0 auto 40px;
+	color: rgba(255,255,255,.95);
+}
+@media (min-width: 768px) { .mzk-ifda-hero__intro { font-size: 18px; } }
+
+.mzk-ifda-hero__actions {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 16px;
+	margin-bottom: 48px;
+}
+@media (min-width: 640px) { .mzk-ifda-hero__actions { flex-direction: row; flex-wrap: wrap; } }
+.mzk-ifda-hero__actions .mzk-ifda__btn { width: 100%; }
+@media (min-width: 640px) { .mzk-ifda-hero__actions .mzk-ifda__btn { width: auto; } }
+
+.mzk-ifda-hero__trust { border-top: 1px solid rgba(255,255,255,.2); padding-top: 24px; max-width: 48rem; margin-inline: auto; }
+.mzk-ifda-hero__trust p { font-size: 14px; font-weight: 500; margin-bottom: 12px; }
+.mzk-ifda-hero__creds {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 8px 24px;
+	font-size: 12px;
+	text-transform: uppercase;
+	letter-spacing: .05em;
+	font-weight: 500;
+	color: rgba(255,255,255,.8);
+}
+.mzk-ifda-hero__creds li { display: flex; align-items: center; gap: 8px; }
+.mzk-ifda-hero__creds li::before { content: ""; width: 4px; height: 4px; border-radius: 999px; background: #fff; }
+
+/* --------------------------------------------------------------- about */
+
+.mzk-ifda-about { background: var(--ifda-ivory); padding: 56px var(--ifda-pad); }
+@media (min-width: 768px)  { .mzk-ifda-about { padding-block: 96px; } }
+@media (min-width: 1024px) { .mzk-ifda-about { padding-block: 128px; } }
+
+.mzk-ifda-about__grid { display: flex; flex-direction: column-reverse; align-items: center; gap: 48px; }
+@media (min-width: 1024px) { .mzk-ifda-about__grid { flex-direction: row; gap: 96px; } }
+.mzk-ifda-about__text, .mzk-ifda-about__media { width: 100%; }
+@media (min-width: 1024px) { .mzk-ifda-about__text, .mzk-ifda-about__media { width: 50%; } }
+
+.mzk-ifda-about__eyebrow { color: var(--ifda-sage); }
+.mzk-ifda-about__title {
+	font-family: var(--ifda-serif);
+	font-weight: 400;
+	font-size: clamp(1.875rem, 4vw, 3rem);
+	line-height: 1.2;
+	color: var(--ifda-navy);
+	margin-bottom: 24px;
+}
+.mzk-ifda-about__lead { font-size: 18px; font-weight: 500; margin-bottom: 24px; line-height: 1.6; }
+@media (min-width: 768px) { .mzk-ifda-about__lead { font-size: 20px; } }
+.mzk-ifda-about__body { color: rgba(41,51,59,.8); font-weight: 300; font-size: 16px; line-height: 1.75; }
+.mzk-ifda-about__body p + p { margin-top: 20px; }
+@media (min-width: 768px) { .mzk-ifda-about__body { font-size: 18px; } }
+
+.mzk-ifda-about__media img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 2px; }
+
+/* ------------------------------------------------------- certification */
+
+.mzk-ifda-cert { background: var(--ifda-aqua); padding: 56px var(--ifda-pad); }
+@media (min-width: 768px) { .mzk-ifda-cert { padding-block: 80px; } }
+
+.mzk-ifda-cert__head { text-align: center; margin-bottom: 48px; }
+.mzk-ifda-cert__eyebrow { color: var(--ifda-teal); }
+.mzk-ifda-cert__title {
+	font-family: var(--ifda-serif);
+	font-weight: 400;
+	font-size: clamp(1.875rem, 3.5vw, 2.25rem);
+	color: var(--ifda-navy);
+	margin-bottom: 16px;
+}
+.mzk-ifda-cert__intro { color: rgba(41,51,59,.8); max-width: 42rem; margin-inline: auto; }
+
+.mzk-ifda-cert__cards { display: grid; grid-template-columns: 1fr; gap: 24px; margin-bottom: 40px; }
+@media (min-width: 768px) { .mzk-ifda-cert__cards { grid-template-columns: repeat(3, 1fr); } }
+
+.mzk-ifda-cert__card {
+	background: #fff;
+	padding: 32px;
+	border: 1px solid var(--ifda-grey);
+	border-radius: 2px;
+	box-shadow: 0 2px 10px rgba(0,0,0,.02);
+}
+@media (min-width: 1024px) { .mzk-ifda-cert__card { padding: 40px; } }
+.mzk-ifda-cert__icon { color: var(--ifda-sage); margin-bottom: 24px; font-size: 32px; line-height: 1; }
+.mzk-ifda-cert__icon svg { width: 32px; height: 32px; fill: none; stroke: currentColor; }
+.mzk-ifda-cert__card h3 { font-size: 18px; font-weight: 700; color: var(--ifda-navy); margin-bottom: 12px; }
+.mzk-ifda-cert__card p { font-size: 14px; line-height: 1.7; color: rgba(41,51,59,.7); }
+
+.mzk-ifda-cert__note {
+	max-width: 48rem;
+	margin-inline: auto;
+	background: rgba(255,255,255,.5);
+	border: 1px solid #fff;
+	padding: 20px;
+	border-radius: 2px;
+	font-size: 12px;
+	line-height: 1.7;
+	color: rgba(41,51,59,.7);
+	text-align: center;
+}
+
+/* ------------------------------------------------------------- courses */
+
+.mzk-ifda-courses { background: rgba(248,246,241,.6); border-top: 1px solid #fff; padding: 56px var(--ifda-pad); }
+@media (min-width: 768px)  { .mzk-ifda-courses { padding-block: 96px; } }
+@media (min-width: 1024px) { .mzk-ifda-courses { padding-block: 128px; } }
+
+.mzk-ifda-courses__head { text-align: center; margin-bottom: 48px; }
+.mzk-ifda-courses__eyebrow { color: var(--ifda-navy); }
+.mzk-ifda-courses__title {
+	font-family: var(--ifda-serif);
+	font-weight: 400;
+	font-size: clamp(1.875rem, 4vw, 3rem);
+	color: var(--ifda-navy);
+}
+
+.mzk-ifda-tabs { display: flex; justify-content: center; margin-bottom: 48px; border-bottom: 1px solid var(--ifda-grey); flex-wrap: wrap; }
+.mzk-ifda-tab {
+	appearance: none;
+	background: none;
+	border: 0;
+	border-bottom: 2px solid transparent;
+	padding: 16px 32px;
+	font-family: var(--ifda-serif);
+	font-size: 18px;
+	font-weight: 500;
+	color: rgba(41,51,59,.5);
+	cursor: pointer;
+	transition: color .2s, border-color .2s;
+}
+.mzk-ifda-tab:hover { color: var(--ifda-navy); }
+.mzk-ifda-tab[aria-selected="true"] { color: var(--ifda-navy); border-bottom-color: var(--ifda-teal); }
+
+.mzk-ifda-panel[hidden] { display: none; }
+
+.mzk-ifda-course { display: flex; flex-direction: column; gap: 48px; }
+@media (min-width: 1024px) { .mzk-ifda-course { flex-direction: row; gap: 80px; } }
+.mzk-ifda-course__media { width: 100%; }
+.mzk-ifda-course__body  { width: 100%; }
+@media (min-width: 1024px) {
+	.mzk-ifda-course__media { width: 45%; }
+	.mzk-ifda-course__body  { width: 55%; }
+}
+.mzk-ifda-course__media img {
+	width: 100%;
+	aspect-ratio: 4 / 5;
+	object-fit: cover;
+	border-radius: 2px;
+	box-shadow: 0 1px 3px rgba(0,0,0,.06);
+	position: sticky;
+	top: 40px;
+}
+
+.mzk-ifda-course__eyebrow { color: var(--ifda-sage); }
+.mzk-ifda-panel--alt .mzk-ifda-course__eyebrow { color: var(--ifda-terracotta); }
+.mzk-ifda-course__title {
+	font-family: var(--ifda-serif);
+	font-weight: 400;
+	font-size: clamp(2.25rem, 4vw, 3rem);
+	color: var(--ifda-navy);
+	margin-bottom: 24px;
+}
+.mzk-ifda-course__tagline {
+	font-family: var(--ifda-serif);
+	font-style: italic;
+	font-size: clamp(1.25rem, 2.5vw, 1.5rem);
+	margin-bottom: 24px;
+}
+.mzk-ifda-course__intro { color: rgba(41,51,59,.8); font-weight: 300; margin-bottom: 40px; }
+.mzk-ifda-course__intro p + p { margin-top: 16px; }
+
+.mzk-ifda-course__learn-title { font-size: 18px; font-weight: 700; color: var(--ifda-navy); margin-bottom: 20px; }
+.mzk-ifda-learn { display: flex; flex-direction: column; gap: 12px; margin-bottom: 40px; }
+.mzk-ifda-learn li { display: flex; align-items: flex-start; gap: 12px; font-size: 15px; color: rgba(41,51,59,.8); }
+.mzk-ifda-learn li::before {
+	content: "";
+	flex: none;
+	width: 16px;
+	height: 16px;
+	margin-top: 4px;
+	background: currentColor;
+	color: var(--ifda-teal);
+	-webkit-mask: var(--ifda-tick) center / contain no-repeat;
+	mask: var(--ifda-tick) center / contain no-repeat;
+}
+.mzk-ifda-panel--alt .mzk-ifda-learn li::before { color: var(--ifda-terracotta); }
+.mzk-ifda { --ifda-tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath fill-rule='evenodd' d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z' clip-rule='evenodd'/%3E%3C/svg%3E"); }
+
+.mzk-ifda-course__actions { display: flex; flex-direction: column; gap: 16px; margin-bottom: 56px; }
+@media (min-width: 640px) { .mzk-ifda-course__actions { flex-direction: row; flex-wrap: wrap; } }
+
+.mzk-ifda-projects { border-top: 1px solid rgba(31,51,68,.1); padding-top: 40px; }
+.mzk-ifda-projects__title { font-family: var(--ifda-serif); font-size: 24px; font-weight: 400; color: var(--ifda-navy); margin-bottom: 12px; }
+.mzk-ifda-projects__intro { font-size: 14px; color: rgba(41,51,59,.8); margin-bottom: 32px; }
+.mzk-ifda-projects__list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+@media (min-width: 1024px) { .mzk-ifda-projects__list { grid-template-columns: repeat(4, 1fr); } }
+.mzk-ifda-projects__list li {
+	background: #fff;
+	padding: 16px;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	border: 1px solid rgba(31,51,68,.05);
+	border-radius: 2px;
+	box-shadow: 0 1px 2px rgba(0,0,0,.04);
+	font-size: 14px;
+	font-weight: 500;
+	line-height: 1.3;
+}
+.mzk-ifda-projects__n {
+	flex: none;
+	width: 24px;
+	height: 24px;
+	border-radius: 999px;
+	background: var(--ifda-ivory);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 10px;
+	font-weight: 700;
+	color: var(--ifda-sage);
+}
+
+/* Past eight pieces the cards become a wall, so the longer list reads as a list. */
+.mzk-ifda-projects__list--long { grid-template-columns: repeat(2, 1fr); gap: 12px 24px; }
+@media (min-width: 1024px) { .mzk-ifda-projects__list--long { grid-template-columns: repeat(2, 1fr); } }
+.mzk-ifda-projects__list--long li {
+	background: none;
+	border: 0;
+	border-bottom: 1px solid var(--ifda-grey);
+	border-radius: 0;
+	box-shadow: none;
+	padding: 0 0 8px;
+	font-weight: 400;
+	color: rgba(41,51,59,.9);
+}
+.mzk-ifda-projects__list--long .mzk-ifda-projects__n { width: 20px; height: 20px; background: var(--ifda-grey); color: var(--ifda-navy); font-size: 9px; }
+
+.mzk-ifda-callout {
+	margin-top: 48px;
+	background: rgba(227,244,246,.5);
+	padding: 24px;
+	border-radius: 12px;
+	display: flex;
+	align-items: flex-start;
+	gap: 16px;
+}
+.mzk-ifda-panel--alt .mzk-ifda-callout { background: var(--ifda-grey); }
+.mzk-ifda-callout__icon { flex: none; width: 24px; height: 24px; margin-top: 2px; color: var(--ifda-teal); }
+.mzk-ifda-panel--alt .mzk-ifda-callout__icon { color: var(--ifda-navy); }
+.mzk-ifda-callout h4 { font-size: 14px; font-weight: 700; color: var(--ifda-navy); margin-bottom: 4px; }
+.mzk-ifda-callout p { font-size: 14px; line-height: 1.7; color: rgba(41,51,59,.8); }
+
+/* ------------------------------------------------------------- booking */
+
+.mzk-ifda-booking { background: #fff; padding: 56px var(--ifda-pad); scroll-margin-top: 80px; }
+@media (min-width: 768px)  { .mzk-ifda-booking { padding-block: 96px; } }
+@media (min-width: 1024px) { .mzk-ifda-booking { padding-block: 128px; } }
+
+.mzk-ifda-booking__head { max-width: 56rem; margin: 0 auto 40px; text-align: center; }
+.mzk-ifda-booking__mark { width: 32px; height: 32px; margin: 0 auto 16px; opacity: .5; }
+.mzk-ifda-booking__eyebrow { color: var(--ifda-teal); }
+.mzk-ifda-booking__title {
+	font-family: var(--ifda-serif);
+	font-weight: 400;
+	font-size: clamp(1.875rem, 3.5vw, 2.25rem);
+	color: var(--ifda-navy);
+	margin-bottom: 16px;
+}
+.mzk-ifda-booking__intro { color: rgba(41,51,59,.8); max-width: 42rem; margin-inline: auto; }
+.mzk-ifda-booking__mount { max-width: 56rem; margin-inline: auto; }

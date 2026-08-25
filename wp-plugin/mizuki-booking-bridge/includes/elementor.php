@@ -31,10 +31,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /** Built on demand, so the classes are only ever needed at the moment Elementor asks for them. */
 function mizuki_elementor_widget_instances() {
+	// Required here rather than at the top of the file: it extends Widget_Base too, so it is
+	// under the same rule about when Elementor can resolve one.
+	require_once __DIR__ . '/elementor-ifda.php';
+
 	return array(
 		new Mizuki_Elementor_Calendar(),
 		new Mizuki_Elementor_Account(),
 		new Mizuki_Elementor_Book_Button(),
+		new Mizuki_Elementor_IFDA_Page(),
 	);
 }
 
@@ -137,15 +142,21 @@ trait Mizuki_Elementor_Shared {
 		return array( 'mizuki-booking', 'mizuki-elementor' );
 	}
 
-	/** Which course this instance is about. Shared because all three widgets ask it. */
-	protected function add_course_control( $description ) {
+	/**
+	 * Which course this instance is about. Shared because every widget asks it.
+	 *
+	 * Empty by default, so a calendar dropped on a page shows everything until told otherwise.
+	 * A widget that exists for one course passes its slug instead — an IFDA page whose calendar
+	 * opens on every course is not a smaller mistake for being a quiet one.
+	 */
+	protected function add_course_control( $description, $default = '' ) {
 		$this->add_control(
 			'course',
 			array(
 				'label'       => __( 'Course', 'mizuki-booking' ),
 				'type'        => \Elementor\Controls_Manager::SELECT,
 				'options'     => mizuki_elementor_course_choices(),
-				'default'     => '',
+				'default'     => $default,
 				'description' => $description,
 			)
 		);

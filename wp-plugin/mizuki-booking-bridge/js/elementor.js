@@ -28,7 +28,7 @@
 			return;
 		}
 
-		[ 'mizuki-calendar', 'mizuki-account' ].forEach( function ( widget ) {
+		[ 'mizuki-calendar', 'mizuki-account', 'mizuki-ifda-page' ].forEach( function ( widget ) {
 			window.elementorFrontend.hooks.addAction(
 				'frontend/element_ready/' + widget + '.default',
 				refresh
@@ -78,6 +78,78 @@
 	function anchorFromHref( element ) {
 		var href = element.getAttribute( 'href' ) || '';
 		return href.charAt( 0 ) === '#' ? href.slice( 1 ) : '';
+	}
+
+	/**
+	 * The course tabs on the IFDA page.
+	 *
+	 * Delegated from the document rather than bound to the buttons, because Elementor rebuilds a
+	 * widget's markup on every keystroke in the panel — anything bound directly is bound to
+	 * elements that no longer exist a moment later.
+	 *
+	 * Panels are in the page before this runs and stay in it: the inactive one is `hidden`, not
+	 * removed. So the content is readable with the script blocked, and findable by a browser's
+	 * own find-in-page.
+	 */
+	document.addEventListener( 'click', function ( event ) {
+		var tab = event.target.closest( '.mzk-ifda-tab' );
+		if ( ! tab ) {
+			return;
+		}
+
+		selectTab( tab );
+	} );
+
+	/* Left and right along the tabs, which is what a tab list is expected to do. */
+	document.addEventListener( 'keydown', function ( event ) {
+		var tab = event.target.closest && event.target.closest( '.mzk-ifda-tab' );
+		if ( ! tab || ( event.key !== 'ArrowLeft' && event.key !== 'ArrowRight' ) ) {
+			return;
+		}
+
+		var tabs = tabsIn( tab );
+		var next = tabs.indexOf( tab ) + ( event.key === 'ArrowRight' ? 1 : -1 );
+
+		if ( tabs[ next ] ) {
+			event.preventDefault();
+			selectTab( tabs[ next ] );
+			tabs[ next ].focus();
+		}
+	} );
+
+	function tabsIn( tab ) {
+		var list = tab.closest( '[data-mzk-ifda-tabs]' );
+		return list ? Array.prototype.slice.call( list.querySelectorAll( '.mzk-ifda-tab' ) ) : [ tab ];
+	}
+
+	function selectTab( tab ) {
+		var root = tab.closest( '.mzk-ifda' );
+		if ( ! root ) {
+			return;
+		}
+
+		tabsIn( tab ).forEach( function ( other ) {
+			var chosen = other === tab;
+			var panel  = root.querySelector( '#' + cssEscape( other.getAttribute( 'aria-controls' ) ) );
+
+			other.setAttribute( 'aria-selected', chosen ? 'true' : 'false' );
+			other.setAttribute( 'tabindex', chosen ? '0' : '-1' );
+
+			if ( panel ) {
+				panel.hidden = ! chosen;
+			}
+		} );
+
+		// A calendar revealed rather than built needs telling it is on screen now.
+		refresh();
+	}
+
+	/* Ids here are ours and contain nothing exotic, but querySelector is strict about it. */
+	function cssEscape( value ) {
+		if ( ! value ) {
+			return '';
+		}
+		return window.CSS && window.CSS.escape ? window.CSS.escape( value ) : value;
 	}
 
 	function scrollTo( element ) {
