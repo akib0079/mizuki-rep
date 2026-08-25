@@ -87,6 +87,28 @@
 	margin: 0 !important;
 }
 
+/*
+ * Two resets, not one, and the split matters.
+ *
+ * Zeroing the box on every div was a trap: `.mzk-ifda div` is a class plus a type, so it
+ * outranks a plain `.mzk-ifda__inner`, and the centring margin on the page's own container lost
+ * to it. Every section then sat hard against the left edge with the dead space on the right —
+ * invisible on a narrow window, where there is no spare width to centre into, and obvious on a
+ * wide one. Only elements with a margin of their own to remove are zeroed now.
+ */
+.mzk-ifda h1,
+.mzk-ifda h2,
+.mzk-ifda h3,
+.mzk-ifda h4,
+.mzk-ifda p,
+.mzk-ifda ul,
+.mzk-ifda ol,
+.mzk-ifda li {
+	margin: 0 !important;
+	padding: 0 !important;
+}
+
+/* Typography and decoration, which no layout rule competes with, stay blanket. */
 .mzk-ifda h1,
 .mzk-ifda h2,
 .mzk-ifda h3,
@@ -97,8 +119,6 @@
 .mzk-ifda li,
 .mzk-ifda span,
 .mzk-ifda div {
-	margin: 0 !important;
-	padding: 0 !important;
 	text-transform: none !important;
 	letter-spacing: normal !important;
 	text-shadow: none !important;
@@ -149,7 +169,7 @@
 	line-height: inherit !important;
 }
 
-.mzk-ifda__inner {
+.mzk-ifda .mzk-ifda__inner {
 	max-width: var(--ifda-max) !important;
 	margin-left: auto !important;
 	margin-right: auto !important;
@@ -789,3 +809,47 @@
 	font-size: 16px !important;
 }
 .mzk-ifda .mzk-ifda-booking__mount { max-width: 56rem !important; margin: 0 auto !important; }
+
+/* ------------------------------------------------------------- on a phone */
+
+/*
+ * The tab strip shares the row rather than stacking.
+ *
+ * "Beginner Course" and "Master Course" at their desktop size come to a few pixels more than a
+ * phone is wide, so they wrapped onto two lines — and two full-width lines with an underline
+ * under one of them does not read as a pair of tabs any more, it reads as two headings.
+ */
+@media (max-width: 559px) {
+	.mzk-ifda .mzk-ifda-tabs { flex-wrap: nowrap !important; }
+	.mzk-ifda .mzk-ifda-tab {
+		flex: 1 1 0 !important;
+		min-width: 0 !important;
+		padding: 14px 8px !important;
+		font-size: 16px !important;
+		text-align: center !important;
+	}
+}
+
+/*
+ * The course picture stops being sticky once it is not beside anything.
+ *
+ * Sticky is right in two columns, where the picture holds its place while the long right-hand
+ * column scrolls past it. Stacked above the text on a phone it does the opposite: it pins to the
+ * top and keeps four hundred pixels of the screen for itself while you try to read underneath.
+ */
+@media (max-width: 1023px) {
+	.mzk-ifda .mzk-ifda-course__media img {
+		position: static !important;
+		top: auto !important;
+	}
+}
+
+/* Buttons take the full width on a phone, as the design has them — a pair of part-width buttons
+   centred on a narrow screen reads as unfinished. */
+@media (max-width: 639px) {
+	.mzk-ifda .mzk-ifda-hero__actions .mzk-ifda__btn,
+	.mzk-ifda .mzk-ifda-course__actions .mzk-ifda__btn {
+		width: 100% !important;
+		min-width: 0 !important;
+	}
+}
