@@ -60,8 +60,30 @@ class Mizuki_Elementor_IFDA_Page extends \Elementor\Widget_Base {
 		$this->register_booking_controls();
 	}
 
-	private function placeholder() {
-		return class_exists( '\Elementor\Utils' ) ? \Elementor\Utils::get_placeholder_image_src() : '';
+	/**
+	 * The pictures the page was designed around.
+	 *
+	 * Elementor's grey placeholder is the honest default for a widget that could be about
+	 * anything, but this one is about IFDA — and a studio dropping it on a page wants to see
+	 * their page, not five grey squares. Replacing one in the panel replaces it; these are only
+	 * what an untouched widget shows.
+	 *
+	 * Filterable, so a site that moves its uploads is one line away from fixing all of them:
+	 *
+	 *   add_filter( 'mizuki_ifda_default_image', function ( $url, $which ) { ... }, 10, 2 );
+	 */
+	private function stock( $which ) {
+		$images = array(
+			'hero'     => 'https://mizuki.com.sg/wp-content/uploads/2024/08/17FB658D-F24C-4CD9-97C5-EB714EE3A7A2.jpg',
+			'mark'     => 'https://mizuki.com.sg/wp-content/uploads/2024/05/mizuki_logo.png',
+			'about'    => 'https://mizuki.com.sg/wp-content/uploads/2025/08/IMG_5848-scaled.jpg',
+			'beginner' => 'https://mizuki.com.sg/wp-content/uploads/2024/05/colour-theme-3.webp',
+			'master'   => 'https://mizuki.com.sg/wp-content/uploads/2025/05/IMG_6437-scaled.jpg',
+		);
+
+		$url = isset( $images[ $which ] ) ? $images[ $which ] : '';
+
+		return apply_filters( 'mizuki_ifda_default_image', $url, $which );
 	}
 
 	private function register_hero_controls() {
@@ -70,14 +92,14 @@ class Mizuki_Elementor_IFDA_Page extends \Elementor\Widget_Base {
 		$this->add_control( 'hero_image', array(
 			'label'   => __( 'Background image', 'mizuki-booking' ),
 			'type'    => \Elementor\Controls_Manager::MEDIA,
-			'default' => array( 'url' => $this->placeholder() ),
+			'default' => array( 'url' => $this->stock( 'hero' ) ),
 		) );
 
 		$this->add_control( 'hero_mark', array(
 			'label'       => __( 'Small logo', 'mizuki-booking' ),
 			'description' => __( 'Shown above the heading. Drawn in white, so a dark logo is fine.', 'mizuki-booking' ),
 			'type'        => \Elementor\Controls_Manager::MEDIA,
-			'default'     => array( 'url' => '' ),
+			'default'     => array( 'url' => $this->stock( 'mark' ) ),
 		) );
 
 		$this->add_control( 'hero_eyebrow', array(
@@ -187,7 +209,7 @@ class Mizuki_Elementor_IFDA_Page extends \Elementor\Widget_Base {
 		$this->add_control( 'about_image', array(
 			'label'   => __( 'Image', 'mizuki-booking' ),
 			'type'    => \Elementor\Controls_Manager::MEDIA,
-			'default' => array( 'url' => $this->placeholder() ),
+			'default' => array( 'url' => $this->stock( 'about' ) ),
 		) );
 
 		$this->end_controls_section();
@@ -299,7 +321,7 @@ class Mizuki_Elementor_IFDA_Page extends \Elementor\Widget_Base {
 		$course->add_control( 'image', array(
 			'label'   => __( 'Image', 'mizuki-booking' ),
 			'type'    => \Elementor\Controls_Manager::MEDIA,
-			'default' => array( 'url' => $this->placeholder() ),
+			'default' => array( 'url' => $this->stock( 'beginner' ) ),
 		) );
 
 		$course->add_control( 'eyebrow', array(
@@ -416,7 +438,7 @@ class Mizuki_Elementor_IFDA_Page extends \Elementor\Widget_Base {
 		return array(
 			array(
 				'tab_label'      => __( 'Beginner Course', 'mizuki-booking' ),
-				'image'          => array( 'url' => $this->placeholder() ),
+				'image'          => array( 'url' => $this->stock( 'beginner' ) ),
 				'eyebrow'        => __( 'IFDA Preserved Flower Design', 'mizuki-booking' ),
 				'title'          => __( 'Beginner Course', 'mizuki-booking' ),
 				'tagline'        => __( 'A confident first step into the art of preserved floral design.', 'mizuki-booking' ),
@@ -436,7 +458,7 @@ class Mizuki_Elementor_IFDA_Page extends \Elementor\Widget_Base {
 			),
 			array(
 				'tab_label'      => __( 'Master Course', 'mizuki-booking' ),
-				'image'          => array( 'url' => $this->placeholder() ),
+				'image'          => array( 'url' => $this->stock( 'master' ) ),
 				'eyebrow'        => __( 'IFDA Preserved Flower Design', 'mizuki-booking' ),
 				'title'          => __( 'Master Course', 'mizuki-booking' ),
 				'tagline'        => __( 'Create more expressive arrangements with stronger technical and design confidence.', 'mizuki-booking' ),
@@ -471,7 +493,7 @@ class Mizuki_Elementor_IFDA_Page extends \Elementor\Widget_Base {
 		$this->add_control( 'booking_mark', array(
 			'label'   => __( 'Small logo', 'mizuki-booking' ),
 			'type'    => \Elementor\Controls_Manager::MEDIA,
-			'default' => array( 'url' => '' ),
+			'default' => array( 'url' => $this->stock( 'mark' ) ),
 		) );
 
 		$this->add_control( 'booking_eyebrow', array(
@@ -815,14 +837,22 @@ class Mizuki_Elementor_IFDA_Page extends \Elementor\Widget_Base {
 		$this->line( 'p', 'mzk-ifda-projects__intro', isset( $course['projects_intro'] ) ? $course['projects_intro'] : '' );
 
 		if ( $items ) {
-			// Past eight, cards become a wall of boxes, so the longer list reads as a list.
-			printf(
-				'<ul class="mzk-ifda-projects__list%s">',
-				count( $items ) > 8 ? ' mzk-ifda-projects__list--long' : ''
-			);
+			/*
+			 * One list for every length. Seven pieces used to be drawn as cards and thirteen as a
+			 * list, which meant the two tabs did not look like the same page.
+			 */
+			echo '<ul class="mzk-ifda-projects__list">';
+
+			$last = count( $items ) - 1;
+
 			foreach ( $items as $index => $item ) {
+				// An odd count leaves a hole at the end of a two-column grid; the last one takes
+				// the whole row instead.
+				$wide = ( $index === $last && 0 !== count( $items ) % 2 );
+
 				printf(
-					'<li><span class="mzk-ifda-projects__n">%02d</span><span>%s</span></li>',
+					'<li%s><span class="mzk-ifda-projects__n">%02d</span><span>%s</span></li>',
+					$wide ? ' class="mzk-ifda-projects__item--wide"' : '',
 					(int) $index + 1,
 					esc_html( $item )
 				);
@@ -864,9 +894,17 @@ class Mizuki_Elementor_IFDA_Page extends \Elementor\Widget_Base {
 				__( 'The real block appears on the published page.', 'mizuki-booking' )
 			);
 		} else {
+			/*
+			 * `bare` drops the block's own course heading and opens the calendar straight away.
+			 * The page above has already given the name, the picture, the description and the
+			 * price at length — repeating them here under a "Course" label read as the page
+			 * starting again, and the calendar was a click away behind a button that only
+			 * revealed what everybody had come for.
+			 */
 			echo mizuki_render_widget(  // phpcs:ignore WordPress.Security.EscapeOutput -- escaped inside.
 				array( 'course' => mizuki_elementor_course_value( $s ) ),
-				'course-portal'
+				'course-portal',
+				array( 'data-bare' => '1' )
 			);
 		}
 

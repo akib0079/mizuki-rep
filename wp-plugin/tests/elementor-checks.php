@@ -114,6 +114,7 @@ step( 'it draws every section', function () {
 		'mzk-ifda-booking'    => 'the booking block',
 		'mizuki-book'         => 'a button wired to the calendar',
 		'data-course="ifda"'         => 'the calendar opening on IFDA rather than everything',
+		'data-bare="1"'              => 'the booking block dropping its own heading',
 		'data-mizuki-booking' => 'the calendar mount itself',
 	);
 

@@ -18,7 +18,7 @@ import { widgetApi, type PackageRow, type PublicCourse, type StudentProfile, typ
  * the same way and will want the same page.
  */
 
-export function CoursePortal({ courseSlug }: { courseSlug: string }) {
+export function CoursePortal({ courseSlug, bare = false }: { courseSlug: string; bare?: boolean }) {
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
   const [course, setCourse] = useState<PublicCourse | null>(null)
@@ -26,7 +26,7 @@ export function CoursePortal({ courseSlug }: { courseSlug: string }) {
   /** Null while signed out — an ordinary state here, not a failure. */
   const [student, setStudent] = useState<StudentProfile | null>(null)
   const [packages, setPackages] = useState<PackageRow[]>([])
-  const [showing, setShowing] = useState<'none' | 'calendar' | 'lessons'>('none')
+  const [showing, setShowing] = useState<'none' | 'calendar' | 'lessons'>(bare ? 'calendar' : 'none')
 
   const revealRef = useRef<HTMLDivElement | null>(null)
 
@@ -99,31 +99,41 @@ export function CoursePortal({ courseSlug }: { courseSlug: string }) {
         recognisably different pages rather than the same template twice.
       */}
       <article className="mzk-cp" style={{ ['--mzk-course' as string]: course.colour }}>
-        <div className={course.imageUrl?.trim() ? 'mzk-cp-hero' : 'mzk-cp-hero mzk-cp-hero-plain'}>
-          {course.imageUrl?.trim() && (
-            <div className="mzk-cp-figure">
-              <img
-                className="mzk-cp-img"
-                src={course.imageUrl}
-                alt=""
-                onError={(e) => {
-                  // Take the frame with it, or an empty box holds the column open.
-                  const figure = e.currentTarget.parentElement
-                  if (figure) figure.style.display = 'none'
-                }}
-              />
+        {/*
+          Everything above the calendar is the page's job when the page has already done it. On
+          the IFDA page the name, the picture, the description and the price have all been said
+          once already, in more detail and better — saying them again under a "Course" label
+          reads as the page starting over.
+        */}
+        {!bare && (
+          <>
+            <div className={course.imageUrl?.trim() ? 'mzk-cp-hero' : 'mzk-cp-hero mzk-cp-hero-plain'}>
+              {course.imageUrl?.trim() && (
+                <div className="mzk-cp-figure">
+                  <img
+                    className="mzk-cp-img"
+                    src={course.imageUrl}
+                    alt=""
+                    onError={(e) => {
+                      // Take the frame with it, or an empty box holds the column open.
+                      const figure = e.currentTarget.parentElement
+                      if (figure) figure.style.display = 'none'
+                    }}
+                  />
+                </div>
+              )}
+
+              <header className="mzk-cp-intro">
+                <p className="mzk-cp-eyebrow">Course</p>
+                <h2 className="mzk-cp-title">{course.name}</h2>
+                {course.description?.trim() && <p className="mzk-cp-lede">{course.description}</p>}
+                <CoursePrice course={course} framed />
+              </header>
             </div>
-          )}
 
-          <header className="mzk-cp-intro">
-            <p className="mzk-cp-eyebrow">Course</p>
-            <h2 className="mzk-cp-title">{course.name}</h2>
-            {course.description?.trim() && <p className="mzk-cp-lede">{course.description}</p>}
-            <CoursePrice course={course} framed />
-          </header>
-        </div>
-
-        <CourseSections course={course} />
+            <CourseSections course={course} />
+          </>
+        )}
 
         {/*
           The one action on the page, and the same button whether or not they are signed in.
@@ -131,22 +141,31 @@ export function CoursePortal({ courseSlug }: { courseSlug: string }) {
           to log in before you are allowed to look is what sends people away.
         */}
         <div className="mzk-cp-cta">
-          <button
-            type="button"
-            className="mzk-btn mzk-btn-primary mzk-btn-lg"
-            onClick={() => setShowing((s) => (s === 'calendar' ? 'none' : 'calendar'))}
-          >
-            {/* No course name in here: "Book a IFDA lesson" is wrong, "an IFDA" is right, and
-                the name is data — the same article trap as the empty-package notice. The heading
-                directly above already says which course this is. */}
-            {showing === 'calendar' ? 'Hide the calendar' : 'Book a lesson'}
-          </button>
+          {/*
+            Bare drops the button that opens the calendar, because the calendar is already open —
+            a control whose only job is to reveal what is on screen is a control that undoes
+            itself. Students keep theirs: "My lessons" still has something to reveal.
+          */}
+          {!bare && (
+            <button
+              type="button"
+              className="mzk-btn mzk-btn-primary mzk-btn-lg"
+              onClick={() => setShowing((s) => (s === 'calendar' ? 'none' : 'calendar'))}
+            >
+              {/* No course name in here: "Book a IFDA lesson" is wrong, "an IFDA" is right, and
+                  the name is data — the same article trap as the empty-package notice. The heading
+                  directly above already says which course this is. */}
+              {showing === 'calendar' ? 'Hide the calendar' : 'Book a lesson'}
+            </button>
+          )}
 
           {student && (
             <button
               type="button"
               className="mzk-btn"
-              onClick={() => setShowing((s) => (s === 'lessons' ? 'none' : 'lessons'))}
+              onClick={() =>
+                setShowing((s) => (s === 'lessons' ? (bare ? 'calendar' : 'none') : 'lessons'))
+              }
             >
               {showing === 'lessons' ? 'Hide my lessons' : 'My lessons'}
             </button>

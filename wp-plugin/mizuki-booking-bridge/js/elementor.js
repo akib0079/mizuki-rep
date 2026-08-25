@@ -81,6 +81,79 @@
 	}
 
 	/**
+	 * The width of the page, without the scrollbar.
+	 *
+	 * The IFDA page breaks out of the theme's content column to run full width, which needs the
+	 * viewport width. `100vw` is the obvious answer and the wrong one: it includes the scrollbar,
+	 * so on any machine that draws one the page ends up a dozen pixels wider than the window and
+	 * the whole site gets a horizontal scrollbar. `clientWidth` excludes it.
+	 *
+	 * Published as a custom property on the root element, so the stylesheet can fall back to
+	 * 100vw if this never runs.
+	 */
+	function measureViewport() {
+		var width = document.documentElement.clientWidth;
+		if ( width ) {
+			document.documentElement.style.setProperty( '--mzk-vw', width + 'px' );
+		}
+	}
+
+	/**
+	 * Stop an ancestor clipping the full-width page.
+	 *
+	 * The breakout is done in CSS with negative margins, which works until something above it
+	 * hides its overflow — and themes do that routinely, usually to contain some other element's
+	 * own overflow. An Elementor column six hundred pixels wide with `overflow: hidden` cuts a
+	 * full-width section down to six hundred pixels, and the page looks like the CSS never loaded.
+	 *
+	 * Only ancestors narrower than the window are touched, and only on the axis that clips. A
+	 * full-width wrapper hiding overflow-x is doing something deliberate and is left alone.
+	 */
+	function unclip( page ) {
+		var width = document.documentElement.clientWidth;
+		var node  = page.parentElement;
+
+		while ( node && node !== document.body ) {
+			var style = window.getComputedStyle( node );
+			var clips = style.overflowX === 'hidden' || style.overflowX === 'clip';
+
+			if ( clips && node.getBoundingClientRect().width < width ) {
+				node.style.setProperty( 'overflow-x', 'visible', 'important' );
+			}
+
+			node = node.parentElement;
+		}
+	}
+
+	function unclipAll() {
+		document.querySelectorAll( '.mzk-ifda' ).forEach( unclip );
+	}
+
+	function refreshLayout() {
+		measureViewport();
+		unclipAll();
+	}
+
+	refreshLayout();
+	window.addEventListener( 'load', refreshLayout );
+	window.addEventListener( 'resize', refreshLayout );
+	window.addEventListener( 'orientationchange', refreshLayout );
+	/* Elementor's editor resizes the preview frame without the window itself changing size. */
+	window.addEventListener( 'elementor/frontend/init', refreshLayout );
+
+	/*
+	 * And an observer, because the first measurement can legitimately be zero.
+	 *
+	 * Elementor's editor renders the page in an iframe that is laid out before it is shown, and a
+	 * hidden element has no width. Measured once and left, --mzk-vw is never set, the stylesheet
+	 * falls back to 100vw, and the page runs a scrollbar's width too wide for the rest of its
+	 * life. `resize` does not fire for that — the window never changed size, the frame did.
+	 */
+	if ( window.ResizeObserver ) {
+		new window.ResizeObserver( refreshLayout ).observe( document.documentElement );
+	}
+
+	/**
 	 * The course tabs on the IFDA page.
 	 *
 	 * Delegated from the document rather than bound to the buttons, because Elementor rebuilds a

@@ -27,6 +27,14 @@ interface MountConfig {
   /* Wording the studio has replaced on a page they laid out themselves. Blank means ours. */
   heading?: string
   intro?: string
+  /**
+   * Drop the block's own course heading and open the calendar straight away.
+   *
+   * For a page that has already introduced the course itself — the IFDA page widget does exactly
+   * that, at length — where repeating the name and the description under a "Course" label reads
+   * as the page starting again.
+   */
+  bare?: boolean
 }
 
 const roots = new WeakMap<Element, Root>()
@@ -147,7 +155,7 @@ function mount(element: Element, config: MountConfig): void {
            * one button. Needs a course to be about, so it falls back to the ordinary page rather
            * than rendering a portal for nothing in particular.
            */
-          config.course ? <CoursePortal courseSlug={config.course} /> : <MizukiApp />
+          config.course ? <CoursePortal courseSlug={config.course} bare={config.bare} /> : <MizukiApp />
         ) : config.view === 'account' ? (
           /* Just the account block: sign in, or the balance. Usually placed under a calendar. */
           <StudentAccount courseSlug={config.course} heading={config.heading} intro={config.intro} />
@@ -187,6 +195,7 @@ function mountFromElement(element: Element): void {
     course: el.dataset.course || undefined,
     heading: el.dataset.heading || undefined,
     intro: el.dataset.intro || undefined,
+    bare: el.dataset.bare === '1',
   })
 }
 

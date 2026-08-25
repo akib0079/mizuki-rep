@@ -181,6 +181,7 @@ step( 'it draws every section', function () {
 		'mzk-ifda-booking'   => 'the booking block',
 		'mizuki-book'        => 'a button wired to the calendar',
 		'data-course="ifda"'        => 'the calendar opening on IFDA rather than everything',
+		'data-bare="1"'             => 'the booking block dropping its own heading',
 	);
 
 	$missing = array();
@@ -241,11 +242,40 @@ step( 'every list item survives being typed with stray blank lines', function ()
 	if ( false !== strpos( $html, 'mzk-ifda-tab' ) ) {
 		throw new RuntimeException( 'a lone course still drew a tab' );
 	}
+
+	// Two pieces is an even count, so nothing takes a whole row.
+	if ( false !== strpos( $html, 'mzk-ifda-projects__item--wide' ) ) {
+		throw new RuntimeException( 'an even list still widened its last item' );
+	}
 	if ( false === strpos( $html, '>01<' ) || false === strpos( $html, '>02<' ) ) {
 		throw new RuntimeException( 'the pieces are not numbered from one' );
 	}
 
 	return 'blank lines dropped, numbering starts at 01';
+} );
+
+step( 'both course lists are drawn the same way', function () {
+	$widget           = new Mizuki_Elementor_IFDA_Page();
+	$widget->settings = $widget->run_defaults();
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	/*
+	 * The seven pieces and the thirteen used to be two different designs — cards for the short
+	 * list, rows for the long one — which made the two tabs look like two pages.
+	 */
+	if ( 2 !== substr_count( $html, 'class="mzk-ifda-projects__list"' ) ) {
+		throw new RuntimeException( 'the two lists are not built from the same markup' );
+	}
+
+	// Seven and thirteen are both odd, so each list ends with one across the full row.
+	if ( 2 !== substr_count( $html, 'mzk-ifda-projects__item--wide' ) ) {
+		throw new RuntimeException( 'an odd list did not widen its last item' );
+	}
+
+	return 'one list style, both tabs';
 } );
 
 echo "\n";
