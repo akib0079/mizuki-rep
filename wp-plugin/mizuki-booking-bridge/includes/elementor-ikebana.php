@@ -227,20 +227,48 @@ class Mizuki_Elementor_Ikebana_Page extends \Elementor\Widget_Base {
 			'default' => __( 'Seasonal Ikebana Workshop', 'mizuki-booking' ),
 		) );
 
-		$card->add_control( 'facts', array(
-			'label'       => __( 'Details', 'mizuki-booking' ),
-			'type'        => \Elementor\Controls_Manager::TEXTAREA,
-			'rows'        => 4,
-			'default'     => "2.5 Hours\nSmall Group (Max 6)\nBeginner Friendly",
-			'description' => __( 'One per line.', 'mizuki-booking' ),
-		) );
+		/*
+		 * Five detail rows, each its own icon and its own words.
+		 *
+		 * A repeater inside a repeater is what this wants to be, and Elementor's panel cannot
+		 * render one — the PHP accepts it and the control never appears. (Its "nested repeater"
+		 * is a different feature: repeater rows mapped to containers on the canvas, as Nested
+		 * Tabs uses.) So the rows are flat pairs. Five is more than the design uses and rows left
+		 * empty are skipped, so a card of two details draws two.
+		 */
+		for ( $row = 1; $row <= 5; $row++ ) {
+			$card->add_control(
+				'detail_' . $row . '_icon',
+				array(
+					'label'       => sprintf(
+						/* translators: %d: which detail row. */
+						__( 'Detail %d icon', 'mizuki-booking' ),
+						$row
+					),
+					'type'        => \Elementor\Controls_Manager::ICONS,
+					'skin'        => 'inline',
+					'label_block' => false,
+					'default'     => 1 === $row
+						? array( 'value' => 'far fa-clock', 'library' => 'fa-regular' )
+						: array( 'value' => '', 'library' => '' ),
+				)
+			);
 
-		$card->add_control( 'icon', array(
-			'label'       => __( 'Icon beside each detail', 'mizuki-booking' ),
-			'type'        => \Elementor\Controls_Manager::ICONS,
-			'default'     => array( 'value' => 'fas fa-leaf', 'library' => 'fa-solid' ),
-			'description' => __( 'One icon for the whole card, so a card of five details stays readable.', 'mizuki-booking' ),
-		) );
+			$card->add_control(
+				'detail_' . $row . '_text',
+				array(
+					'label'       => sprintf(
+						/* translators: %d: which detail row. */
+						__( 'Detail %d', 'mizuki-booking' ),
+						$row
+					),
+					'type'        => \Elementor\Controls_Manager::TEXT,
+					'label_block' => true,
+					'default'     => '',
+					'separator'   => 'after',
+				)
+			);
+		}
 
 		$card->add_control( 'button_text', array(
 			'label'   => __( 'Button', 'mizuki-booking' ),
@@ -264,32 +292,48 @@ class Mizuki_Elementor_Ikebana_Page extends \Elementor\Widget_Base {
 					'image'       => array( 'url' => $this->stock( 'ikebana' ) ),
 					'tag'         => __( 'Ikebana', 'mizuki-booking' ),
 					'title'       => __( 'Seasonal Ikebana Workshop', 'mizuki-booking' ),
-					'facts'       => "2.5 Hours\nSmall Group (Max 6)\nBeginner Friendly",
-					'icon'        => array( 'value' => 'fas fa-leaf', 'library' => 'fa-solid' ),
+					'detail_1_icon' => array( 'value' => 'far fa-clock', 'library' => 'fa-regular' ),
+					'detail_1_text' => __( '2.5 Hours', 'mizuki-booking' ),
+					'detail_2_icon' => array( 'value' => 'fas fa-users', 'library' => 'fa-solid' ),
+					'detail_2_text' => __( 'Small Group (Max 6)', 'mizuki-booking' ),
+					'detail_3_icon' => array( 'value' => 'fas fa-seedling', 'library' => 'fa-solid' ),
+					'detail_3_text' => __( 'Beginner Friendly', 'mizuki-booking' ),
 					'button_text' => __( 'View Details', 'mizuki-booking' ),
 				),
 				array(
 					'image'       => array( 'url' => $this->stock( 'seasonal' ) ),
 					'tag'         => __( 'Seasonal Floral Design', 'mizuki-booking' ),
 					'title'       => __( 'Seasonal Floral Workshop', 'mizuki-booking' ),
-					'facts'       => "2 Hours\nVase Arrangement\nPremium Seasonal Blooms",
-					'icon'        => array( 'value' => 'fas fa-seedling', 'library' => 'fa-solid' ),
+					'detail_1_icon' => array( 'value' => 'far fa-clock', 'library' => 'fa-regular' ),
+					'detail_1_text' => __( '2 Hours', 'mizuki-booking' ),
+					'detail_2_icon' => array( 'value' => 'fas fa-fan', 'library' => 'fa-solid' ),
+					'detail_2_text' => __( 'Vase Arrangement', 'mizuki-booking' ),
+					'detail_3_icon' => array( 'value' => 'fas fa-gift', 'library' => 'fa-solid' ),
+					'detail_3_text' => __( 'Premium Seasonal Blooms', 'mizuki-booking' ),
 					'button_text' => __( 'View Details', 'mizuki-booking' ),
 				),
 				array(
 					'image'       => array( 'url' => $this->stock( 'private' ) ),
 					'tag'         => __( 'Private Group', 'mizuki-booking' ),
 					'title'       => __( 'Private Floral Workshop', 'mizuki-booking' ),
-					'facts'       => "Custom Schedule\nEvents & Team Building\nTailored Curriculum",
-					'icon'        => array( 'value' => 'fas fa-users', 'library' => 'fa-solid' ),
+					'detail_1_icon' => array( 'value' => 'far fa-calendar', 'library' => 'fa-regular' ),
+					'detail_1_text' => __( 'Custom Schedule', 'mizuki-booking' ),
+					'detail_2_icon' => array( 'value' => 'fas fa-users', 'library' => 'fa-solid' ),
+					'detail_2_text' => __( 'Events &amp; Team Building', 'mizuki-booking' ),
+					'detail_3_icon' => array( 'value' => 'fas fa-book-open', 'library' => 'fa-solid' ),
+					'detail_3_text' => __( 'Tailored Curriculum', 'mizuki-booking' ),
 					'button_text' => __( 'Enquire Now', 'mizuki-booking' ),
 				),
 				array(
 					'image'       => array( 'url' => $this->stock( 'preserved' ) ),
 					'tag'         => __( 'Preserved Floral', 'mizuki-booking' ),
 					'title'       => __( 'Preserved Flower Design', 'mizuki-booking' ),
-					'facts'       => "3 Hours\nLasting Arrangements\nColour Theory Basics",
-					'icon'        => array( 'value' => 'fas fa-spa', 'library' => 'fa-solid' ),
+					'detail_1_icon' => array( 'value' => 'far fa-clock', 'library' => 'fa-regular' ),
+					'detail_1_text' => __( '3 Hours', 'mizuki-booking' ),
+					'detail_2_icon' => array( 'value' => 'fas fa-spa', 'library' => 'fa-solid' ),
+					'detail_2_text' => __( 'Lasting Arrangements', 'mizuki-booking' ),
+					'detail_3_icon' => array( 'value' => 'fas fa-palette', 'library' => 'fa-solid' ),
+					'detail_3_text' => __( 'Colour Theory Basics', 'mizuki-booking' ),
 					'button_text' => __( 'View Details', 'mizuki-booking' ),
 				),
 			),
@@ -727,13 +771,18 @@ class Mizuki_Elementor_Ikebana_Page extends \Elementor\Widget_Base {
 			echo '<div class="mzk-ike-card__body">';
 			$this->line( 'h3', 'mzk-ike-card__title', isset( $card['title'] ) ? $card['title'] : '' );
 
-			$facts = $this->lines( isset( $card['facts'] ) ? $card['facts'] : '' );
+			$facts = $this->card_details( $card );
 			if ( $facts ) {
 				echo '<ul class="mzk-ike-card__facts">';
 				foreach ( $facts as $fact ) {
 					echo '<li>';
-					$this->icon( $card, 'mzk-ike-card__icon' );
-					printf( '<span>%s</span>', esc_html( $fact ) );
+					if ( $fact['icon'] ) {
+						$this->icon( array( 'icon' => $fact['icon'] ), 'mzk-ike-card__icon' );
+					} else {
+						// Keeps the words in line with the rows that do have one.
+						echo '<span class="mzk-ike-card__icon mzk-ike-card__icon--none" aria-hidden="true"></span>';
+					}
+					printf( '<span>%s</span>', esc_html( $fact['text'] ) );
 					echo '</li>';
 				}
 				echo '</ul>';
@@ -752,24 +801,58 @@ class Mizuki_Elementor_Ikebana_Page extends \Elementor\Widget_Base {
 
 		echo '</ul>';
 
+		/*
+		 * The dots are built by the script, not here, because how many there should be is not a
+		 * property of the content — it is how far the track can actually scroll, which depends on
+		 * how many cards fit at this width. Four cards with three in view is two pages, not four,
+		 * and drawing four left two dots that did nothing when pressed.
+		 */
 		if ( count( $cards ) > 1 ) {
-			echo '<div class="mzk-ike-slider__dots">';
-			foreach ( $cards as $index => $card ) {
-				printf(
-					'<button type="button" class="mzk-ike-slider__dot" data-index="%1$d" aria-current="%2$s" aria-label="%3$s"></button>',
-					(int) $index,
-					0 === $index ? 'true' : 'false',
-					esc_attr( sprintf(
-						/* translators: %d: the workshop's place in the list. */
-						__( 'Go to workshop %d', 'mizuki-booking' ),
-						(int) $index + 1
-					) )
-				);
-			}
-			echo '</div>';
+			printf(
+				'<div class="mzk-ike-slider__dots" role="tablist" aria-label="%s"></div>',
+				esc_attr__( 'Choose a page of workshops', 'mizuki-booking' )
+			);
 		}
 
 		echo '</div></div></section>';
+	}
+
+	/**
+	 * A card's detail rows, each with its own icon.
+	 *
+	 * Falls back to the single textarea and single icon this widget shipped with. Elementor keeps
+	 * the settings of controls that no longer exist, so a card typed before the change still has
+	 * its words — dropping them because the panel moved on would be losing the studio's writing
+	 * to an implementation detail.
+	 */
+	private function card_details( $card ) {
+		$rows = array();
+
+		for ( $row = 1; $row <= 5; $row++ ) {
+			$text = isset( $card[ 'detail_' . $row . '_text' ] ) ? trim( (string) $card[ 'detail_' . $row . '_text' ] ) : '';
+			if ( '' === $text ) {
+				continue;
+			}
+
+			$icon = isset( $card[ 'detail_' . $row . '_icon' ] ) ? $card[ 'detail_' . $row . '_icon' ] : null;
+			if ( empty( $icon['value'] ) ) {
+				$icon = null;
+			}
+
+			$rows[] = array( 'text' => $text, 'icon' => $icon );
+		}
+
+		if ( $rows ) {
+			return $rows;
+		}
+
+		$legacy = isset( $card['icon'] ) && ! empty( $card['icon']['value'] ) ? $card['icon'] : null;
+
+		foreach ( $this->lines( isset( $card['facts'] ) ? $card['facts'] : '' ) as $text ) {
+			$rows[] = array( 'text' => $text, 'icon' => $legacy );
+		}
+
+		return $rows;
 	}
 
 	private function render_featured( $s ) {

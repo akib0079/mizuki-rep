@@ -365,9 +365,21 @@
 .mzk-ike .mzk-ike-workshops__intro { color: var(--ike-body) !important; font-weight: 300 !important; line-height: 1.75 !important; }
 @media (min-width: 1024px) { .mzk-ike .mzk-ike-workshops__intro { font-size: 18px !important; } }
 
-.mzk-ike .mzk-ike-slider__nav { display: none !important; }
+/*
+ * The controls appear only once the script is there to drive them. An arrow that does nothing is
+ * worse than no arrow, and both the arrows and the dots are useless without JavaScript — the
+ * track itself is a real scrollable list and needs neither.
+ */
+.mzk-ike .mzk-ike-slider__nav,
+.mzk-ike .mzk-ike-slider__dots { display: none !important; }
+
 @media (min-width: 768px) {
-	.mzk-ike .mzk-ike-slider__nav { display: flex !important; align-items: center !important; gap: 8px !important; flex: none !important; }
+	.mzk-ike .mzk-ike-slider.is-ready .mzk-ike-slider__nav {
+		display: flex !important;
+		align-items: center !important;
+		gap: 8px !important;
+		flex: none !important;
+	}
 }
 .mzk-ike .mzk-ike-slider__arrow {
 	width: 48px !important;
@@ -412,6 +424,7 @@
 	-ms-overflow-style: none !important;
 	scrollbar-width: none !important;
 }
+.mzk-ike .mzk-ike-slider__track:focus-visible { outline: 2px solid var(--ike-teal) !important; outline-offset: 4px !important; }
 .mzk-ike .mzk-ike-slider__track::-webkit-scrollbar { display: none !important; }
 @media (min-width: 768px) { .mzk-ike .mzk-ike-slider__track { gap: 32px !important; } }
 
@@ -457,6 +470,7 @@
 	line-height: 1.3 !important;
 	color: var(--ike-navy) !important;
 	margin: 0 0 24px !important;
+	min-height: 2.6em !important;
 }
 @media (min-width: 768px) { .mzk-ike .mzk-ike-card__title { font-size: 24px !important; } }
 
@@ -473,23 +487,39 @@
 .mzk-ike .mzk-ike-card__icon { flex: none !important; display: inline-flex !important; color: var(--ike-teal) !important; font-size: 18px !important; line-height: 1 !important; }
 .mzk-ike .mzk-ike-card__icon svg { width: 18px !important; height: 18px !important; fill: currentColor !important; }
 .mzk-ike .mzk-ike-card__icon i { color: var(--ike-teal) !important; }
+.mzk-ike .mzk-ike-card__icon--none { width: 18px !important; height: 18px !important; }
 
 .mzk-ike .mzk-ike-card__action { margin-top: auto !important; padding-top: 16px !important; }
 .mzk-ike .mzk-ike-card__action .mzk-ike__btn { width: 100% !important; padding-top: 14px !important; padding-bottom: 14px !important; }
 
-.mzk-ike .mzk-ike-slider__dots { display: flex !important; justify-content: center !important; align-items: center !important; gap: 12px !important; margin: 32px 0 0 !important; }
-@media (min-width: 768px) { .mzk-ike .mzk-ike-slider__dots { margin-top: 48px !important; } }
+.mzk-ike .mzk-ike-slider.is-ready .mzk-ike-slider__dots {
+	display: flex !important;
+	justify-content: center !important;
+	align-items: center !important;
+	gap: 12px !important;
+	margin: 32px 0 0 !important;
+}
+@media (min-width: 768px) { .mzk-ike .mzk-ike-slider.is-ready .mzk-ike-slider__dots { margin-top: 48px !important; } }
 .mzk-ike .mzk-ike-slider__dot {
 	width: 8px !important;
 	height: 8px !important;
 	padding: 0 !important;
+	/* The dot stays 8px; the box you can hit around it does not. */
+	outline-offset: 6px !important;
+	position: relative !important;
 	border: 1px solid rgba(45,52,59,.2) !important;
 	border-radius: 0 !important;
 	background: var(--ike-grey) !important;
 	cursor: pointer !important;
 	transition: background-color .3s, border-color .3s !important;
 }
+.mzk-ike .mzk-ike-slider__dot::after {
+	content: "" !important;
+	position: absolute !important;
+	inset: -10px !important;
+}
 .mzk-ike .mzk-ike-slider__dot[aria-current="true"] { background: var(--ike-navy) !important; border-color: var(--ike-navy) !important; }
+.mzk-ike .mzk-ike-slider__dot:focus-visible { outline: 2px solid var(--ike-teal) !important; }
 
 /* ------------------------------------------------------------ featured */
 

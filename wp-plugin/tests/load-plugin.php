@@ -429,12 +429,54 @@ step( 'one workshop draws no slider controls', function () {
 	return 'the card, and nothing to scroll it with';
 } );
 
-step( 'a workshop typed with blank lines still lists cleanly', function () {
+step( 'each detail row carries its own icon', function () {
+	Mizuki_Elementor_Ikebana_Page::$lightbox_drawn = false;
+	$defaults = ( new Mizuki_Elementor_Ikebana_Page() )->run_defaults();
+
+	$widget           = new Mizuki_Elementor_Ikebana_Page();
+	$widget->settings = $defaults;
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	/*
+	 * The first card ships three rows with three different icons. One icon repeated down the card
+	 * is what this replaced, so the test is that they differ, not merely that they exist.
+	 */
+	if ( ! preg_match( '/<ul class="mzk-ike-card__facts">(.*?)<\/ul>/s', $html, $match ) ) {
+		throw new RuntimeException( 'no detail list drawn' );
+	}
+
+	preg_match_all( '/class="[^"]*(fa-[a-z-]+)[^"]*"/', $match[1], $icons );
+	$found = array_values( array_unique( array_filter( $icons[1], function ( $name ) {
+		return 'fa-regular' !== $name && 'fa-solid' !== $name;
+	} ) ) );
+
+	if ( count( $found ) < 3 ) {
+		throw new RuntimeException( 'the rows share icons: ' . implode( ', ', $found ) );
+	}
+
+	return implode( ', ', $found );
+} );
+
+/*
+ * The words already typed into the widget as it first shipped must survive the panel changing
+ * shape. Elementor keeps the settings of controls that no longer exist, so the only way to lose
+ * them is to stop reading them.
+ */
+step( 'a card written before the per-row icons still draws', function () {
+	Mizuki_Elementor_Ikebana_Page::$lightbox_drawn = false;
 	$defaults = ( new Mizuki_Elementor_Ikebana_Page() )->run_defaults();
 	$cards    = $defaults['workshops'];
-	$cards[0]['facts'] = "  2.5 Hours  \n\n\n  Small Group  \n";
 
-	Mizuki_Elementor_Ikebana_Page::$lightbox_drawn = false;
+	// As the old panel saved it: one icon, and the rows as text — typed with stray blank lines.
+	foreach ( array( 1, 2, 3, 4, 5 ) as $row ) {
+		unset( $cards[0][ 'detail_' . $row . '_text' ], $cards[0][ 'detail_' . $row . '_icon' ] );
+	}
+	$cards[0]['facts'] = "  2.5 Hours  \n\n\n  Small Group  \n";
+	$cards[0]['icon']  = array( 'value' => 'fas fa-leaf', 'library' => 'fa-solid' );
+
 	$widget           = new Mizuki_Elementor_Ikebana_Page();
 	$widget->settings = array_merge( $defaults, array( 'workshops' => $cards ) );
 
@@ -442,14 +484,14 @@ step( 'a workshop typed with blank lines still lists cleanly', function () {
 	$widget->run_render();
 	$html = ob_get_clean();
 
+	if ( false === strpos( $html, '>2.5 Hours<' ) || false === strpos( $html, '>Small Group<' ) ) {
+		throw new RuntimeException( 'the old rows were dropped' );
+	}
 	if ( false !== strpos( $html, '<span></span>' ) ) {
 		throw new RuntimeException( 'a blank line became an empty row' );
 	}
-	if ( false === strpos( $html, '>2.5 Hours<' ) || false === strpos( $html, '>Small Group<' ) ) {
-		throw new RuntimeException( 'the trimmed rows did not survive' );
-	}
 
-	return 'blank lines dropped, spacing trimmed';
+	return 'old rows kept, blank lines dropped, spacing trimmed';
 } );
 
 step( 'the lightbox is drawn once even with two galleries', function () {
