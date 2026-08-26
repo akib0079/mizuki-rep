@@ -170,11 +170,77 @@ async function assertPluginLoads() {
     process.exit(1)
   }
 
-  /* The stylesheet has to beat the theme, and it has to not beat itself. Both have gone wrong. */
+  /* The stylesheets have to beat the theme, and not beat themselves. Both have gone wrong. */
   try {
     await run('php', [path.join(root, 'wp-plugin/tests/page-css.php')])
   } catch (error) {
-    console.error('The IFDA stylesheet is not sound:\n' + (error.stdout || error.message))
+    console.error('A page stylesheet is not sound:\n' + (error.stdout || error.message))
+    process.exit(1)
+  }
+
+  await checkScripts(pluginDir)
+}
+
+/**
+ * Every function a plugin script calls must be one it defines.
+ *
+ * `node --check` parses; it does not resolve names. An edit that moved a block took
+ * prefersReducedMotion out with it, and the file still parsed perfectly — the slider would have
+ * thrown a ReferenceError on the first press, in the browser, on the studio's site. Nothing else
+ * here executes this code, so it is checked by reading it.
+ */
+async function checkScripts(pluginDir) {
+  const jsDir = path.join(pluginDir, 'js')
+  let files = []
+  try {
+    files = (await readdir(jsDir)).filter((name) => name.endsWith('.js'))
+  } catch (error) {
+    // A plugin with no js/ is fine; anything else here is this check being broken, and a
+    // check that fails silently is worse than no check.
+    if ('ENOENT' === error.code) {
+      return
+    }
+    throw error
+  }
+
+  const known = new Set([
+    'if', 'for', 'while', 'switch', 'catch', 'return', 'typeof', 'function', 'else',
+    'parseInt', 'parseFloat', 'String', 'Number', 'Boolean', 'Array', 'Object', 'Math', 'JSON',
+    'setTimeout', 'clearTimeout', 'requestAnimationFrame', 'matchMedia', 'Event', 'Set', 'Map',
+  ])
+
+  let broken = false
+
+  for (const name of files) {
+    const source = await readFile(path.join(jsDir, name), 'utf8')
+
+    const defined = new Set(
+      [...source.matchAll(/function\s+([A-Za-z_$][\w$]*)\s*\(/g)].map((m) => m[1])
+    )
+    for (const match of source.matchAll(/(?:var|let|const)\s+([A-Za-z_$][\w$]*)\s*=\s*function/g)) {
+      defined.add(match[1])
+    }
+
+    /*
+     * Bare calls only. Anything after a dot is a method on something else, and anything after a
+     * colon or a quote is inside a string — `button:not([disabled])` in a selector is not a call
+     * to a function named `not`, which is what the first version of this check decided it was.
+     */
+    const withoutStrings = source.replace(/'[^'\n]*'|"[^"\n]*"/g, "''")
+
+    const called = new Set(
+      [...withoutStrings.matchAll(/(?<![.:\w$])([a-z][A-Za-z0-9_$]{2,})\s*\(/g)].map((m) => m[1])
+    )
+
+    const missing = [...called].filter((fn) => !defined.has(fn) && !known.has(fn))
+
+    if (missing.length) {
+      broken = true
+      console.error(`js/${name} calls functions it does not define: ${missing.join(', ')}`)
+    }
+  }
+
+  if (broken) {
     process.exit(1)
   }
 }
