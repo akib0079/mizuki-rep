@@ -93,10 +93,10 @@ step( 'the category is added', function () {
 	return implode( ', ', $manager->categories );
 } );
 
-step( 'all seven widgets register', function () {
+step( 'all eight widgets register', function () {
 	$manager = manager();
 	do_action( 'elementor/widgets/register', $manager );
-	if ( 7 !== count( $manager->widgets ) ) {
+	if ( 8 !== count( $manager->widgets ) ) {
 		throw new RuntimeException( 'registered ' . count( $manager->widgets ) . ': ' . implode( ',', $manager->widgets ) );
 	}
 	return implode( ', ', $manager->widgets );
@@ -1215,6 +1215,173 @@ step( 'the phone bar needs somewhere to go', function () {
 	}
 
 	return 'left out without one, drawn with one';
+} );
+
+
+echo "\nTools & Vases, which shares its bones with Mizuki Picks\n";
+
+step( 'it draws its four sections', function () {
+	$widget           = new Mizuki_Elementor_Tools_Page();
+	$widget->settings = $widget->run_defaults();
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	foreach ( array( 'mzk-pk-banner', 'mzk-pk-intro', 'mzk-pk-faq' ) as $needed ) {
+		if ( false === strpos( $html, $needed ) ) {
+			throw new RuntimeException( $needed . ' was not drawn' );
+		}
+	}
+
+	/* This page has neither of the two sections Mizuki Picks adds. */
+	foreach ( array( 'mzk-pk-featured', 'mzk-pk-why' ) as $absent ) {
+		if ( false !== strpos( $html, $absent ) ) {
+			throw new RuntimeException( $absent . ' belongs to the other page' );
+		}
+	}
+
+	if ( false === strpos( $html, 'mzk-pk--centred' ) ) {
+		throw new RuntimeException( 'the banner was not centred' );
+	}
+	if ( false !== strpos( $html, 'mzk-pk-picks' ) ) {
+		throw new RuntimeException( 'the rail was drawn with no products' );
+	}
+
+	return strlen( $html ) . ' bytes, centred, no rail';
+} );
+
+step( 'every section can be turned off on its own', function () {
+	$sections = array(
+		'banner_show' => 'mzk-pk-banner',
+		'intro_show'  => 'mzk-pk-intro',
+		'faq_show'    => 'mzk-pk-faq',
+	);
+
+	foreach ( $sections as $switch => $marker ) {
+		$widget           = new Mizuki_Elementor_Tools_Page();
+		$widget->settings = array_merge( $widget->run_defaults(), array( $switch => '' ) );
+
+		ob_start();
+		$widget->run_render();
+		$html = ob_get_clean();
+
+		if ( false !== strpos( $html, $marker ) ) {
+			throw new RuntimeException( $switch . ' was off and ' . $marker . ' was drawn anyway' );
+		}
+
+		foreach ( $sections as $other => $otherMarker ) {
+			if ( $other !== $switch && false === strpos( $html, $otherMarker ) ) {
+				throw new RuntimeException( $switch . ' was off and it took ' . $otherMarker . ' with it' );
+			}
+		}
+	}
+
+	return count( $sections ) . ' switches, each independent';
+} );
+
+step( 'all of them off draws nothing but the wrapper', function () {
+	$off = array();
+	foreach ( array( 'banner', 'intro', 'picks', 'faq', 'sticky' ) as $section ) {
+		$off[ $section . '_show' ] = '';
+	}
+
+	$widget           = new Mizuki_Elementor_Tools_Page();
+	$widget->settings = array_merge( $widget->run_defaults(), $off );
+
+	ob_start();
+	$widget->run_render();
+	$html = trim( ob_get_clean() );
+
+	if ( ! preg_match( '~^<div class="mzk-pk [a-z-]*"></div>$~', $html ) ) {
+		throw new RuntimeException( 'left something behind: ' . substr( $html, 0, 140 ) );
+	}
+
+	return 'an empty wrapper, no stray markup';
+} );
+
+step( 'its cards carry no line of description, unlike the other page', function () {
+	$picks = array(
+		array( 'product' => '13', 'label' => 'Everyday Vessel', 'text' => 'A line that must not appear.', 'image' => array( 'url' => '' ), 'cta' => 'View Product' ),
+	);
+
+	$tools           = new Mizuki_Elementor_Tools_Page();
+	$tools->settings = array_merge( $tools->run_defaults(), array( 'picks' => $picks ) );
+
+	ob_start();
+	$tools->run_render();
+	$toolsHtml = ob_get_clean();
+
+	if ( false !== strpos( $toolsHtml, 'mzk-pk-card__text' ) ) {
+		throw new RuntimeException( 'Tools & Vases drew a description' );
+	}
+	if ( false === strpos( $toolsHtml, 'Everyday Vessel' ) ) {
+		throw new RuntimeException( 'the label went with it' );
+	}
+
+	/* The same rows on Mizuki Picks do show it — that is the difference between the pages. */
+	$picksPage           = new Mizuki_Elementor_Picks_Page();
+	$picksPage->settings = array_merge( $picksPage->run_defaults(), array( 'picks' => $picks ) );
+
+	ob_start();
+	$picksPage->run_render();
+	$picksHtml = ob_get_clean();
+
+	if ( false === strpos( $picksHtml, 'A line that must not appear.' ) ) {
+		throw new RuntimeException( 'Mizuki Picks stopped drawing descriptions' );
+	}
+
+	return 'no description here, kept on Mizuki Picks';
+} );
+
+step( 'the phone shows a dash per product', function () {
+	$widget           = new Mizuki_Elementor_Tools_Page();
+	$widget->settings = array_merge( $widget->run_defaults(), array( 'picks' => array(
+		array( 'product' => '13', 'label' => '', 'image' => array( 'url' => '' ), 'cta' => 'View' ),
+		array( 'product' => '14', 'label' => '', 'image' => array( 'url' => '' ), 'cta' => 'View' ),
+		array( 'product' => '15', 'label' => '', 'image' => array( 'url' => '' ), 'cta' => 'View' ),
+	) ) );
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	if ( 3 !== substr_count( $html, 'mzk-pk-picks__dash"' ) ) {
+		throw new RuntimeException( 'drew ' . substr_count( $html, 'mzk-pk-picks__dash"' ) . ' dashes for three products' );
+	}
+	if ( 1 !== substr_count( $html, 'data-current="true"' ) ) {
+		throw new RuntimeException( 'more than one dash is current' );
+	}
+	// The dashes are decoration; the count is still said in words for a screen reader.
+	if ( false === strpos( $html, 'mzk-pk-picks__reader' ) ) {
+		throw new RuntimeException( 'no readable count alongside them' );
+	}
+
+	return 'three dashes, one current, and a spoken count';
+} );
+
+step( 'the rail, the arrows and the questions still work here', function () {
+	$widget           = new Mizuki_Elementor_Tools_Page();
+	$widget->settings = array_merge( $widget->run_defaults(), array( 'picks' => array(
+		array( 'product' => '13', 'label' => '', 'image' => array( 'url' => '' ), 'cta' => 'View' ),
+		array( 'product' => '99999', 'label' => '', 'image' => array( 'url' => '' ), 'cta' => 'View' ),
+		array( 'product' => '14', 'label' => '', 'image' => array( 'url' => '' ), 'cta' => 'View' ),
+	) ) );
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	if ( 2 !== substr_count( $html, 'mzk-pk-card__link' ) ) {
+		throw new RuntimeException( 'the deleted product was not skipped' );
+	}
+	foreach ( array( 'mzk-pk-slider__prev', 'mzk-pk-slider__track', 'mzk-pk-faq__q' ) as $needed ) {
+		if ( false === strpos( $html, $needed ) ) {
+			throw new RuntimeException( $needed . ' missing' );
+		}
+	}
+
+	return 'two cards, arrows and accordion, all from the shared trait';
 } );
 
 echo "\n";

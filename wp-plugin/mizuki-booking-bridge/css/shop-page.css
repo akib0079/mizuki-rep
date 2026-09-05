@@ -1,5 +1,9 @@
 /*
- * The Mizuki Picks page.
+ * The shop pages: Mizuki Picks, and Tools & Vases.
+ *
+ * One design system, two page widgets. They share a palette, a set of faces, a product rail, an
+ * accordion and a phone bar, and differ in which sections they have and how the banner is set —
+ * so they share this file and js/shop-page.js, and the prefix stays .mzk-pk for both.
  *
  * Same two rules as the other page widgets, for the same reasons.
  *
@@ -395,7 +399,9 @@
 		flex: none !important;
 	}
 }
-.mzk-pk .mzk-pk-picks__arrows { display: flex !important; align-items: center !important; gap: 16px !important; }
+
+
+.mzk-pk .mzk-pk-picks__arrows { align-items: center !important; gap: 16px !important; }
 .mzk-pk .mzk-pk-picks__count {
 	font-size: 12px !important;
 	font-weight: 500 !important;
@@ -513,7 +519,6 @@
 .mzk-pk .mzk-pk-card:hover .mzk-pk-card__cta { color: var(--pk-green) !important; }
 
 .mzk-pk .mzk-pk-picks__swipe {
-	display: flex !important;
 	justify-content: space-between !important;
 	align-items: center !important;
 	margin: 8px 0 0 !important;
@@ -523,7 +528,6 @@
 	text-transform: uppercase !important;
 	color: rgba(23, 48, 77, .7) !important;
 }
-@media (min-width: 768px) { .mzk-pk .mzk-pk-picks__swipe { display: none !important; } }
 
 .mzk-pk .mzk-pk-picks__foot { text-align: center !important; margin: 48px 0 0 !important; }
 @media (min-width: 768px) { .mzk-pk .mzk-pk-picks__foot { margin-top: 80px !important; } }
@@ -732,4 +736,96 @@
 
 @media (prefers-reduced-motion: reduce) {
 	.mzk-pk-sticky { transition: none !important; }
+}
+
+/* ------------------------------------------------ Tools & Vases variations */
+
+/*
+ * The centred banner.
+ *
+ * Mizuki Picks runs its heading to the left on a desktop, against a picture that fades left to
+ * right. Tools & Vases centres it over an evenly darkened photograph, so the scrim is flat rather
+ * than directional — a left-to-right fade under centred text leaves the right-hand words on the
+ * brightest part of the picture.
+ */
+.mzk-pk.mzk-pk--centred .mzk-pk-banner { height: 420px !important; }
+@media (min-width: 640px)  { .mzk-pk.mzk-pk--centred .mzk-pk-banner { height: 500px !important; } }
+@media (min-width: 768px)  { .mzk-pk.mzk-pk--centred .mzk-pk-banner { height: 580px !important; } }
+@media (min-width: 1024px) { .mzk-pk.mzk-pk--centred .mzk-pk-banner { height: 620px !important; } }
+
+.mzk-pk.mzk-pk--centred .mzk-pk-banner {
+	align-items: center !important;
+}
+
+.mzk-pk.mzk-pk--centred .mzk-pk-banner__bg::after {
+	background: rgba(23, 48, 77, .56) !important;
+}
+
+.mzk-pk.mzk-pk--centred .mzk-pk-banner__content {
+	align-items: center !important;
+	text-align: center !important;
+	padding-bottom: 0 !important;
+}
+
+.mzk-pk.mzk-pk--centred .mzk-pk-banner__box { align-items: center !important; }
+.mzk-pk.mzk-pk--centred .mzk-pk-banner__lede { max-width: 460px !important; margin-bottom: 32px !important; }
+@media (min-width: 768px) { .mzk-pk.mzk-pk--centred .mzk-pk-banner__lede { margin-bottom: 40px !important; } }
+.mzk-pk.mzk-pk--centred .mzk-pk-banner__text { margin-left: auto !important; margin-right: auto !important; }
+.mzk-pk.mzk-pk--centred .mzk-pk-banner__actions { justify-content: center !important; }
+
+/* Cards with no line of description sit closer together. */
+.mzk-pk.mzk-pk--centred .mzk-pk-card__media { margin-bottom: 20px !important; }
+.mzk-pk.mzk-pk--centred .mzk-pk-card__title { margin-bottom: 16px !important; }
+
+/* ------------------------------------------------------ the dash row */
+
+.mzk-pk .mzk-pk-picks__swipe--dashes {
+	flex-direction: column !important;
+	align-items: center !important;
+	gap: 12px !important;
+	margin-top: 24px !important;
+}
+
+.mzk-pk .mzk-pk-picks__dashes { display: flex !important; align-items: center !important; gap: 6px !important; }
+.mzk-pk .mzk-pk-picks__dash {
+	display: block !important;
+	width: 16px !important;
+	height: 2px !important;
+	background: var(--pk-divider) !important;
+	transition: width .3s, background-color .3s !important;
+}
+.mzk-pk .mzk-pk-picks__dash[data-current="true"] { width: 24px !important; background: var(--pk-green) !important; }
+
+/* The count in words, for anything that cannot see the dashes. */
+.mzk-pk .mzk-pk-picks__reader {
+	position: absolute !important;
+	width: 1px !important;
+	height: 1px !important;
+	padding: 0 !important;
+	margin: -1px !important;
+	overflow: hidden !important;
+	clip: rect(0, 0, 0, 0) !important;
+	white-space: nowrap !important;
+	border: 0 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.mzk-pk .mzk-pk-picks__dash { transition: none !important; }
+}
+
+/* ------------------------------------------ controls for a rail that moves */
+
+/*
+ * Last in the file on purpose: these decide whether the arrows and the phone hint are drawn at
+ * all, and the rules they override are above. Three cards that all fit is a rail that cannot
+ * move, and arrows over it are two buttons that do nothing beside a count reading "03 / 03"
+ * before the reader has touched anything. The "View all" link above them stays either way.
+ */
+.mzk-pk .mzk-pk-picks__arrows { display: none !important; }
+.mzk-pk .mzk-pk-slider.is-scrollable .mzk-pk-picks__arrows { display: flex !important; }
+
+.mzk-pk .mzk-pk-picks__swipe { display: none !important; }
+@media (max-width: 767px) {
+	.mzk-pk .mzk-pk-slider.is-scrollable .mzk-pk-picks__swipe { display: flex !important; }
+	.mzk-pk .mzk-pk-slider.is-scrollable .mzk-pk-picks__swipe--dashes { display: flex !important; }
 }

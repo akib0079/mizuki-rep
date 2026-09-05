@@ -1,5 +1,8 @@
 /**
- * The Mizuki Picks slider, questions, and the bar that follows you down a phone.
+ * The shop pages' slider, questions, and the bar that follows you down a phone.
+ *
+ * Shared by the Mizuki Picks and Tools & Vases widgets — both draw the same rail and the same
+ * accordion, so both are driven from here. Nothing below knows which page it is on.
  *
  * All of it enhances something that already works. The track is a real scrollable list that takes
  * a finger, a trackpad, a keyboard and a screen reader before any script runs; the questions are
@@ -174,13 +177,31 @@
 			counters[ i ].textContent = pad( showing ) + ' / ' + pad( total );
 		}
 
+		/* The dash row says the same thing without words, where a page uses one. */
+		var dashes = slider.querySelectorAll( '.mzk-pk-picks__dash' );
+		for ( var d = 0; d < dashes.length; d++ ) {
+			if ( d === showing - 1 ) {
+				dashes[ d ].setAttribute( 'data-current', 'true' );
+			} else {
+				dashes[ d ].removeAttribute( 'data-current' );
+			}
+		}
+
 		var prev = slider.querySelector( '.mzk-pk-slider__prev' );
 		var next = slider.querySelector( '.mzk-pk-slider__next' );
 		if ( prev ) { prev.disabled = atStart; }
 		if ( next ) { next.disabled = atEnd; }
 
-		// Controls appear only once something can drive them.
+		/*
+		 * Controls appear only once the script is here AND there is something to scroll.
+		 *
+		 * Three cards that all fit is a rail that cannot move, and arrows over it are two buttons
+		 * that do nothing next to a counter reading "03 / 03" before the reader has done
+		 * anything. How many fit depends on the width, so this is decided here rather than in PHP
+		 * — the same three cards do scroll on a phone.
+		 */
 		slider.classList.add( 'is-ready' );
+		slider.classList.toggle( 'is-scrollable', rail.scrollWidth > rail.clientWidth + 1 );
 	}
 
 	function step( slider, direction ) {

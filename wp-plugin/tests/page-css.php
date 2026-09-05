@@ -19,7 +19,7 @@ $sheets = array(
 	'ifda.css'    => file_get_contents( dirname( __DIR__ ) . '/mizuki-booking-bridge/css/ifda.css' ),
 	'ikebana.css' => file_get_contents( dirname( __DIR__ ) . '/mizuki-booking-bridge/css/ikebana.css' ),
 	'product.css' => file_get_contents( dirname( __DIR__ ) . '/mizuki-booking-bridge/css/product.css' ),
-	'picks.css'   => file_get_contents( dirname( __DIR__ ) . '/mizuki-booking-bridge/css/picks.css' ),
+	'shop-page.css' => file_get_contents( dirname( __DIR__ ) . '/mizuki-booking-bridge/css/shop-page.css' ),
 );
 $fail = 0;
 
@@ -99,7 +99,7 @@ check( $name . ': every component rule outranks the element reset', function () 
 
 echo "\nBoth pages are centred, not left-aligned\n";
 
-foreach ( array( 'ifda.css' => 'mzk-ifda', 'ikebana.css' => 'mzk-ike', 'product.css' => 'mzk-pdp', 'picks.css' => 'mzk-pk' ) as $name => $root ) {
+foreach ( array( 'ifda.css' => 'mzk-ifda', 'ikebana.css' => 'mzk-ike', 'product.css' => 'mzk-pdp', 'shop-page.css' => 'mzk-pk' ) as $name => $root ) {
 check( $name . ': the container centres itself', function () use ( $sheets, $name, $root ) {
 	$pattern = '/\.' . $root . '\s+\.' . $root . '__inner\s*\{([^}]*)\}/';
 
