@@ -373,11 +373,19 @@
 }
 @media (min-width: 1024px) { .mzk-pk .mzk-pk-picks { padding: 140px 0 !important; } }
 
+/*
+ * margin-bottom, not a margin shorthand.
+ *
+ * This element carries .mzk-pk__inner too, and that is what centres the page's content on a wide
+ * screen — with `margin: 0 0 48px` the left and right of that shorthand overwrote its auto
+ * margins, and the whole slider section sat hard against the left edge while every other section
+ * centred. It looked correct below 1440px, where there is no spare width to centre into.
+ */
 .mzk-pk .mzk-pk-picks__head {
 	display: flex !important;
 	flex-direction: column !important;
 	gap: 32px !important;
-	margin: 0 0 48px !important;
+	margin-bottom: 48px !important;
 }
 @media (min-width: 768px) {
 	.mzk-pk .mzk-pk-picks__head { flex-direction: row !important; align-items: flex-end !important; justify-content: space-between !important; }
@@ -529,7 +537,8 @@
 	color: rgba(23, 48, 77, .7) !important;
 }
 
-.mzk-pk .mzk-pk-picks__foot { text-align: center !important; margin: 48px 0 0 !important; }
+/* Same here: this one is a container as well, so it may not set its own horizontal margins. */
+.mzk-pk .mzk-pk-picks__foot { text-align: center !important; margin-top: 48px !important; }
 @media (min-width: 768px) { .mzk-pk .mzk-pk-picks__foot { margin-top: 80px !important; } }
 
 /* ------------------------------------------------------------- featured */

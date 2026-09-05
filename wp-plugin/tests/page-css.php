@@ -157,6 +157,75 @@ foreach ( $forced as $selector => $properties ) {
 	} );
 }
 
+
+echo "\nNo component may stop its own container centring\n";
+
+/*
+ * Several elements carry a page container class and a component class at once — the container
+ * centres the page's content, the component lays out what is inside it. A margin shorthand on the
+ * component overwrites the container's `margin-left: auto` without looking like it does anything
+ * of the sort, and the section then sits hard against the left edge on a wide screen while every
+ * other section centres. Below the container's max width there is no spare room to centre into,
+ * so it looks perfect on the machine it was built on.
+ *
+ * That has now happened twice, in two different stylesheets, so it is read out of the markup
+ * rather than remembered: every class the PHP puts beside an `__inner` is checked here.
+ */
+check( 'no shared element sets its own horizontal margin', function () use ( $sheets ) {
+	$plugin = dirname( __DIR__ ) . '/mizuki-booking-bridge/includes';
+
+	$companions = array();
+	foreach ( glob( $plugin . '/*.php' ) as $file ) {
+		preg_match_all( '/class="(mzk-[a-z]+__inner)((?: [a-z0-9_-]+)+)"/', file_get_contents( $file ), $matches, PREG_SET_ORDER );
+		foreach ( $matches as $match ) {
+			foreach ( preg_split( '/\s+/', trim( $match[2] ) ) as $class ) {
+				$companions[ $class ] = true;
+			}
+		}
+	}
+
+	if ( ! $companions ) {
+		return 'found no shared elements to check — has the markup changed?';
+	}
+
+	$offenders = array();
+
+	foreach ( $sheets as $name => $css ) {
+		foreach ( rules( $css ) as $rule ) {
+			list( $selector, $body ) = $rule;
+
+			foreach ( array_keys( $companions ) as $class ) {
+				if ( ! preg_match( '/\.' . preg_quote( $class, '/' ) . '(?![\w-])/', $selector ) ) {
+					continue;
+				}
+
+				preg_match_all( '/(?:^|;)\s*(margin(?:-left|-right)?)\s*:\s*([^;!]+)/', $body, $found, PREG_SET_ORDER );
+
+				foreach ( $found as $declaration ) {
+					$property = $declaration[1];
+					$value    = trim( $declaration[2] );
+
+					if ( 'margin' === $property ) {
+						$parts = preg_split( '/\s+/', $value );
+						// One value sets all four sides; two set vertical then horizontal; three
+						// set top, horizontal, bottom; four set each side in turn.
+						$count      = count( $parts );
+						$horizontal = 1 === $count ? $parts[0] : ( 4 === $count ? $parts[3] : $parts[1] );
+
+						if ( 'auto' !== $horizontal ) {
+							$offenders[] = $name . ': ' . $class . ' — ' . $property . ': ' . $value;
+						}
+					} elseif ( 'auto' !== $value ) {
+						$offenders[] = $name . ': ' . $class . ' — ' . $property . ': ' . $value;
+					}
+				}
+			}
+		}
+	}
+
+	return $offenders ? implode( '; ', array_unique( $offenders ) ) . ' — use margin-top or margin-bottom' : null;
+} );
+
 echo "\n";
 if ( $fail ) {
 	echo $fail . " failure(s).\n";
