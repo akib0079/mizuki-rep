@@ -16,6 +16,7 @@ class WC_Product {
 	public $in_stock    = true;
 	public $image_id    = 0;
 	public $gallery     = array();
+	public $short_description = '';
 
 	public function __construct( $id, $name, $price_html = 'S$268.00' ) {
 		$this->id         = (int) $id;
@@ -28,6 +29,7 @@ class WC_Product {
 	public function get_price_html() { return $this->price_html; }
 	public function is_purchasable() { return $this->purchasable; }
 	public function is_in_stock() { return $this->in_stock; }
+	public function get_short_description() { return $this->short_description; }
 	public function get_permalink() { return 'https://example.test/product/' . $this->id . '/'; }
 	public function get_image_id() { return $this->image_id; }
 	public function get_gallery_image_ids() { return $this->gallery; }

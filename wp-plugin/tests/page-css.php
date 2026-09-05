@@ -19,6 +19,7 @@ $sheets = array(
 	'ifda.css'    => file_get_contents( dirname( __DIR__ ) . '/mizuki-booking-bridge/css/ifda.css' ),
 	'ikebana.css' => file_get_contents( dirname( __DIR__ ) . '/mizuki-booking-bridge/css/ikebana.css' ),
 	'product.css' => file_get_contents( dirname( __DIR__ ) . '/mizuki-booking-bridge/css/product.css' ),
+	'picks.css'   => file_get_contents( dirname( __DIR__ ) . '/mizuki-booking-bridge/css/picks.css' ),
 );
 $fail = 0;
 
@@ -64,7 +65,7 @@ check( $name . ': every component rule outranks the element reset', function () 
 	foreach ( rules( $css ) as $rule ) {
 		list( $selector, $body ) = $rule;
 
-		if ( 0 !== strpos( $selector, '.mzk-' ) || in_array( $selector, array( '.mzk-ifda', '.mzk-ike', '.mzk-pdp' ), true ) ) {
+		if ( 0 !== strpos( $selector, '.mzk-' ) || in_array( $selector, array( '.mzk-ifda', '.mzk-ike', '.mzk-pdp', '.mzk-pk' ), true ) ) {
 			continue;
 		}
 		/* The lightbox lives on <body>, outside the page wrapper, so it is its own root. */
@@ -72,7 +73,7 @@ check( $name . ': every component rule outranks the element reset', function () 
 			continue;
 		}
 		/* Same for the phone bar, which the script moves to <body>. */
-		if ( 0 === strpos( $selector, '.mzk-pdp-sticky' ) ) {
+		if ( 0 === strpos( $selector, '.mzk-pdp-sticky' ) || 0 === strpos( $selector, '.mzk-pk-sticky' ) ) {
 			continue;
 		}
 		// The universal selector carries box-sizing only, and competes with nothing.
@@ -98,7 +99,7 @@ check( $name . ': every component rule outranks the element reset', function () 
 
 echo "\nBoth pages are centred, not left-aligned\n";
 
-foreach ( array( 'ifda.css' => 'mzk-ifda', 'ikebana.css' => 'mzk-ike', 'product.css' => 'mzk-pdp' ) as $name => $root ) {
+foreach ( array( 'ifda.css' => 'mzk-ifda', 'ikebana.css' => 'mzk-ike', 'product.css' => 'mzk-pdp', 'picks.css' => 'mzk-pk' ) as $name => $root ) {
 check( $name . ': the container centres itself', function () use ( $sheets, $name, $root ) {
 	$pattern = '/\.' . $root . '\s+\.' . $root . '__inner\s*\{([^}]*)\}/';
 
@@ -129,6 +130,10 @@ $forced = array(
 	'.mzk-pdp .mzk-pdp-hero__title'     => array( 'font-family', 'font-size' ),
 	'.mzk-pdp .mzk-pdp-faq__q'          => array( 'background', 'font-family', 'padding' ),
 	'.mzk-pdp .mzk-pdp-qty__input'      => array( 'border', 'background', 'text-align' ),
+	'.mzk-pk .mzk-pk__btn'              => array( 'background', 'padding', 'height' ),
+	'.mzk-pk .mzk-pk-banner__title'     => array( 'font-family', 'font-size' ),
+	'.mzk-pk .mzk-pk-card__title'       => array( 'font-family', 'font-size' ),
+	'.mzk-pk .mzk-pk-picks__arrow'      => array( 'background', 'border', 'border-radius' ),
 );
 
 $all = implode( "\n", $sheets );

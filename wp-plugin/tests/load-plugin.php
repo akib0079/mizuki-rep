@@ -93,10 +93,10 @@ step( 'the category is added', function () {
 	return implode( ', ', $manager->categories );
 } );
 
-step( 'all six widgets register', function () {
+step( 'all seven widgets register', function () {
 	$manager = manager();
 	do_action( 'elementor/widgets/register', $manager );
-	if ( 6 !== count( $manager->widgets ) ) {
+	if ( 7 !== count( $manager->widgets ) ) {
 		throw new RuntimeException( 'registered ' . count( $manager->widgets ) . ': ' . implode( ',', $manager->widgets ) );
 	}
 	return implode( ', ', $manager->widgets );
@@ -969,6 +969,252 @@ step( 'a gallery chosen in Elementor wins over the product’s', function () {
 	$GLOBALS['mzk_products'][13]->gallery  = array();
 
 	return 'what was chosen, not what the shop has';
+} );
+
+
+echo "\nThe Mizuki Picks page\n";
+
+step( 'it draws every section that does not need a shop', function () {
+	$widget           = new Mizuki_Elementor_Picks_Page();
+	$widget->settings = $widget->run_defaults();
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	foreach ( array( 'mzk-pk-banner', 'mzk-pk-intro', 'mzk-pk-featured', 'mzk-pk-why', 'mzk-pk-faq' ) as $needed ) {
+		if ( false === strpos( $html, $needed ) ) {
+			throw new RuntimeException( $needed . ' was not drawn' );
+		}
+	}
+
+	/* No products chosen, so no rail — not an empty heading over nothing. */
+	if ( false !== strpos( $html, 'mzk-pk-picks' ) ) {
+		throw new RuntimeException( 'the picks section was drawn with no products' );
+	}
+
+	return strlen( $html ) . ' bytes';
+} );
+
+step( 'every section can be turned off on its own', function () {
+	$sections = array(
+		'banner_show'   => 'mzk-pk-banner',
+		'intro_show'    => 'mzk-pk-intro',
+		'featured_show' => 'mzk-pk-featured',
+		'why_show'      => 'mzk-pk-why',
+		'faq_show'      => 'mzk-pk-faq',
+	);
+
+	foreach ( $sections as $switch => $marker ) {
+		$widget           = new Mizuki_Elementor_Picks_Page();
+		$widget->settings = array_merge( $widget->run_defaults(), array( $switch => '' ) );
+
+		ob_start();
+		$widget->run_render();
+		$html = ob_get_clean();
+
+		if ( false !== strpos( $html, $marker ) ) {
+			throw new RuntimeException( $switch . ' was off and ' . $marker . ' was drawn anyway' );
+		}
+
+		foreach ( $sections as $other => $otherMarker ) {
+			if ( $other === $switch ) {
+				continue;
+			}
+			if ( false === strpos( $html, $otherMarker ) ) {
+				throw new RuntimeException( $switch . ' was off and it took ' . $otherMarker . ' with it' );
+			}
+		}
+	}
+
+	return count( $sections ) . ' switches, each independent';
+} );
+
+step( 'all of them off draws nothing but the wrapper', function () {
+	$off = array();
+	foreach ( array( 'banner', 'intro', 'picks', 'featured', 'why', 'faq', 'sticky' ) as $section ) {
+		$off[ $section . '_show' ] = '';
+	}
+
+	$widget           = new Mizuki_Elementor_Picks_Page();
+	$widget->settings = array_merge( $widget->run_defaults(), $off );
+
+	ob_start();
+	$widget->run_render();
+	$html = trim( ob_get_clean() );
+
+	if ( '<div class="mzk-pk"></div>' !== $html ) {
+		throw new RuntimeException( 'left something behind: ' . substr( $html, 0, 140 ) );
+	}
+
+	return 'an empty wrapper, no stray markup';
+} );
+
+/* A link with no address is a link to nowhere, and a button with no words is a blank box. */
+step( 'links with nothing behind them are left out', function () {
+	$widget           = new Mizuki_Elementor_Picks_Page();
+	$widget->settings = array_merge( $widget->run_defaults(), array(
+		'banner_more_link' => '',
+		'faq_more_link'    => '',
+		'intro_more_link'  => '',
+	) );
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	if ( false !== strpos( $html, 'href=""' ) ) {
+		throw new RuntimeException( 'an empty href was drawn' );
+	}
+	if ( false !== strpos( $html, 'Explore the Collection' ) ) {
+		throw new RuntimeException( 'a link with no address was drawn anyway' );
+	}
+	if ( false === strpos( $html, 'Shop The Picks' ) ) {
+		throw new RuntimeException( 'the button went with it' );
+	}
+
+	return 'no empty hrefs, and the button kept';
+} );
+
+echo "\nThe picks rail, which needs the shop\n";
+
+step( 'no products chosen means no section', function () {
+	$widget           = new Mizuki_Elementor_Picks_Page();
+	$widget->settings = $widget->run_defaults();
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	foreach ( array( 'mzk-pk-picks', 'mzk-pk-slider', 'mzk-pk-card' ) as $absent ) {
+		if ( false !== strpos( $html, $absent ) ) {
+			throw new RuntimeException( $absent . ' was drawn with nothing to put in it' );
+		}
+	}
+
+	return 'nothing drawn';
+} );
+
+step( 'chosen products become cards, and a deleted one is skipped', function () {
+	$widget           = new Mizuki_Elementor_Picks_Page();
+	$widget->settings = array_merge( $widget->run_defaults(), array(
+		'picks' => array(
+			array( 'product' => '13', 'label' => 'Complete Ritual', 'text' => '', 'image' => array( 'url' => '' ), 'show_price' => 'yes', 'cta' => 'View the Box Set' ),
+			array( 'product' => '14', 'label' => '', 'text' => 'A water-light rose mist.', 'image' => array( 'url' => '' ), 'cta' => 'View Product' ),
+			array( 'product' => '99999', 'label' => '', 'text' => '', 'image' => array( 'url' => '' ), 'cta' => 'View Product' ),
+		),
+	) );
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	if ( 2 !== substr_count( $html, 'mzk-pk-card__link' ) ) {
+		throw new RuntimeException( 'drew ' . substr_count( $html, 'mzk-pk-card__link' ) . ' cards for two live products' );
+	}
+	if ( false === strpos( $html, 'Naturepresso Box Set' ) || false === strpos( $html, 'Pure Rose Water Mist' ) ) {
+		throw new RuntimeException( 'a live product was missing' );
+	}
+	if ( false === strpos( $html, 'S$268.00' ) ) {
+		throw new RuntimeException( 'the price was asked for and not drawn' );
+	}
+	if ( false === strpos( $html, 'Complete Ritual' ) ) {
+		throw new RuntimeException( 'the written label was dropped' );
+	}
+	// An empty label falls back to the product's first category.
+	if ( false === strpos( $html, '>Naturepresso<' ) ) {
+		throw new RuntimeException( 'an empty label did not fall back to the category' );
+	}
+
+	return 'two cards, price, label and category fallback';
+} );
+
+step( 'the arrows and counter live inside the slider', function () {
+	$widget           = new Mizuki_Elementor_Picks_Page();
+	$widget->settings = array_merge( $widget->run_defaults(), array(
+		'picks' => array(
+			array( 'product' => '13', 'label' => '', 'text' => '', 'image' => array( 'url' => '' ), 'cta' => 'View' ),
+			array( 'product' => '14', 'label' => '', 'text' => '', 'image' => array( 'url' => '' ), 'cta' => 'View' ),
+		),
+	) );
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	$document = new DOMDocument();
+	libxml_use_internal_errors( true );
+	$document->loadHTML( '<?xml encoding="UTF-8">' . $html );
+	libxml_clear_errors();
+
+	$xpath = new DOMXPath( $document );
+
+	foreach ( array( 'mzk-pk-slider__prev', 'mzk-pk-slider__next', 'mzk-pk-slider__track' ) as $part ) {
+		$nodes = $xpath->query( '//*[contains(@class, "' . $part . '")]' );
+		if ( ! $nodes->length ) {
+			throw new RuntimeException( $part . ' was not drawn' );
+		}
+
+		$inside = false;
+		for ( $parent = $nodes->item( 0 )->parentNode; $parent instanceof DOMElement; $parent = $parent->parentNode ) {
+			if ( in_array( 'mzk-pk-slider', explode( ' ', (string) $parent->getAttribute( 'class' ) ), true ) ) {
+				$inside = true;
+				break;
+			}
+		}
+
+		if ( ! $inside ) {
+			throw new RuntimeException( $part . ' is outside .mzk-pk-slider, so the script cannot reach it' );
+		}
+	}
+
+	return 'arrows, counter and track all within the wrapper';
+} );
+
+step( 'one product draws no arrows to press', function () {
+	$widget           = new Mizuki_Elementor_Picks_Page();
+	$widget->settings = array_merge( $widget->run_defaults(), array(
+		'picks' => array( array( 'product' => '13', 'label' => '', 'text' => '', 'image' => array( 'url' => '' ), 'cta' => 'View' ) ),
+	) );
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	if ( false !== strpos( $html, 'mzk-pk-slider__prev' ) ) {
+		throw new RuntimeException( 'arrows drawn for a single card' );
+	}
+	if ( false === strpos( $html, 'mzk-pk-card__link' ) ) {
+		throw new RuntimeException( 'the one card was not drawn' );
+	}
+
+	return 'the card, and nothing to scroll it with';
+} );
+
+step( 'the phone bar needs somewhere to go', function () {
+	$widget           = new Mizuki_Elementor_Picks_Page();
+	$widget->settings = array_merge( $widget->run_defaults(), array( 'sticky_button_link' => '' ) );
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	if ( false !== strpos( $html, 'mzk-pk-sticky' ) ) {
+		throw new RuntimeException( 'a bar with no link was drawn' );
+	}
+
+	$widget           = new Mizuki_Elementor_Picks_Page();
+	$widget->settings = array_merge( $widget->run_defaults(), array( 'sticky_button_link' => '/shop/' ) );
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	if ( false === strpos( $html, 'mzk-pk-sticky' ) ) {
+		throw new RuntimeException( 'a bar with a link was not drawn' );
+	}
+
+	return 'left out without one, drawn with one';
 } );
 
 echo "\n";

@@ -36,6 +36,7 @@ function mizuki_elementor_widget_instances() {
 	require_once __DIR__ . '/elementor-ifda.php';
 	require_once __DIR__ . '/elementor-ikebana.php';
 	require_once __DIR__ . '/elementor-product.php';
+	require_once __DIR__ . '/elementor-picks.php';
 
 	return array(
 		new Mizuki_Elementor_Calendar(),
@@ -44,6 +45,7 @@ function mizuki_elementor_widget_instances() {
 		new Mizuki_Elementor_IFDA_Page(),
 		new Mizuki_Elementor_Ikebana_Page(),
 		new Mizuki_Elementor_Product_Page(),
+		new Mizuki_Elementor_Picks_Page(),
 	);
 }
 
