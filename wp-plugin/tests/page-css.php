@@ -18,6 +18,7 @@
 $sheets = array(
 	'ifda.css'    => file_get_contents( dirname( __DIR__ ) . '/mizuki-booking-bridge/css/ifda.css' ),
 	'ikebana.css' => file_get_contents( dirname( __DIR__ ) . '/mizuki-booking-bridge/css/ikebana.css' ),
+	'product.css' => file_get_contents( dirname( __DIR__ ) . '/mizuki-booking-bridge/css/product.css' ),
 );
 $fail = 0;
 
@@ -63,11 +64,15 @@ check( $name . ': every component rule outranks the element reset', function () 
 	foreach ( rules( $css ) as $rule ) {
 		list( $selector, $body ) = $rule;
 
-		if ( 0 !== strpos( $selector, '.mzk-' ) || in_array( $selector, array( '.mzk-ifda', '.mzk-ike' ), true ) ) {
+		if ( 0 !== strpos( $selector, '.mzk-' ) || in_array( $selector, array( '.mzk-ifda', '.mzk-ike', '.mzk-pdp' ), true ) ) {
 			continue;
 		}
 		/* The lightbox lives on <body>, outside the page wrapper, so it is its own root. */
 		if ( 0 === strpos( $selector, '.mzk-ike-lightbox' ) ) {
+			continue;
+		}
+		/* Same for the phone bar, which the script moves to <body>. */
+		if ( 0 === strpos( $selector, '.mzk-pdp-sticky' ) ) {
 			continue;
 		}
 		// The universal selector carries box-sizing only, and competes with nothing.
@@ -93,7 +98,7 @@ check( $name . ': every component rule outranks the element reset', function () 
 
 echo "\nBoth pages are centred, not left-aligned\n";
 
-foreach ( array( 'ifda.css' => 'mzk-ifda', 'ikebana.css' => 'mzk-ike' ) as $name => $root ) {
+foreach ( array( 'ifda.css' => 'mzk-ifda', 'ikebana.css' => 'mzk-ike', 'product.css' => 'mzk-pdp' ) as $name => $root ) {
 check( $name . ': the container centres itself', function () use ( $sheets, $name, $root ) {
 	$pattern = '/\.' . $root . '\s+\.' . $root . '__inner\s*\{([^}]*)\}/';
 
@@ -120,6 +125,10 @@ $forced = array(
 	'.mzk-ike .mzk-ike-card__title'     => array( 'font-family', 'font-size' ),
 	'.mzk-ike .mzk-ike-slider__dot'     => array( 'background', 'border-radius' ),
 	'.mzk-ike .mzk-ike-gallery__item'   => array( 'background', 'padding' ),
+	'.mzk-pdp .mzk-pdp__btn'            => array( 'background', 'padding', 'height' ),
+	'.mzk-pdp .mzk-pdp-hero__title'     => array( 'font-family', 'font-size' ),
+	'.mzk-pdp .mzk-pdp-faq__q'          => array( 'background', 'font-family', 'padding' ),
+	'.mzk-pdp .mzk-pdp-qty__input'      => array( 'border', 'background', 'text-align' ),
 );
 
 $all = implode( "\n", $sheets );

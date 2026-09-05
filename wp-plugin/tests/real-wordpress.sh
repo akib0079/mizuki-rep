@@ -93,9 +93,25 @@ server=$!
 trap 'kill $server 2>/dev/null || true' EXIT
 sleep 3
 
-curl -s -c cookies.txt -o /dev/null -m 60 \
-	-d "log=admin&pwd=admin&wp-submit=Log+In&redirect_to=http://localhost:$PORT/wp-admin/&testcookie=1" \
+# Fetch the form before posting it. WordPress sets a test cookie on that request and refuses a
+# sign-in that arrives without it — posting straight to wp-login.php looks like it worked (302,
+# as a failed sign-in also redirects) and leaves you logged out, so every admin page below then
+# reports a failure that is really this.
+curl -s -c cookies.txt -o /dev/null -m 60 "http://localhost:$PORT/wp-login.php"
+
+curl -s -b cookies.txt -c cookies.txt -o /dev/null -m 60 \
+	--data-urlencode "log=admin" \
+	--data-urlencode "pwd=admin" \
+	--data-urlencode "wp-submit=Log In" \
+	--data-urlencode "redirect_to=http://localhost:$PORT/wp-admin/" \
+	--data-urlencode "testcookie=1" \
 	"http://localhost:$PORT/wp-login.php"
+
+# Prove it before trusting the pages below; a logged-out run silently checks the login screen.
+if ! curl -s -b cookies.txt -m 60 "http://localhost:$PORT/wp-admin/" | grep -q 'id="adminmenu"'; then
+	echo "  FAIL  could not sign in to the test site, so the admin pages below would prove nothing"
+	exit 1
+fi
 
 fail=0
 for path in "/" "/wp-admin/" "/wp-admin/plugins.php" "/wp-admin/admin.php?page=elementor"; do

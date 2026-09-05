@@ -93,10 +93,10 @@ step( 'the category is added', function () {
 	return implode( ', ', $manager->categories );
 } );
 
-step( 'all five widgets register', function () {
+step( 'all six widgets register', function () {
 	$manager = manager();
 	do_action( 'elementor/widgets/register', $manager );
-	if ( 5 !== count( $manager->widgets ) ) {
+	if ( 6 !== count( $manager->widgets ) ) {
 		throw new RuntimeException( 'registered ' . count( $manager->widgets ) . ': ' . implode( ',', $manager->widgets ) );
 	}
 	return implode( ', ', $manager->widgets );
@@ -534,7 +534,7 @@ step( 'the harness defines every WordPress function the plugin calls', function 
 		/* (?<![>:$\w]) keeps method calls out: $this->add_control() and $order->get_total() are
 		   not WordPress functions and stubbing them would be nonsense. */
 		preg_match_all(
-			'/(?<![>:$\w])\b(esc_[a-z_]+|wp_[a-z_]+|sanitize_[a-z_]+|tag_escape|absint|apply_filters|untrailingslashit|trailingslashit|selected|checked|get_post_meta|get_option|get_bloginfo|get_transient|set_transient|current_user_can|plugin_dir_path|plugin_dir_url|did_action|add_action|add_filter|add_shortcode|home_url|admin_url)\s*\(/',
+			'/(?<![>:$\w])\b(esc_[a-z_]+|wp_[a-z_]+|sanitize_[a-z_]+|tag_escape|absint|apply_filters|untrailingslashit|trailingslashit|selected|checked|get_post_meta|get_post_status|get_option|get_transient|set_transient|delete_transient|get_bloginfo|current_user_can|plugin_dir_path|plugin_dir_url|did_action|add_action|add_filter|add_shortcode|home_url|admin_url|get_the_terms|get_term_link|is_wp_error|_n)\s*\(/',
 			file_get_contents( $file ),
 			$matches
 		);
@@ -645,6 +645,330 @@ step( 'every gallery picture is inside its grid', function () {
 	}
 
 	return $items->length . ' pictures, all inside the grid';
+} );
+
+
+echo "\nThe product page, with no WooCommerce at all\n";
+
+/*
+ * The order here is the point. WooCommerce is not loaded yet, so this is the page a site sees for
+ * the ten minutes somebody has the plugin switched off — and a widget that fatals then takes
+ * every URL on the site with it, wp-admin included.
+ */
+step( 'it draws without WooCommerce', function () {
+	if ( function_exists( 'wc_get_product' ) ) {
+		throw new RuntimeException( 'WooCommerce was loaded too early for this to prove anything' );
+	}
+
+	$widget           = new Mizuki_Elementor_Product_Page();
+	$widget->settings = $widget->run_defaults();
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	// The writing is all still there; only what WooCommerce owns is missing.
+	foreach ( array( 'mzk-pdp-crumbs', 'mzk-pdp-hero', 'mzk-pdp-routine', 'mzk-pdp-extract', 'mzk-pdp-ritual', 'mzk-pdp-about', 'mzk-pdp-faq' ) as $needed ) {
+		if ( false === strpos( $html, $needed ) ) {
+			throw new RuntimeException( $needed . ' was not drawn' );
+		}
+	}
+
+	foreach ( array( 'mzk-pdp-buy', 'mzk-pdp-hero__price', 'mzk-pdp-hero__meta', 'mzk-pdp-sticky' ) as $absent ) {
+		if ( false !== strpos( $html, $absent ) ) {
+			throw new RuntimeException( $absent . ' was drawn with no product behind it' );
+		}
+	}
+
+	return strlen( $html ) . ' bytes, and nothing that needs a shop';
+} );
+
+step( 'every section can be turned off on its own', function () {
+	$sections = array(
+		'crumbs_show'  => 'mzk-pdp-crumbs',
+		'hero_show'    => 'mzk-pdp-hero',
+		'routine_show' => 'mzk-pdp-routine',
+		'extract_show' => 'mzk-pdp-extract',
+		'ritual_show'  => 'mzk-pdp-ritual',
+		'about_show'   => 'mzk-pdp-about',
+		'faq_show'     => 'mzk-pdp-faq',
+	);
+
+	foreach ( $sections as $switch => $marker ) {
+		$widget           = new Mizuki_Elementor_Product_Page();
+		$widget->settings = array_merge( $widget->run_defaults(), array( $switch => '' ) );
+
+		ob_start();
+		$widget->run_render();
+		$html = ob_get_clean();
+
+		if ( false !== strpos( $html, $marker ) ) {
+			throw new RuntimeException( $switch . ' was off and ' . $marker . ' was drawn anyway' );
+		}
+
+		foreach ( $sections as $other => $otherMarker ) {
+			if ( $other === $switch ) {
+				continue;
+			}
+			if ( false === strpos( $html, $otherMarker ) ) {
+				throw new RuntimeException( $switch . ' was off and it took ' . $otherMarker . ' with it' );
+			}
+		}
+	}
+
+	return count( $sections ) . ' switches, each independent';
+} );
+
+step( 'all of them off draws nothing but the wrapper', function () {
+	$off = array();
+	foreach ( array( 'crumbs', 'hero', 'routine', 'extract', 'ritual', 'about', 'more', 'faq', 'sticky' ) as $section ) {
+		$off[ $section . '_show' ] = '';
+	}
+
+	$widget           = new Mizuki_Elementor_Product_Page();
+	$widget->settings = array_merge( $widget->run_defaults(), $off );
+
+	ob_start();
+	$widget->run_render();
+	$html = trim( ob_get_clean() );
+
+	if ( '<div class="mzk-pdp"></div>' !== $html ) {
+		throw new RuntimeException( 'left something behind: ' . substr( $html, 0, 140 ) );
+	}
+
+	return 'an empty wrapper, no stray markup';
+} );
+
+echo "\nThe product page, with WooCommerce\n";
+
+require __DIR__ . '/woocommerce-stubs.php';
+
+$GLOBALS['mzk_products'] = array(
+	13 => new WC_Product( 13, 'Naturepresso Box Set', 'S$268.00' ),
+	14 => new WC_Product( 14, 'Pure Rose Water Mist', 'S$68.00' ),
+	15 => new WC_Product( 15, 'Facial Collagen Serum', 'S$98.00' ),
+);
+$GLOBALS['mzk_terms'] = array(
+	(object) array( 'name' => 'Naturepresso', 'slug' => 'naturepresso' ),
+	(object) array( 'name' => 'Skin Care', 'slug' => 'skin-care' ),
+);
+
+step( 'the price, the categories and the buy form all come from the product', function () {
+	$widget           = new Mizuki_Elementor_Product_Page();
+	$widget->settings = array_merge( $widget->run_defaults(), array( 'product_id' => '13' ) );
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	$wanted = array(
+		'S$268.00'                     => 'the price',
+		'name="add-to-cart" value="13"' => 'the add-to-cart field',
+		'name="quantity"'              => 'the quantity field',
+		'>Naturepresso<'               => 'the first category',
+		'>Skin Care<'                  => 'the second category',
+		'Naturepresso Box Set'         => 'the product name',
+	);
+
+	$missing = array();
+	foreach ( $wanted as $needle => $label ) {
+		if ( false === strpos( $html, $needle ) ) {
+			$missing[] = $label;
+		}
+	}
+
+	if ( $missing ) {
+		throw new RuntimeException( 'not drawn: ' . implode( ', ', $missing ) );
+	}
+
+	return 'price, categories, quantity and add-to-cart';
+} );
+
+/*
+ * The form posts to WooCommerce's own handler rather than doing the adding itself. Anything
+ * hand-rolled skips the stock check, the validation and every hook an extension relies on.
+ */
+step( 'the buy form posts what WooCommerce listens for', function () {
+	$widget           = new Mizuki_Elementor_Product_Page();
+	$widget->settings = array_merge( $widget->run_defaults(), array( 'product_id' => '13' ) );
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	if ( ! preg_match( '/<form class="mzk-pdp-buy" method="post"/', $html ) ) {
+		throw new RuntimeException( 'not a POST form' );
+	}
+	if ( ! preg_match( '/name="add-to-cart" value="13"/', $html ) ) {
+		throw new RuntimeException( 'no add-to-cart field' );
+	}
+
+	return 'a real form post, not a hand-rolled request';
+} );
+
+step( 'a product that cannot be bought offers no button', function () {
+	$GLOBALS['mzk_products'][13]->in_stock = false;
+
+	$widget           = new Mizuki_Elementor_Product_Page();
+	$widget->settings = array_merge( $widget->run_defaults(), array( 'product_id' => '13' ) );
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	$GLOBALS['mzk_products'][13]->in_stock = true;
+
+	if ( false !== strpos( $html, 'name="add-to-cart"' ) ) {
+		throw new RuntimeException( 'an out-of-stock product still offered a button' );
+	}
+	if ( false === strpos( $html, 'Currently unavailable' ) ) {
+		throw new RuntimeException( 'it said nothing at all instead' );
+	}
+	if ( false !== strpos( $html, 'mzk-pdp-sticky' ) ) {
+		throw new RuntimeException( 'the phone bar offered one anyway' );
+	}
+
+	return 'no button, and it says why';
+} );
+
+step( 'the breadcrumb trail ends with the product', function () {
+	$widget           = new Mizuki_Elementor_Product_Page();
+	$widget->settings = array_merge( $widget->run_defaults(), array( 'product_id' => '13' ) );
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	if ( ! preg_match( '/aria-current="page">Naturepresso Box Set</', $html ) ) {
+		throw new RuntimeException( 'the trail did not end with the product name' );
+	}
+
+	// And a hand-written last step wins over it.
+	$widget           = new Mizuki_Elementor_Product_Page();
+	$widget->settings = array_merge( $widget->run_defaults(), array( 'product_id' => '13', 'crumbs_last_text' => 'The Box' ) );
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	if ( ! preg_match( '/aria-current="page">The Box</', $html ) ) {
+		throw new RuntimeException( 'a hand-written last step was ignored' );
+	}
+
+	return 'the product name, unless one is written';
+} );
+
+echo "\nMore products only when there are some\n";
+
+step( 'no products chosen means no section', function () {
+	$widget           = new Mizuki_Elementor_Product_Page();
+	$widget->settings = array_merge( $widget->run_defaults(), array( 'product_id' => '13' ) );
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	if ( false !== strpos( $html, 'mzk-pdp-more' ) ) {
+		throw new RuntimeException( 'an empty section was drawn' );
+	}
+
+	return 'nothing drawn, not an empty heading';
+} );
+
+step( 'a row pointing at a product that has gone is skipped', function () {
+	$widget           = new Mizuki_Elementor_Product_Page();
+	$widget->settings = array_merge( $widget->run_defaults(), array(
+		'product_id' => '13',
+		'more_items' => array(
+			array( 'product' => '14', 'label' => '', 'image' => array( 'url' => '' ) ),
+			array( 'product' => '999', 'label' => '', 'image' => array( 'url' => '' ) ),
+		),
+	) );
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	if ( 1 !== substr_count( $html, 'mzk-pdp-more__item' ) ) {
+		throw new RuntimeException( 'drew ' . substr_count( $html, 'mzk-pdp-more__item' ) . ' items for one live product' );
+	}
+	if ( false === strpos( $html, 'Pure Rose Water Mist' ) ) {
+		throw new RuntimeException( 'the live product was not drawn' );
+	}
+
+	return 'the deleted one skipped, the live one kept';
+} );
+
+step( 'every chosen row that resolves is drawn', function () {
+	$widget           = new Mizuki_Elementor_Product_Page();
+	$widget->settings = array_merge( $widget->run_defaults(), array(
+		'product_id' => '13',
+		'more_items' => array(
+			array( 'product' => '14', 'label' => 'Hydrating Pre-Step', 'image' => array( 'url' => '' ) ),
+			array( 'product' => '15', 'label' => '', 'image' => array( 'url' => '' ), 'show_price' => 'yes' ),
+		),
+	) );
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	if ( 2 !== substr_count( $html, 'mzk-pdp-more__item' ) ) {
+		throw new RuntimeException( 'expected two items' );
+	}
+	if ( false === strpos( $html, 'Hydrating Pre-Step' ) ) {
+		throw new RuntimeException( 'the written label was dropped' );
+	}
+	// An empty label falls back to the product's first category.
+	if ( false === strpos( $html, '>Naturepresso<' ) ) {
+		throw new RuntimeException( 'an empty label did not fall back to the category' );
+	}
+	if ( false === strpos( $html, 'S$98.00' ) ) {
+		throw new RuntimeException( 'the price was asked for and not drawn' );
+	}
+
+	return 'two items, labels and price as asked';
+} );
+
+step( 'the gallery falls back to the product’s own pictures', function () {
+	$GLOBALS['mzk_products'][13]->image_id = 41;
+	$GLOBALS['mzk_products'][13]->gallery  = array( 42, 43 );
+
+	$widget           = new Mizuki_Elementor_Product_Page();
+	$widget->settings = array_merge( $widget->run_defaults(), array( 'product_id' => '13', 'hero_gallery' => array() ) );
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	foreach ( array( 'img-41.jpg', 'img-42.jpg', 'img-43.jpg' ) as $picture ) {
+		if ( false === strpos( $html, $picture ) ) {
+			throw new RuntimeException( $picture . ' was not used' );
+		}
+	}
+
+	return 'the main image and both gallery pictures';
+} );
+
+step( 'a gallery chosen in Elementor wins over the product’s', function () {
+	$widget           = new Mizuki_Elementor_Product_Page();
+	$widget->settings = array_merge( $widget->run_defaults(), array( 'product_id' => '13' ) );
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	if ( false !== strpos( $html, 'img-41.jpg' ) ) {
+		throw new RuntimeException( 'the product’s pictures were used instead of the chosen ones' );
+	}
+	if ( false === strpos( $html, 'IMG_8761' ) ) {
+		throw new RuntimeException( 'the chosen pictures were not drawn' );
+	}
+
+	$GLOBALS['mzk_products'][13]->image_id = 0;
+	$GLOBALS['mzk_products'][13]->gallery  = array();
+
+	return 'what was chosen, not what the shop has';
 } );
 
 echo "\n";

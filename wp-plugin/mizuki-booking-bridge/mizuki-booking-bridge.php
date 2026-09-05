@@ -3,7 +3,7 @@
  * Plugin Name:       Mizuki Booking Bridge
  * Plugin URI:        https://mizuki.com.sg
  * Description:       Embeds the Mizuki Flora class calendar into WordPress and connects WooCommerce checkout to the booking system, so a paid workshop holds its place until payment lands.
- * Version:           1.4.1
+ * Version:           1.5.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Mizuki Flora
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'MIZUKI_BRIDGE_VERSION', '1.4.1' );
+define( 'MIZUKI_BRIDGE_VERSION', '1.5.0' );
 define( 'MIZUKI_BRIDGE_FILE', __FILE__ );
 
 /** Query args carried from the booking widget into the shop. */
@@ -339,6 +339,37 @@ function mizuki_register_assets() {
 	// script for the workshops slider and the gallery lightbox.
 	wp_register_style( 'mizuki-ikebana', $base . 'css/ikebana.css', $fonts, mizuki_asset_version( 'css/ikebana.css' ) );
 	wp_register_script( 'mizuki-ikebana', $base . 'js/ikebana.js', array(), mizuki_asset_version( 'js/ikebana.js' ), true );
+
+	// The product page. Its fonts differ from the other two — Cormorant Garamond and Inter — so
+	// it registers its own rather than sharing theirs.
+	$product_fonts = array();
+
+	if ( apply_filters( 'mizuki_booking_load_fonts', true ) ) {
+		wp_register_style(
+			'mizuki-product-fonts',
+			'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap',
+			array(),
+			null
+		);
+		$product_fonts[] = 'mizuki-product-fonts';
+	}
+
+	wp_register_style( 'mizuki-product', $base . 'css/product.css', $product_fonts, mizuki_asset_version( 'css/product.css' ) );
+	wp_register_script( 'mizuki-product', $base . 'js/product.js', array(), mizuki_asset_version( 'js/product.js' ), true );
+}
+
+/**
+ * Forget the cached product list when the shop changes.
+ *
+ * The list behind the pickers is cached for an hour so Elementor is not running a shop query on
+ * every keystroke in the panel. Without this, a product added while a page is being built does
+ * not appear in the picker until the hour is up, which reads as the picker being broken.
+ */
+add_action( 'save_post_product', 'mizuki_forget_product_choices' );
+add_action( 'deleted_post', 'mizuki_forget_product_choices' );
+add_action( 'woocommerce_update_product', 'mizuki_forget_product_choices' );
+function mizuki_forget_product_choices() {
+	delete_transient( 'mizuki_product_choices' );
 }
 
 /**

@@ -9,6 +9,7 @@ class Controls_Manager {
 	const TAB_STYLE = 'style'; const TAB_CONTENT = 'content';
 	const MEDIA = 'media'; const WYSIWYG = 'wysiwyg'; const REPEATER = 'repeater'; const ICONS = 'icons';
 	const GALLERY = 'gallery'; const URL = 'url'; const NUMBER = 'number'; const HEADING = 'heading';
+	const SELECT2 = 'select2'; const HIDDEN = 'hidden'; const DIVIDER = 'divider';
 }
 
 /* Collects its fields and hands them back, which is all a widget asks of it. */

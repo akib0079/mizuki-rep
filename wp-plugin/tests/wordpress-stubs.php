@@ -88,3 +88,13 @@ function get_post_meta( $id, $key = '', $single = false ) { return $single ? '' 
 function wp_date( $format, $timestamp = null, $tz = null ) { return gmdate( $format, $timestamp ?: time() ); }
 function wp_register_style( $h, $s = '', $d = array(), $v = false, $m = 'all' ) { return true; }
 function wp_remote_post( $url, $args = array() ) { return array( 'response' => array( 'code' => 200 ), 'body' => '{}' ); }
+
+/* What the product page reaches for. WooCommerce itself is stubbed separately, and deliberately
+   absent by default — a plugin that fatals when WooCommerce is switched off is the failure that
+   matters most here, so the default run is the one without it. */
+if ( ! defined( 'HOUR_IN_SECONDS' ) ) { define( 'HOUR_IN_SECONDS', 3600 ); }
+function wp_get_attachment_image_url( $id, $size = 'thumbnail', $icon = false ) { return $id ? 'https://example.test/img-' . (int) $id . '.jpg' : false; }
+function get_the_terms( $id, $taxonomy ) { return $GLOBALS['mzk_terms'] ?? false; }
+function get_term_link( $term, $taxonomy = '' ) { return 'https://example.test/cat/' . ( is_object( $term ) ? $term->slug : $term ); }
+function get_post_status( $id ) { return $GLOBALS['mzk_post_status'] ?? 'publish'; }
+function _n( $single, $plural, $number, $domain = null ) { return 1 === (int) $number ? $single : $plural; }

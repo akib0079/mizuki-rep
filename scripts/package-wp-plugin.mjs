@@ -207,6 +207,7 @@ async function checkScripts(pluginDir) {
     'if', 'for', 'while', 'switch', 'catch', 'return', 'typeof', 'function', 'else',
     'parseInt', 'parseFloat', 'String', 'Number', 'Boolean', 'Array', 'Object', 'Math', 'JSON',
     'setTimeout', 'clearTimeout', 'requestAnimationFrame', 'matchMedia', 'Event', 'Set', 'Map',
+    'isNaN', 'isFinite', 'encodeURIComponent', 'decodeURIComponent', 'alert', 'fetch',
   ])
 
   let broken = false

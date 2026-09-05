@@ -35,6 +35,7 @@ function mizuki_elementor_widget_instances() {
 	// under the same rule about when Elementor can resolve one.
 	require_once __DIR__ . '/elementor-ifda.php';
 	require_once __DIR__ . '/elementor-ikebana.php';
+	require_once __DIR__ . '/elementor-product.php';
 
 	return array(
 		new Mizuki_Elementor_Calendar(),
@@ -42,6 +43,7 @@ function mizuki_elementor_widget_instances() {
 		new Mizuki_Elementor_Book_Button(),
 		new Mizuki_Elementor_IFDA_Page(),
 		new Mizuki_Elementor_Ikebana_Page(),
+		new Mizuki_Elementor_Product_Page(),
 	);
 }
 

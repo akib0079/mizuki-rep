@@ -149,10 +149,12 @@ describe('booking endpoint', () => {
     const session = await SessionModel.findOne({ courseTypeId: ifda!._id, dateKey: '2026-09-05' })
     const before = session!.seatsTaken
 
-    const res = await request(app)
-      .post('/api/bookings/start')
-      .send({ sessionId: String(session!._id), email: 'nobody@example.com', name: 'Nobody', phone: '+65 9123 4567' })
-      .expect(201)
+    const res = await atSeedTime(() =>
+      request(app)
+        .post('/api/bookings/start')
+        .send({ sessionId: String(session!._id), email: 'nobody@example.com', name: 'Nobody', phone: '+65 9123 4567' })
+        .expect(201),
+    )
 
     expect(res.body.outcome).toBe('awaiting_confirmation')
 
@@ -174,10 +176,12 @@ describe('booking endpoint', () => {
     const ifda = await CourseTypeModel.findOne({ slug: 'ifda' })
     const session = await SessionModel.findOne({ courseTypeId: ifda!._id, dateKey: '2026-09-06' })
 
-    await request(app)
-      .post('/api/bookings/start')
-      .send({ sessionId: String(session!._id), email: 'waiting@example.com', name: 'Waiting', phone: '+65 9123 4567' })
-      .expect(201)
+    await atSeedTime(() =>
+      request(app)
+        .post('/api/bookings/start')
+        .send({ sessionId: String(session!._id), email: 'waiting@example.com', name: 'Waiting', phone: '+65 9123 4567' })
+        .expect(201),
+    )
 
     const booking = await BookingModel.findOne({ sessionId: session!._id }).sort({ createdAt: -1 })
     const mail = await OutboxModel.find({ relatedBookingId: booking!._id }).lean()
