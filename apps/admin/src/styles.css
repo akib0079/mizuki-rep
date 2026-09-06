@@ -215,6 +215,39 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .nav-link .pin { margin-left: auto; color: var(--brand-green); display: grid; place-items: center; }
 
+/* How many notifications are unread, beside the entry itself.
+   Deliberately calmer than the bell's badge: the bell is the alarm for a payment somebody is
+   waiting on, and two red numbers a few centimetres apart, counting different things, would
+   read as one number disagreeing with itself. */
+.nav-count {
+  margin-left: auto;
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--brand-cyan);
+  color: #06222a;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+.nav-link.active .nav-count { background: #fff; color: #0b3d47; }
+
+/* The collapsed rail hides every label, so the count becomes a dot on the icon. */
+.nav-count-dot { display: none; }
+.sidebar.collapsed .nav-count-dot {
+  display: block;
+  position: absolute;
+  top: 7px;
+  left: 30px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--brand-cyan);
+  /* Ringed in the rail's own colour so it reads as sitting on the icon, not behind it. */
+  box-shadow: 0 0 0 2px var(--sidebar);
+}
+
 .sidebar-footer {
   margin-top: auto;
   border-top: 1px solid #222a36;

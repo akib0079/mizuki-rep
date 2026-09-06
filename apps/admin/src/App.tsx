@@ -48,12 +48,37 @@ interface NavItem {
   icon: IconName
 }
 
+/** What the console is being told about right now, for the count beside Notifications. */
+interface NotificationSummary {
+  unreadCount: number
+  awaitingConfirmation: number
+  strandedHolds: number
+}
+
 export function App() {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['me'],
     queryFn: () => api.get<Me>('/api/auth/admin/me'),
     retry: false,
   })
+
+  /*
+   * The unread count, for the badge on the Notifications entry.
+   *
+   * Its own small endpoint rather than the bell's feed: this runs on every page for the whole
+   * day the console is open, and asking for twenty-five rows to render one number would be a
+   * list fetched every minute and thrown away. Shares its key with the notifications page and
+   * the bell, so anything either of them changes updates this too.
+   */
+  const { data: summary } = useQuery({
+    queryKey: ['notification-summary'],
+    queryFn: () => api.get<NotificationSummary>('/api/admin/notifications/summary'),
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+    // A failed count must never take the whole console down with it.
+    retry: false,
+  })
+  const unread = summary?.unreadCount ?? 0
 
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('mzk.sidebar') === 'collapsed')
   const [paletteOpen, setPaletteOpen] = useState(false)
@@ -178,18 +203,34 @@ export function App() {
         ))}
 
         <div className="side-heading">Studio</div>
-        {NAV.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={navClass}
-            title={item.label}
-            end={item.to === '/dashboard'}
-          >
-            <span className="nav-icon"><Icon name={item.icon} /></span>
-            <span className="nav-label">{item.label}</span>
-          </NavLink>
-        ))}
+        {NAV.map((item) => {
+          const count = item.to === '/notifications' ? unread : 0
+
+          return (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={navClass}
+              // The count belongs in the name too, or the collapsed rail's tooltip and every
+              // screen reader announce "Notifications" whether there are none or thirty.
+              title={count > 0 ? `${item.label} — ${count} unread` : item.label}
+              end={item.to === '/dashboard'}
+            >
+              <span className="nav-icon"><Icon name={item.icon} /></span>
+              <span className="nav-label">{item.label}</span>
+              {count > 0 && (
+                <>
+                  <span className="nav-count nav-label">{count > 99 ? '99+' : count}</span>
+                  {/*
+                    Collapsed, the label and its count are hidden — so the icon carries a dot
+                    instead, rather than the rail simply not mentioning it.
+                  */}
+                  <span className="nav-count-dot" aria-hidden="true" />
+                </>
+              )}
+            </NavLink>
+          )
+        })}
 
         <div className="sidebar-footer">
           <div className="avatar">{initials || 'M'}</div>

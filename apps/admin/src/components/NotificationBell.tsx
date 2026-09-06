@@ -51,6 +51,8 @@ export function NotificationBell() {
   function refresh() {
     void queryClient.invalidateQueries({ queryKey: ['notifications'] })
     void queryClient.invalidateQueries({ queryKey: ['notifications-page'] })
+    // The sidebar's count reads the same rows.
+    void queryClient.invalidateQueries({ queryKey: ['notification-summary'] })
   }
 
   const markAllRead = useMutation({
