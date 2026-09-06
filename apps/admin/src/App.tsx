@@ -11,6 +11,7 @@ import { TemplatesPage } from './pages/TemplatesPage.js'
 import { SettingsPage } from './pages/SettingsPage.js'
 import { PaymentsPage } from './pages/PaymentsPage.js'
 import { CoursesPage } from './pages/CoursesPage.js'
+import { NotificationsPage } from './pages/NotificationsPage.js'
 import { TeamPage } from './pages/TeamPage.js'
 import { AcceptInvitePage } from './pages/AcceptInvitePage.js'
 import { NotificationBell } from './components/NotificationBell.js'
@@ -36,6 +37,7 @@ const NAV: NavItem[] = [
   { to: '/courses', label: 'Courses', icon: 'note' },
   { to: '/closed-dates', label: 'Closed dates', icon: 'closed' },
   { to: '/templates', label: 'Emails', icon: 'mail' },
+  { to: '/notifications', label: 'Notifications', icon: 'bell' },
   { to: '/team', label: 'Team', icon: 'users' },
   { to: '/settings', label: 'Settings', icon: 'settings' },
 ]
@@ -252,6 +254,7 @@ export function App() {
             <Route path="/courses" element={<CoursesPage />} />
             <Route path="/closed-dates" element={<ClosedDatesPage />} />
             <Route path="/templates" element={<TemplatesPage adminEmail={data.admin.email} />} />
+            <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/team" element={<TeamPage currentAdminId={data.admin.id} />} />
             <Route path="/settings" element={<SettingsPage totpEnabled={data.admin.totpEnabled} />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

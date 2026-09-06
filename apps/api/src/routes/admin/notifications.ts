@@ -3,9 +3,14 @@ import { z } from 'zod'
 import { BookingModel, CourseTypeModel, SessionModel, StudentModel } from '../../models/index.js'
 import { ACTIVE_BOOKING_STATUSES, formatSessionDateTime } from '@mizuki/shared'
 import {
+  clearAllNotifications,
+  clearNotifications,
   listNotifications,
   markAllRead,
   markRead,
+  markUnread,
+  notificationCounts,
+  restoreNotifications,
   unreadCount,
 } from '../../services/adminNotificationService.js'
 import { approveBooking, cancelBooking } from '../../services/bookingService.js'
@@ -25,32 +30,59 @@ export const adminNotificationsRouter: Router = Router()
 adminNotificationsRouter.get(
   '/',
   asyncRoute(async (req, res) => {
-    const { unread, limit } = z
+    const { unread, view, type, limit, skip } = z
       .object({
+        /** The bell's older parameter. Kept so an open console mid-deploy keeps working. */
         unread: z.enum(['0', '1']).optional(),
+        view: z.enum(['all', 'unread', 'action', 'cleared']).optional(),
+        type: z.string().max(40).optional(),
         limit: z.coerce.number().int().min(1).max(100).optional(),
+        skip: z.coerce.number().int().min(0).max(5000).optional(),
       })
       .parse(req.query)
 
     const adminId = req.admin!._id
 
-    const [items, unseen, pending] = await Promise.all([
-      listNotifications(adminId, { onlyUnread: unread === '1', limit }),
-      unreadCount(adminId),
+    const [page, counts, pending] = await Promise.all([
+      listNotifications(adminId, {
+        view: view ?? (unread === '1' ? 'unread' : 'all'),
+        type,
+        limit,
+        skip,
+      }),
+      notificationCounts(adminId),
       // Counted from the bookings themselves, not from notifications: if an alert was ever
       // missed or cleared, the work still exists and the badge should still show it.
       BookingModel.countDocuments({ status: 'awaiting_confirmation' }),
     ])
 
-    res.json({ notifications: items, unreadCount: unseen, awaitingConfirmation: pending })
+    res.json({
+      notifications: page.items,
+      hasMore: page.hasMore,
+      counts,
+      unreadCount: counts.unread,
+      awaitingConfirmation: pending,
+    })
   }),
 )
+
+const idsSchema = z.object({ ids: z.array(z.string()).min(1).max(200) })
 
 adminNotificationsRouter.post(
   '/read',
   asyncRoute(async (req, res) => {
-    const { ids } = z.object({ ids: z.array(z.string()).max(200) }).parse(req.body)
+    const { ids } = idsSchema.parse(req.body)
     await markRead(req.admin!._id, ids)
+    res.json({ ok: true, unreadCount: await unreadCount(req.admin!._id) })
+  }),
+)
+
+/** "Not yet" — the console's way of putting something back on the pile. */
+adminNotificationsRouter.post(
+  '/unread',
+  asyncRoute(async (req, res) => {
+    const { ids } = idsSchema.parse(req.body)
+    await markUnread(req.admin!._id, ids)
     res.json({ ok: true, unreadCount: await unreadCount(req.admin!._id) })
   }),
 )
@@ -60,6 +92,44 @@ adminNotificationsRouter.post(
   asyncRoute(async (req, res) => {
     await markAllRead(req.admin!._id)
     res.json({ ok: true, unreadCount: 0 })
+  }),
+)
+
+/**
+ * Take some off this admin's list.
+ *
+ * Nothing is deleted and nobody else's list changes — see `clearedBy`. The count comes back so
+ * the page can say how many went, which is the difference between a button that worked and one
+ * that appeared to.
+ */
+adminNotificationsRouter.post(
+  '/clear',
+  asyncRoute(async (req, res) => {
+    const { ids } = idsSchema.parse(req.body)
+    const cleared = await clearNotifications(req.admin!._id, ids)
+    res.json({ ok: true, cleared, unreadCount: await unreadCount(req.admin!._id) })
+  }),
+)
+
+adminNotificationsRouter.post(
+  '/restore',
+  asyncRoute(async (req, res) => {
+    const { ids } = idsSchema.parse(req.body)
+    const restored = await restoreNotifications(req.admin!._id, ids)
+    res.json({ ok: true, restored, unreadCount: await unreadCount(req.admin!._id) })
+  }),
+)
+
+/** Clear everything at once. Anything still waiting on a person is kept unless asked for. */
+adminNotificationsRouter.post(
+  '/clear-all',
+  asyncRoute(async (req, res) => {
+    const { includeActions } = z
+      .object({ includeActions: z.boolean().default(false) })
+      .parse(req.body ?? {})
+
+    const cleared = await clearAllNotifications(req.admin!._id, { includeActions })
+    res.json({ ok: true, cleared, unreadCount: await unreadCount(req.admin!._id) })
   }),
 )
 

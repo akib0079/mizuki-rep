@@ -47,20 +47,47 @@ const adminNotificationSchema = new Schema(
      */
     readBy: { type: [Schema.Types.ObjectId], ref: 'AdminUser', default: [], index: true },
 
+    /**
+     * Who has cleared this off their own list.
+     *
+     * Per-admin for the same reason `readBy` is. Clearing is tidying, and one person tidying
+     * their list must not take a pending approval off everybody else's — that is precisely the
+     * failure this model was shaped to avoid. The row stays; it simply stops appearing for the
+     * person who dismissed it, and reappears for them if they ask to see cleared items.
+     */
+    clearedBy: { type: [Schema.Types.ObjectId], ref: 'AdminUser', default: [], index: true },
+
     /** Set when the thing it was asking for actually happened. */
     resolvedAt: { type: Date, default: null },
     resolvedBy: { type: String, default: '' },
 
     /**
      * Stops a retried webhook or a re-run job stacking up duplicates of the same event, the same
-     * way Outbox.dedupeKey does. Sparse, because plenty of notifications are one-offs.
+     * way Outbox.dedupeKey does.
+     *
+     * No `default`, deliberately. A default of null writes the field on every row, and a *sparse*
+     * unique index skips only rows where the field is missing — so every notification without a
+     * key of its own collided with the last one, and `recordAdminNotification` swallows duplicate
+     * keys by design. The result would have been silence: exactly one keyless notification ever
+     * recorded, and every one after it dropped with nothing in the log. Both callers happen to
+     * pass a key today, so this was a trap set for the third.
      */
-    dedupeKey: { type: String, default: null },
+    dedupeKey: { type: String },
   },
   { timestamps: true },
 )
 
-adminNotificationSchema.index({ dedupeKey: 1 }, { unique: true, sparse: true })
+/**
+ * Unique among the rows that actually have a key.
+ *
+ * A partial index rather than a sparse one: it says what it means, and it is indifferent to
+ * whether a keyless row stores null or nothing at all — including the rows already written
+ * before this was noticed.
+ */
+adminNotificationSchema.index(
+  { dedupeKey: 1 },
+  { unique: true, partialFilterExpression: { dedupeKey: { $type: 'string' } } },
+)
 /** The console's default view: newest first, unresolved actions included. */
 adminNotificationSchema.index({ createdAt: -1 })
 

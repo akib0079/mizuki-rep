@@ -304,6 +304,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .page-head h1 { margin: 0; font-size: 24px; font-weight: 680; letter-spacing: -0.02em; }
 .page-head p { margin: 3px 0 0; color: var(--ink-soft); }
+/* Capped so a two-line description does not take the whole row and push the header's own
+   button onto a line of its own. */
+.page-head > div:first-child { max-width: 68ch; }
 
 /* Segmented range control, as on the reference dashboard. */
 .segmented { display: flex; gap: 2px; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
@@ -610,7 +613,14 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .link:hover { text-decoration: underline; }
 
 /* Tab strip inside the drawer. */
-.tabs { display: flex; gap: 2px; padding: 0 20px; border-bottom: 1px solid var(--line); background: var(--surface); }
+/* Scrolls sideways rather than spilling: four tabs do not fit on a phone, and a tab you can
+   see the edge of but never reach is worse than one that is honestly off-screen. */
+.tabs {
+  display: flex; gap: 2px; padding: 0 20px;
+  border-bottom: 1px solid var(--line); background: var(--surface);
+  overflow-x: auto; scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
 .tab {
   border: none; background: transparent; cursor: pointer;
   padding: 11px 12px; font-size: 13px; font-weight: 600; color: var(--ink-soft);
@@ -1943,3 +1953,180 @@ h3 { letter-spacing: -0.01em; }
 
 /* A channel that is switched off, said plainly rather than left to be inferred from its absence. */
 .recipient-pill.is-off { opacity: 0.6; }
+
+/* --- Notifications page ---------------------------------------------------
+   The bell is a glance at the newest few; this is the list you work through. Rows are wide and
+   quiet by default so the two states that matter — unread, and waiting on you — are the only
+   things that carry weight. */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.tab-count {
+  display: inline-block;
+  min-width: 18px;
+  margin-left: 7px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--canvas, #f1f5f9);
+  color: var(--ink-soft, #475569);
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+.tab.active .tab-count { background: var(--accent-soft); color: var(--accent-deep); }
+
+/* On the page the strip is a card of its own rather than a band inside a panel. */
+.notif-strip-page {
+  align-items: center;
+  margin-bottom: 14px;
+  border: 1px solid var(--warn-soft, #fdf0cf);
+  border-left: 3px solid #b8860b;
+  border-radius: 10px;
+  background: var(--warn-soft, #fdf0cf);
+  text-align: left;
+  cursor: pointer;
+}
+.notif-strip-page:hover { filter: brightness(0.985); }
+.notif-strip-page > span { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+
+.notif-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding-bottom: 13px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--line, #e2e8f0);
+}
+.notif-check-all { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+.notif-check-all input { accent-color: var(--accent); }
+.notif-kind select {
+  padding: 6px 9px;
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: 8px;
+  background: var(--surface, #fff);
+  font-size: 13px;
+  color: var(--ink, #0f172a);
+}
+.notif-kind select:focus-visible { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+
+.notif-rows { list-style: none; margin: 0; padding: 0; }
+
+/* A day heading, so a weekend of bookings reads as a weekend. */
+.notif-day {
+  padding: 16px 2px 7px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft, #475569);
+}
+
+.notif-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 11px 12px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+}
+.notif-row + .notif-row { margin-top: 2px; }
+.notif-row:hover { background: var(--canvas, #f8fafc); }
+.notif-row.is-selected { background: var(--accent-soft); border-color: var(--accent); }
+/* Unread carries a left edge rather than a background, so a selected unread row still reads
+   as selected. */
+.notif-row.is-unread { border-left: 3px solid var(--accent); border-radius: 3px 10px 10px 3px; }
+.notif-row.is-action { border-left: 3px solid var(--danger, #c0392b); border-radius: 3px 10px 10px 3px; }
+
+.notif-row-check { margin-top: 9px; accent-color: var(--accent); flex: none; }
+
+.notif-row-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-top: 2px;
+  border-radius: 8px;
+  background: var(--canvas, #f1f5f9);
+  color: var(--ink-soft, #475569);
+}
+.notif-row-icon.is-action { background: var(--danger-soft, #fdecea); color: var(--danger, #c0392b); }
+
+.notif-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.notif-row-main:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+
+.notif-row-top { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.notif-row-kind {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--ink-soft, #475569);
+}
+.notif-dot { width: 7px; height: 7px; border-radius: 999px; background: var(--accent); }
+
+.notif-row-title { font-size: 14.5px; font-weight: 600; line-height: 1.4; }
+.notif-row.is-unread .notif-row-title { font-weight: 700; }
+.notif-row-body { font-size: 13px; color: var(--ink-soft, #475569); line-height: 1.5; }
+
+.notif-row-side {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  padding-top: 2px;
+}
+.notif-row-when { font-size: 12px; color: var(--ink-soft, #475569); white-space: nowrap; }
+/* Revealed on hover on a pointer, always present for touch and keyboards — actions that only
+   exist under a mouse are actions half the console cannot reach. */
+.notif-row-actions { display: flex; gap: 10px; font-size: 12.5px; }
+@media (hover: hover) {
+  .notif-row-actions { opacity: 0; transition: opacity 0.12s ease; }
+  .notif-row:hover .notif-row-actions,
+  .notif-row:focus-within .notif-row-actions { opacity: 1; }
+}
+
+.notif-all {
+  width: 100%;
+  padding: 11px 15px;
+  border: 0;
+  border-top: 1px solid var(--line, #e2e8f0);
+  background: var(--canvas, #f8fafc);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.notif-all:hover { background: var(--accent-soft); }
+
+@media (max-width: 640px) {
+  .notif-row { flex-wrap: wrap; }
+  .notif-row-side { flex-direction: row; align-items: center; width: 100%; padding-left: 41px; }
+  .notif-row-actions { opacity: 1; margin-left: auto; }
+}

@@ -15,6 +15,7 @@ const PAGES = [
   { label: 'Students', to: '/students', hint: 'People and course packages' },
   { label: 'Closed dates', to: '/closed-dates', hint: "Days you're away" },
   { label: 'Emails', to: '/templates', hint: 'Message wording' },
+  { label: 'Notifications', to: '/notifications', hint: 'Everything you have been told' },
   { label: 'Settings', to: '/settings', hint: 'Courses, alerts, security' },
 ]
 

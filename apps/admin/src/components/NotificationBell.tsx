@@ -47,14 +47,20 @@ export function NotificationBell() {
     refetchOnWindowFocus: true,
   })
 
+  /** Both lists read the same rows, so either changing them has to refresh the other. */
+  function refresh() {
+    void queryClient.invalidateQueries({ queryKey: ['notifications'] })
+    void queryClient.invalidateQueries({ queryKey: ['notifications-page'] })
+  }
+
   const markAllRead = useMutation({
     mutationFn: () => api.post('/api/admin/notifications/read-all'),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+    onSuccess: refresh,
   })
 
   const markRead = useMutation({
     mutationFn: (ids: string[]) => api.post('/api/admin/notifications/read', { ids }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+    onSuccess: refresh,
   })
 
   // Click outside and Escape both close it — a panel you cannot dismiss is a panel in the way.
@@ -173,6 +179,18 @@ export function NotificationBell() {
               ))
             )}
           </div>
+
+          {/* The panel is a glance at the newest few; anything older lives on its own page. */}
+          <button
+            type="button"
+            className="notif-all"
+            onClick={() => {
+              setOpen(false)
+              navigate('/notifications')
+            }}
+          >
+            See all notifications
+          </button>
         </div>
       )}
     </div>

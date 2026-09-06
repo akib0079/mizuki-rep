@@ -113,7 +113,8 @@ export async function recordAdminNotification(input: NotifyInput): Promise<void>
       relatedBookingId: input.bookingId ?? null,
       relatedSessionId: input.sessionId ?? null,
       relatedStudentId: input.studentId ?? null,
-      dedupeKey: input.dedupeKey ?? null,
+      // Left off entirely when there is none, so the unique index has nothing to collide on.
+      ...(input.dedupeKey ? { dedupeKey: input.dedupeKey } : {}),
     })
   } catch (err) {
     /*
@@ -127,34 +128,87 @@ export async function recordAdminNotification(input: NotifyInput): Promise<void>
   }
 }
 
-/** Unread count for one admin — what the bell shows. */
+/** Unread count for one admin — what the bell shows. Cleared items no longer count. */
 export async function unreadCount(adminId: Types.ObjectId | string): Promise<number> {
-  return AdminNotificationModel.countDocuments({ readBy: { $ne: adminId } })
+  return AdminNotificationModel.countDocuments({
+    readBy: { $ne: adminId },
+    clearedBy: { $ne: adminId },
+  })
 }
 
+/** What the notifications page can be filtered down to. */
+export type NotificationView = 'all' | 'unread' | 'action' | 'cleared'
+
+/**
+ * One admin's view of the list.
+ *
+ * `mine` is the base filter every view starts from: anything this person has cleared is off
+ * their list, whatever anyone else has done with it. Only the `cleared` view looks at the other
+ * side of that, so a clear is always undoable — a tidy-up that cannot be reversed is one people
+ * are right to be nervous about, and hesitating over it is how a list stops being useful.
+ */
 export async function listNotifications(
   adminId: Types.ObjectId | string,
-  opts: { limit?: number; onlyUnread?: boolean } = {},
+  opts: { limit?: number; skip?: number; view?: NotificationView; type?: string } = {},
 ) {
-  const filter = opts.onlyUnread ? { readBy: { $ne: adminId } } : {}
+  const mine = { clearedBy: { $ne: adminId } }
 
+  const view: Record<NotificationView, Record<string, unknown>> = {
+    all: mine,
+    unread: { ...mine, readBy: { $ne: adminId } },
+    // Something still waiting on a person, rather than something that merely happened.
+    action: { ...mine, severity: 'action', resolvedAt: null },
+    cleared: { clearedBy: adminId },
+  }
+
+  const filter = {
+    ...view[opts.view ?? 'all'],
+    ...(opts.type ? { type: opts.type } : {}),
+  }
+
+  const limit = Math.min(opts.limit ?? 30, 100)
+  const skip = Math.max(opts.skip ?? 0, 0)
+
+  // One extra row, purely to answer "is there more?" without a second count query.
   const rows = await AdminNotificationModel.find(filter)
     .sort({ createdAt: -1 })
-    .limit(Math.min(opts.limit ?? 30, 100))
+    .skip(skip)
+    .limit(limit + 1)
     .lean()
 
-  return rows.map((n) => ({
-    id: String(n._id),
-    type: n.type,
-    title: n.title,
-    body: n.body,
-    severity: n.severity,
-    url: n.url,
-    bookingId: n.relatedBookingId ? String(n.relatedBookingId) : null,
-    read: (n.readBy ?? []).some((id) => String(id) === String(adminId)),
-    resolvedAt: n.resolvedAt,
-    createdAt: n.createdAt,
-  }))
+  const hasMore = rows.length > limit
+
+  return {
+    items: rows.slice(0, limit).map((n) => ({
+      id: String(n._id),
+      type: n.type,
+      title: n.title,
+      body: n.body,
+      severity: n.severity,
+      url: n.url,
+      bookingId: n.relatedBookingId ? String(n.relatedBookingId) : null,
+      studentId: n.relatedStudentId ? String(n.relatedStudentId) : null,
+      read: (n.readBy ?? []).some((id) => String(id) === String(adminId)),
+      cleared: (n.clearedBy ?? []).some((id) => String(id) === String(adminId)),
+      resolvedAt: n.resolvedAt,
+      createdAt: n.createdAt,
+    })),
+    hasMore,
+  }
+}
+
+/** How many are in each view, so the tabs can carry their own numbers. */
+export async function notificationCounts(adminId: Types.ObjectId | string) {
+  const mine = { clearedBy: { $ne: adminId } }
+
+  const [all, unread, action, cleared] = await Promise.all([
+    AdminNotificationModel.countDocuments(mine),
+    AdminNotificationModel.countDocuments({ ...mine, readBy: { $ne: adminId } }),
+    AdminNotificationModel.countDocuments({ ...mine, severity: 'action', resolvedAt: null }),
+    AdminNotificationModel.countDocuments({ clearedBy: adminId }),
+  ])
+
+  return { all, unread, action, cleared }
 }
 
 export async function markRead(adminId: Types.ObjectId | string, ids: string[]): Promise<void> {
@@ -164,11 +218,72 @@ export async function markRead(adminId: Types.ObjectId | string, ids: string[]):
   )
 }
 
+/**
+ * Put something back on the pile.
+ *
+ * The console's only way of saying "not yet, come back to this" — otherwise a glance at a
+ * notification is indistinguishable from having dealt with it, and the list quietly empties
+ * itself of things nobody has actually done.
+ */
+export async function markUnread(adminId: Types.ObjectId | string, ids: string[]): Promise<void> {
+  await AdminNotificationModel.updateMany({ _id: { $in: ids } }, { $pull: { readBy: adminId } })
+}
+
 export async function markAllRead(adminId: Types.ObjectId | string): Promise<void> {
   await AdminNotificationModel.updateMany(
-    { readBy: { $ne: adminId } },
+    { readBy: { $ne: adminId }, clearedBy: { $ne: adminId } },
     { $addToSet: { readBy: adminId } },
   )
+}
+
+/**
+ * Take these off this admin's list.
+ *
+ * Clearing also marks read: an item put away is one that has been dealt with, and leaving it
+ * counted as unread would keep a badge lit for something the person has explicitly finished with.
+ */
+export async function clearNotifications(
+  adminId: Types.ObjectId | string,
+  ids: string[],
+): Promise<number> {
+  const result = await AdminNotificationModel.updateMany(
+    { _id: { $in: ids } },
+    { $addToSet: { clearedBy: adminId, readBy: adminId } },
+  )
+  return result.modifiedCount
+}
+
+/** Put cleared items back on the list. */
+export async function restoreNotifications(
+  adminId: Types.ObjectId | string,
+  ids: string[],
+): Promise<number> {
+  const result = await AdminNotificationModel.updateMany(
+    { _id: { $in: ids } },
+    { $pull: { clearedBy: adminId } },
+  )
+  return result.modifiedCount
+}
+
+/**
+ * Clear the lot.
+ *
+ * Anything still waiting on a person is left alone unless asked for explicitly. "Clear all"
+ * after a busy morning should tidy away what has happened, not the two places somebody has paid
+ * for and is waiting on — and those are the rows whose whole purpose is to stay in the way.
+ */
+export async function clearAllNotifications(
+  adminId: Types.ObjectId | string,
+  opts: { includeActions?: boolean } = {},
+): Promise<number> {
+  const result = await AdminNotificationModel.updateMany(
+    {
+      clearedBy: { $ne: adminId },
+      ...(opts.includeActions ? {} : { $or: [{ severity: { $ne: 'action' } }, { resolvedAt: { $ne: null } }] }),
+    },
+    { $addToSet: { clearedBy: adminId, readBy: adminId } },
+  )
+  return result.modifiedCount
 }
 
 /** Called when the thing the notification was asking for has actually been done. */
