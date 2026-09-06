@@ -42,6 +42,13 @@ export function BookingCalendar({
   const [monthOffset, setMonthOffset] = useState(0)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [booking, setBooking] = useState<PublicSession | null>(null)
+  /**
+   * Courses the student has chosen to see. Empty means all of them.
+   *
+   * Empty rather than "every id selected" so the default survives the studio adding a course:
+   * a set built at load time would silently exclude anything published afterwards.
+   */
+  const [chosenCourses, setChosenCourses] = useState<Set<string>>(new Set())
 
   const today = useMemo(() => DateTime.now().setZone(STUDIO_TZ).startOf('day'), [])
 
@@ -96,15 +103,66 @@ export function BookingCalendar({
     }
   }, [courseSlug])
 
-  const byDate = useMemo(() => new Map((days ?? []).map((d) => [d.date, d])), [days])
+  /**
+   * Only the courses that actually have classes published.
+   *
+   * Offering a filter for a course with nothing on the calendar is a promise the calendar cannot
+   * keep — the student picks it and gets an empty three months. It doubles as the colour key,
+   * which is what this row replaced: a course with no classes has no dots to explain either.
+   */
+  const filterable = useMemo(() => {
+    const withClasses = new Set((days ?? []).flatMap((d) => d.sessions.map((s) => s.courseTypeId)))
+    return courses.filter((c) => withClasses.has(c.id))
+  }, [courses, days])
 
-  /** How far ahead the studio has published — the "next 3 months" bound. */
+  /** The calendar as the student has asked to see it. Everything below reads this, not `days`. */
+  const visibleDays = useMemo(() => {
+    if (chosenCourses.size === 0) return days ?? []
+    return (days ?? []).map((d) => ({
+      ...d,
+      sessions: d.sessions.filter((session) => chosenCourses.has(session.courseTypeId)),
+    }))
+  }, [days, chosenCourses])
+
+  const byDate = useMemo(() => new Map(visibleDays.map((d) => [d.date, d])), [visibleDays])
+
+  /*
+   * Let go of a day the filter has just emptied.
+   *
+   * Keeping it selected leaves "No classes on this day" under a date that plainly does have
+   * classes — they are simply not the course being asked for — which reads as the calendar being
+   * wrong rather than as a filter doing its job.
+   */
+  useEffect(() => {
+    if (!selectedDate) return
+    if ((byDate.get(selectedDate)?.sessions.length ?? 0) === 0) setSelectedDate(null)
+  }, [byDate, selectedDate])
+
+  /**
+   * How far ahead the studio has published — the "next 3 months" bound.
+   *
+   * Taken from the unfiltered calendar on purpose: how far you may page forward is a property of
+   * the studio's timetable, not of what is being shown, and reading it from the filtered set
+   * would strand a student on September the moment they picked a course that runs in November.
+   */
   const lastDate = days && days.length > 0 ? days[days.length - 1]?.date : undefined
   const monthCursor = today.plus({ months: monthOffset }).startOf('month')
   const canGoBack = monthOffset > 0
   const canGoForward = lastDate ? monthCursor.plus({ months: 1 }) <= DateTime.fromISO(lastDate, { zone: STUDIO_TZ }) : false
 
   const cells = useMemo(() => buildMonthCells(monthCursor), [monthCursor])
+
+  /** Nothing to click anywhere in the month being shown. */
+  const monthIsEmpty = cells.every((cell) => {
+    if (!cell) return true
+    return (byDate.get(cell.toFormat('yyyy-MM-dd'))?.sessions.length ?? 0) === 0
+  })
+
+  /** "Ikebana", or "Ikebana and Bouquet" — the filter named back in the student's own terms. */
+  const chosenLabel = courses
+    .filter((c) => chosenCourses.has(c.id))
+    .map((c) => c.name)
+    .join(' or ')
 
   const selectedDay = selectedDate ? byDate.get(selectedDate) : null
 
@@ -137,9 +195,14 @@ export function BookingCalendar({
       <div className="mzk-panel">
         <div className="mzk-cal-head">
           <h2 className="mzk-month">{monthCursor.toFormat('LLLL yyyy')}</h2>
-          <div className="mzk-nav">
-            <button onClick={() => setMonthOffset((m) => m - 1)} disabled={!canGoBack} aria-label="Previous month">←</button>
-            <button onClick={() => setMonthOffset((m) => m + 1)} disabled={!canGoForward} aria-label="Next month">→</button>
+          <div className="mzk-cal-tools">
+            {filterable.length > 1 && (
+              <CourseFilter courses={filterable} chosen={chosenCourses} onChange={setChosenCourses} />
+            )}
+            <div className="mzk-nav">
+              <button onClick={() => setMonthOffset((m) => m - 1)} disabled={!canGoBack} aria-label="Previous month">←</button>
+              <button onClick={() => setMonthOffset((m) => m + 1)} disabled={!canGoForward} aria-label="Next month">→</button>
+            </div>
           </div>
         </div>
 
@@ -186,15 +249,15 @@ export function BookingCalendar({
           })}
         </div>
 
-        {courses.length > 1 && (
-          <div className="mzk-legend">
-            {courses.map((c) => (
-              <span className="mzk-legend-item" key={c.id}>
-                <span className="mzk-dot" style={{ background: c.colour, width: 8, height: 8 }} />
-                {c.name}
-              </span>
-            ))}
-          </div>
+        {/*
+          Said under the grid rather than left to be worked out from an empty month. A student who
+          filters to Ikebana in a month with none sees a blank calendar and no reason for it.
+        */}
+        {monthIsEmpty && chosenCourses.size > 0 && (
+          <p className="mzk-filter-empty">
+            No {chosenLabel} classes in {monthCursor.toFormat('LLLL')}.
+            {canGoForward ? ' Try the next month.' : ''}
+          </p>
         )}
       </div>
 
@@ -270,6 +333,162 @@ export function BookingCalendar({
   )
 }
 
+
+/**
+ * Pick the courses worth showing.
+ *
+ * This replaced the colour key that used to sit under the grid. The key already listed every
+ * course beside its dot and was the natural place to look for "show me only Ikebana" — it simply
+ * did not do anything when pressed.
+ *
+ * A dropdown rather than a row of chips, because the studio runs five courses and a chip each
+ * wraps to three lines on a phone — pushing the calendar itself below the fold on the one screen
+ * where it matters most. Closed, this is a single control; open, it is the same list with the
+ * same dots.
+ *
+ * Hand-built rather than a `<select>`: a native option list cannot carry the colour that ties
+ * each course to the dots on the grid, and it cannot hold more than one choice without becoming
+ * a multi-select box, which on a phone is a scrolling list nobody recognises.
+ *
+ * Multi-select, with nothing chosen meaning everything. A student comparing two courses can hold
+ * both on screen, and there is no separate "all" state to get out of sync — clearing the
+ * selection is the same thing as showing everything.
+ */
+function CourseFilter({
+  courses,
+  chosen,
+  onChange,
+}: {
+  courses: PublicCourse[]
+  chosen: Set<string>
+  onChange: (next: Set<string>) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef<HTMLDivElement | null>(null)
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
+
+  const picked = courses.filter((c) => chosen.has(c.id))
+
+  /*
+   * Closing it. A panel that stays open after you have chosen — or after you have clicked away —
+   * covers the first week of the calendar, which is the part most people are looking at.
+   */
+  useEffect(() => {
+    if (!open) return
+
+    const onPointerDown = (event: MouseEvent) => {
+      /*
+       * composedPath, not `contains(event.target)`.
+       *
+       * The widget renders inside a shadow root, and an event that escapes one is retargeted to
+       * the host element — so `event.target` for a click on an option in here is the host div,
+       * which the wrapper does not contain. The check would have been true for every click
+       * including the ones inside the menu, closing it before the option's own handler ran, and
+       * the menu would have looked like it did nothing at all. The composed path is the real
+       * one, shadow boundaries included.
+       */
+      if (!event.composedPath().includes(wrapRef.current as EventTarget)) setOpen(false)
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      setOpen(false)
+      // Back to the button that opened it, or focus is left on an element that no longer exists.
+      triggerRef.current?.focus()
+    }
+
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open])
+
+  function toggle(id: string) {
+    const next = new Set(chosen)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    onChange(next)
+  }
+
+  /** What the closed control says it is showing. */
+  const label =
+    picked.length === 0
+      ? 'All classes'
+      : picked.length === 1
+        ? picked[0]!.name
+        : `${picked.length} courses`
+
+  return (
+    <div className="mzk-filter" ref={wrapRef}>
+      <button
+        type="button"
+        ref={triggerRef}
+        className={open || picked.length > 0 ? 'mzk-filter-btn is-on' : 'mzk-filter-btn'}
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+      >
+        {/*
+          The dots stay on the closed control, so what is being shown is readable at a glance and
+          still tied to the colours on the grid. Capped at three: past that they stop being
+          distinguishable and start being a smudge.
+        */}
+        {picked.length > 0 && (
+          <span className="mzk-filter-dots" aria-hidden="true">
+            {picked.slice(0, 3).map((c) => (
+              <span className="mzk-chip-dot" key={c.id} style={{ background: c.colour }} />
+            ))}
+          </span>
+        )}
+        <span className="mzk-filter-label">{label}</span>
+        <span className={open ? 'mzk-filter-caret is-open' : 'mzk-filter-caret'} aria-hidden="true">
+          <svg viewBox="0 0 12 12" width="11" height="11" focusable="false">
+            <path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
+      </button>
+
+      {open && (
+        <div className="mzk-filter-menu" role="listbox" aria-multiselectable="true" aria-label="Show only certain courses">
+          <button
+            type="button"
+            role="option"
+            aria-selected={chosen.size === 0}
+            className={chosen.size === 0 ? 'mzk-filter-opt is-on' : 'mzk-filter-opt'}
+            onClick={() => {
+              onChange(new Set())
+              setOpen(false)
+            }}
+          >
+            <span className="mzk-filter-tick" aria-hidden="true">{chosen.size === 0 ? '✓' : ''}</span>
+            <span className="mzk-filter-opt-name">All classes</span>
+          </button>
+
+          {courses.map((course) => {
+            const on = chosen.has(course.id)
+            return (
+              <button
+                type="button"
+                key={course.id}
+                role="option"
+                aria-selected={on}
+                className={on ? 'mzk-filter-opt is-on' : 'mzk-filter-opt'}
+                // Stays open on a course, so two can be picked in a row; "All classes" closes it
+                // because there is nothing left to add.
+                onClick={() => toggle(course.id)}
+              >
+                <span className="mzk-filter-tick" aria-hidden="true">{on ? '✓' : ''}</span>
+                <span className="mzk-chip-dot" style={{ background: course.colour }} />
+                <span className="mzk-filter-opt-name">{course.name}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function SessionRow({
   session,

@@ -81,6 +81,9 @@
   justify-content: space-between;
   margin-bottom: 14px;
   gap: 10px;
+  /* Wraps on the room actually available, not on the viewport: the widget is embedded, and a
+     narrow column on a wide page is a size no media query here can see. */
+  flex-wrap: wrap;
 }
 .mzk-month { font-size: 17px; font-weight: 650; margin: 0; }
 .mzk-nav { display: flex; gap: 6px; }
@@ -277,6 +280,105 @@
 .mzk-legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 14px; font-size: 13px; color: var(--mzk-soft); }
 .mzk-legend-item { display: flex; align-items: center; gap: 6px; }
 
+/* --- Course filter --------------------------------------------------------
+   A dropdown in the calendar header, next to the month arrows. Closed it is one control; open it
+   is the list of courses with the same dots that appear on the day cells. */
+
+.mzk-cal-tools { display: flex; align-items: center; gap: 8px; }
+
+.mzk-filter { position: relative; }
+
+.mzk-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 10px 0 12px;
+  border: 1px solid var(--mzk-line);
+  border-radius: 10px;
+  background: var(--mzk-bg);
+  color: var(--mzk-ink);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.mzk-filter-btn:hover { border-color: var(--mzk-accent); }
+.mzk-filter-btn.is-on {
+  border-color: var(--mzk-accent);
+  background: var(--mzk-accent-light);
+  color: var(--mzk-accent-dark);
+}
+
+.mzk-filter-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* Room for the longest course name without the header jumping about as the choice changes. */
+  max-width: 13ch;
+}
+
+.mzk-filter-dots { display: inline-flex; gap: 3px; flex: none; }
+.mzk-chip-dot { width: 8px; height: 8px; border-radius: 999px; flex: none; }
+
+.mzk-filter-caret { display: inline-flex; color: var(--mzk-soft); transition: transform 0.15s ease; }
+.mzk-filter-caret.is-open { transform: rotate(180deg); }
+
+.mzk-filter-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  min-width: 210px;
+  padding: 6px;
+  background: var(--mzk-bg);
+  border: 1px solid var(--mzk-line);
+  border-radius: 12px;
+  box-shadow: 0 12px 34px rgba(16, 34, 43, 0.16);
+}
+
+.mzk-filter-opt {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--mzk-ink);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+.mzk-filter-opt:hover { background: var(--mzk-canvas); }
+.mzk-filter-opt.is-on { color: var(--mzk-accent-dark); font-weight: 650; }
+
+/* Fixed width whether or not it holds a tick, so the names line up down the list. */
+.mzk-filter-tick { width: 13px; flex: none; color: var(--mzk-accent); font-size: 12px; line-height: 1; }
+.mzk-filter-opt-name { flex: 1; }
+
+.mzk-filter-empty {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: var(--mzk-soft);
+  text-align: center;
+}
+
+/* On a phone the header has no room for a month, a filter and two arrows on one line. The
+   filter takes its own row and the full width, which also makes it a comfortable tap target. */
+@media (max-width: 420px) {
+  .mzk-cal-head { flex-wrap: wrap; }
+  .mzk-cal-tools { width: 100%; order: 3; }
+  .mzk-filter { flex: 1; }
+  .mzk-filter-btn { width: 100%; justify-content: flex-start; }
+  /* A button centres its text; stretched to full width that leaves the label floating
+     in the middle away from its dots. */
+  .mzk-filter-label { max-width: none; flex: 1; text-align: left; }
+  .mzk-filter-menu { left: 0; right: auto; width: 100%; }
+}
+
 /* --- Modal ---------------------------------------------------------------- */
 
 .mzk-modal-backdrop {
@@ -463,6 +565,99 @@
  * the reset that flattened them.
  */
 .mzk .mzk-muted { color: var(--mzk-soft) !important; }
+
+/*
+ * Course filter.
+ *
+ * Buttons, and a theme's button styling is the loudest thing on most WordPress pages — left
+ * unforced these come out as full-width blocks in the theme's brand colour, which is exactly how
+ * the month arrows behaved before they were pinned down below.
+ */
+.mzk .mzk-cal-tools { display: flex !important; align-items: center !important; gap: 8px !important; }
+.mzk .mzk-filter { position: relative !important; }
+
+.mzk .mzk-filter-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  width: auto !important;
+  height: 34px !important;
+  min-height: 0 !important;
+  padding: 0 10px 0 12px !important;
+  border: 1px solid var(--mzk-line) !important;
+  border-radius: 10px !important;
+  background: var(--mzk-bg) !important;
+  color: var(--mzk-ink) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  box-shadow: none !important;
+  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease !important;
+}
+.mzk .mzk-filter-btn:hover { border-color: var(--mzk-accent) !important; }
+.mzk .mzk-filter-btn.is-on {
+  border-color: var(--mzk-accent) !important;
+  background: var(--mzk-accent-light) !important;
+  color: var(--mzk-accent-dark) !important;
+}
+.mzk .mzk-filter-label { overflow: hidden !important; text-overflow: ellipsis !important; max-width: 13ch !important; }
+.mzk .mzk-filter-dots { display: inline-flex !important; gap: 3px !important; flex: none !important; }
+.mzk .mzk-chip-dot { width: 8px !important; height: 8px !important; border-radius: 999px !important; flex: none !important; }
+.mzk .mzk-filter-caret { display: inline-flex !important; color: var(--mzk-soft) !important; transition: transform 0.15s ease !important; }
+.mzk .mzk-filter-caret.is-open { transform: rotate(180deg) !important; }
+
+.mzk .mzk-filter-menu {
+  position: absolute !important;
+  top: calc(100% + 6px) !important;
+  right: 0 !important;
+  left: auto !important;
+  z-index: 20 !important;
+  min-width: 210px !important;
+  width: auto !important;
+  padding: 6px !important;
+  background: var(--mzk-bg) !important;
+  border: 1px solid var(--mzk-line) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 12px 34px rgba(16, 34, 43, 0.16) !important;
+}
+
+.mzk .mzk-filter-opt {
+  display: flex !important;
+  align-items: center !important;
+  gap: 9px !important;
+  width: 100% !important;
+  min-height: 0 !important;
+  padding: 9px 10px !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: var(--mzk-ink) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1.3 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  text-align: left !important;
+  box-shadow: none !important;
+}
+.mzk .mzk-filter-opt:hover { background: var(--mzk-canvas) !important; }
+.mzk .mzk-filter-opt.is-on { color: var(--mzk-accent-dark) !important; font-weight: 650 !important; }
+.mzk .mzk-filter-tick { width: 13px !important; flex: none !important; color: var(--mzk-accent) !important; font-size: 12px !important; line-height: 1 !important; }
+.mzk .mzk-filter-opt-name { flex: 1 !important; }
+.mzk .mzk-filter-empty { margin: 12px 0 0 !important; font-size: 13px !important; color: var(--mzk-soft) !important; text-align: center !important; }
+
+@media (max-width: 420px) {
+  .mzk .mzk-cal-head { flex-wrap: wrap !important; }
+  .mzk .mzk-cal-tools { width: 100% !important; order: 3 !important; }
+  .mzk .mzk-filter { flex: 1 !important; }
+  .mzk .mzk-filter-btn { width: 100% !important; justify-content: flex-start !important; }
+  .mzk .mzk-filter-label { max-width: none !important; flex: 1 !important; text-align: left !important; }
+  .mzk .mzk-filter-menu { left: 0 !important; right: auto !important; width: 100% !important; }
+}
+
+.mzk .mzk-cal-head { display: flex !important; align-items: center !important; justify-content: space-between !important; gap: 10px !important; flex-wrap: wrap !important; }
 
 /* Month navigation */
 .mzk .mzk-nav button {
