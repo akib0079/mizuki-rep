@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 
 /**
  * The confirmation used for anything students would notice.
@@ -10,8 +10,10 @@ export function ConfirmDialog({
   title,
   children,
   confirmLabel = 'Confirm',
+  cancelLabel = 'Keep as is',
   danger = false,
   busy = false,
+  hideConfirm = false,
   notifyPrompt,
   notifyDefault = true,
   onConfirm,
@@ -20,8 +22,17 @@ export function ConfirmDialog({
   title: string
   children: ReactNode
   confirmLabel?: string
+  cancelLabel?: string
   danger?: boolean
   busy?: boolean
+  /**
+   * Nothing to confirm — the dialog is explaining why not.
+   *
+   * Without this the only way to show a refusal was to leave the button there and disable it,
+   * which reads as "Working…" and disables the way out alongside it: no confirm, no cancel, no
+   * backdrop, and a dialog nobody can leave.
+   */
+  hideConfirm?: boolean
   notifyPrompt?: string
   notifyDefault?: boolean
   onConfirm: (notify: boolean) => Promise<void>
@@ -29,6 +40,15 @@ export function ConfirmDialog({
 }) {
   const [notify, setNotify] = useState(notifyDefault)
   const [error, setError] = useState<string | null>(null)
+
+  /* Escape closes it, unless something is mid-flight and cancelling would be a lie. */
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !busy) onCancel()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [busy, onCancel])
 
   return (
     <>
@@ -55,21 +75,25 @@ export function ConfirmDialog({
         )}
 
         <div className="row" style={{ marginTop: 20, justifyContent: 'flex-end' }}>
-          <button type="button" className="btn" onClick={onCancel} disabled={busy}>Keep as is</button>
-          <button type="button"
-            className={danger ? 'btn btn-danger' : 'btn btn-primary'}
-            disabled={busy}
-            onClick={async () => {
-              setError(null)
-              try {
-                await onConfirm(notifyPrompt ? notify : false)
-              } catch (err) {
-                setError(err instanceof Error ? err.message : 'That did not work. Please try again.')
-              }
-            }}
-          >
-            {busy ? 'Working…' : confirmLabel}
+          <button type="button" className="btn" onClick={onCancel} disabled={busy}>
+            {cancelLabel}
           </button>
+          {!hideConfirm && (
+            <button type="button"
+              className={danger ? 'btn btn-danger' : 'btn btn-primary'}
+              disabled={busy}
+              onClick={async () => {
+                setError(null)
+                try {
+                  await onConfirm(notifyPrompt ? notify : false)
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : 'That did not work. Please try again.')
+                }
+              }}
+            >
+              {busy ? 'Working…' : confirmLabel}
+            </button>
+          )}
         </div>
       </div>
     </>

@@ -22,6 +22,7 @@ import {
   type SessionDoc,
 } from '../../models/index.js'
 import { createAdHocSession } from '../../services/scheduleService.js'
+import { deleteSession, previewSessionDeletion } from '../../services/sessionDeletion.js'
 import { createBooking } from '../../services/bookingService.js'
 import { queueSessionCancelled, queueSessionMoved } from '../../services/notificationService.js'
 import { releaseSeat } from '../../services/seatService.js'
@@ -432,37 +433,29 @@ adminSessionsRouter.post(
 )
 
 /**
- * Delete a class outright. Only allowed while nobody is booked — otherwise the studio must
- * cancel it, which notifies people and returns their credits.
+ * What deleting this class would take with it, asked before the confirmation is shown.
+ *
+ * Also says whether it can be deleted at all, so the console can offer the right button rather
+ * than letting somebody press Delete and be refused.
+ */
+adminSessionsRouter.get(
+  '/:id/deletion',
+  asyncRoute(async (req, res) => {
+    res.json(await previewSessionDeletion(req.params.id!))
+  }),
+)
+
+/**
+ * Delete a class outright — past or future.
+ *
+ * Cancelling remains the right answer for a class that was going to run: it tells everyone
+ * booked and returns their course sessions. This is for the class that should not be on the
+ * calendar at all. See `sessionDeletion` for what it refuses and why.
  */
 adminSessionsRouter.delete(
   '/:id',
   asyncRoute(async (req, res) => {
-    const session = await SessionModel.findById(req.params.id)
-    if (!session) throw new NotFoundError('Class')
-
-    const live = await BookingModel.countDocuments({
-      sessionId: session._id,
-      status: { $in: ACTIVE_BOOKING_STATUSES },
-    })
-    if (live > 0) {
-      throw new AppError(
-        409,
-        'has_bookings',
-        `${live} student(s) are booked into this class. Cancel it instead so they are told and refunded their session.`,
-      )
-    }
-
-    await SessionModel.deleteOne({ _id: session._id })
-    await recordAudit({
-      actor: actorOf(req),
-      action: 'session.delete',
-      entity: 'Session',
-      entityId: session._id,
-      before: { dateKey: session.dateKey, title: session.title },
-    })
-
-    res.json({ ok: true })
+    res.json({ ok: true, ...(await deleteSession(req.params.id!, actorOf(req))) })
   }),
 )
 

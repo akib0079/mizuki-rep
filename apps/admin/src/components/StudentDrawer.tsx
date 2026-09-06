@@ -623,6 +623,14 @@ function DeleteStudentDialog({
   const { data, isLoading } = useQuery({
     queryKey: ['student-deletion', studentId],
     queryFn: () => api.get<DeletionPreview>(`/api/admin/students/${studentId}/deletion`),
+    /*
+     * Never from cache. Everything else in the console tolerates being thirty seconds old; the
+     * one screen that cannot is the one asking "shall I destroy this", because the answer is
+     * built entirely from what it says. Cancelling a class and immediately pressing Delete used
+     * to be met with "cancel it first" — the refusal it had just satisfied.
+     */
+    staleTime: 0,
+    refetchOnMount: 'always',
   })
 
   const remove = useMutation({

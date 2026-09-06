@@ -43,6 +43,17 @@ const scheduleRuleSchema = new Schema(
     effectiveTo: { type: String, default: null },
 
     active: { type: Boolean, default: true, index: true },
+
+    /**
+     * Occurrences of this rule that should not exist — the calendar's version of an EXDATE.
+     *
+     * The generator decides what to create by asking which slots have no session row yet, so
+     * deleting a class that came from a weekly rule is undone by the next tick five minutes
+     * later. The studio would delete it, watch it reappear, and reasonably conclude the button
+     * does not work. Each entry is the exact start instant that was deleted, so the rule keeps
+     * running and only that one date stays gone.
+     */
+    exceptions: { type: [Schema.Types.Date], default: [] },
   },
   { timestamps: true },
 )

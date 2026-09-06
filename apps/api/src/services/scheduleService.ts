@@ -97,6 +97,18 @@ export async function materializeSessions(opts: { from?: DateKey; to?: DateKey; 
 
   const seen = new Set(existing.map((s) => `${String(s.scheduleRuleId)}|${s.startAt.getTime()}`))
 
+  /*
+   * Slots the studio has deleted. Treated exactly like an existing session — the generator's
+   * question is "is this slot already accounted for", and a deliberately removed one is.
+   * Without this a deleted weekly class comes back on the next tick, five minutes later, with
+   * nothing on screen to explain it.
+   */
+  for (const rule of rules) {
+    for (const at of rule.exceptions ?? []) {
+      seen.add(`${String(rule._id)}|${new Date(at).getTime()}`)
+    }
+  }
+
   const pending: Record<string, unknown>[] = []
 
   for (const rule of rules) {

@@ -44,6 +44,7 @@ export function SessionDrawer({
   const queryClient = useQueryClient()
   const [adding, setAdding] = useState(false)
   const [cancelling, setCancelling] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const { data, isLoading } = useQuery({
@@ -296,13 +297,24 @@ export function SessionDrawer({
         </div>
 
         <div className="drawer-foot">
-          <button type="button"
-            className="btn btn-danger btn-sm"
-            disabled={session?.status === 'cancelled'}
-            onClick={() => setCancelling(true)}
-          >
-            Cancel class
-          </button>
+          {/* Grouped, so the footer's space-between keeps Done on its own at the far end. */}
+          <div className="row" style={{ gap: 8 }}>
+            <button type="button"
+              className="btn btn-danger btn-sm"
+              disabled={session?.status === 'cancelled'}
+              onClick={() => setCancelling(true)}
+            >
+              Cancel class
+            </button>
+            {/*
+              Quieter than Cancel, which is the one the studio wants nearly every time —
+              cancelling tells the students and gives their course sessions back; this does
+              neither.
+            */}
+            <button type="button" className="btn btn-quiet btn-sm" onClick={() => setDeleting(true)}>
+              Delete
+            </button>
+          </div>
           <button type="button" className="btn btn-sm" onClick={onClose}>Done</button>
         </div>
       </aside>
@@ -313,6 +325,19 @@ export function SessionDrawer({
           sessionFull={session.seatsLeft === 0}
           onClose={() => setAdding(false)}
           onAdded={() => { setAdding(false); refresh() }}
+        />
+      )}
+
+      {deleting && session && (
+        <DeleteClassDialog
+          sessionId={session.id}
+          title={session.title}
+          onCancel={() => setDeleting(false)}
+          onDeleted={() => {
+            setDeleting(false)
+            onChanged()
+            onClose()
+          }}
         />
       )}
 
@@ -344,5 +369,127 @@ export function SessionDrawer({
         </ConfirmDialog>
       )}
     </>
+  )
+}
+
+interface ClassDeletionPreview {
+  title: string
+  startAt: string
+  isPast: boolean
+  cancelled: boolean
+  liveBookings: number
+  totalBookings: number
+  attended: number
+  studentNames: string[]
+  fromWeeklyRule: boolean
+  blockedReason: string | null
+}
+
+/**
+ * Taking a class off the calendar for good.
+ *
+ * The preview is asked for before the confirmation is shown, because the thing worth stopping
+ * for is invisible from the calendar: a class from the weekly timetable will stop being
+ * generated on that date, and a class already taught takes its register with it.
+ *
+ * When it cannot be deleted the dialog says why and offers nothing but a way out — a refusal
+ * arriving after the press, as a red banner, teaches people that the button is unreliable.
+ */
+function DeleteClassDialog({
+  sessionId,
+  title,
+  onCancel,
+  onDeleted,
+}: {
+  sessionId: string
+  title: string
+  onCancel: () => void
+  onDeleted: () => void
+}) {
+  const [error, setError] = useState<string | null>(null)
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['session-deletion', sessionId],
+    queryFn: () => api.get<ClassDeletionPreview>(`/api/admin/sessions/${sessionId}/deletion`),
+    /*
+     * Never from cache. Everything else in the console tolerates being thirty seconds old; the
+     * one screen that cannot is the one asking "shall I destroy this", because the answer is
+     * built entirely from what it says. Cancelling a class and immediately pressing Delete used
+     * to be met with "cancel it first" — the refusal it had just satisfied.
+     */
+    staleTime: 0,
+    refetchOnMount: 'always',
+  })
+
+  const remove = useMutation({
+    mutationFn: () => api.delete(`/api/admin/sessions/${sessionId}`),
+    onSuccess: onDeleted,
+    onError: (err) => setError(err instanceof ApiError ? err.message : 'That did not work.'),
+  })
+
+  const blocked = Boolean(data?.blockedReason)
+
+  return (
+    <ConfirmDialog
+      title={`Delete ${title}?`}
+      confirmLabel="Delete permanently"
+      // Nothing to offer when it cannot be done: the dialog is explaining why, so it says so
+      // and gets out of the way rather than showing a button that refuses.
+      hideConfirm={blocked}
+      cancelLabel={blocked ? 'Close' : 'Keep as is'}
+      danger
+      busy={remove.isPending || isLoading}
+      onCancel={onCancel}
+      onConfirm={async () => {
+        await remove.mutateAsync()
+      }}
+    >
+      {isLoading ? (
+        <p className="muted">Checking what this would remove…</p>
+      ) : blocked ? (
+        <>
+          <div className="banner banner-danger">{data!.blockedReason}</div>
+          <p className="muted small">
+            Cancelling is almost always what is wanted here — it keeps the class on the calendar
+            with a reason, which is what anyone looking back will need.
+          </p>
+        </>
+      ) : (
+        <>
+          <p>
+            This removes the class from the calendar for good. It cannot be undone, and nobody is
+            emailed.
+          </p>
+
+          {data!.totalBookings > 0 && (
+            <div className="banner banner-warn">
+              <strong>
+                {data!.totalBookings} booking{data!.totalBookings === 1 ? '' : 's'} will go with it
+                {data!.attended > 0 ? `, including ${data!.attended} marked as attended` : ''}.
+              </strong>
+              {data!.studentNames.length > 0 && (
+                <div className="small" style={{ marginTop: 4 }}>
+                  {data!.studentNames.join(', ')}
+                </div>
+              )}
+              {data!.isPast && (
+                <div className="small" style={{ marginTop: 4 }}>
+                  This class has already been taught, so course sessions already used stay used.
+                </div>
+              )}
+            </div>
+          )}
+
+          {data!.fromWeeklyRule && (
+            <p className="muted small">
+              This class comes from your weekly timetable. Deleting it removes only this date —
+              the rest of the weekly pattern carries on, and this one will not be created again.
+            </p>
+          )}
+        </>
+      )}
+
+      {error && <div className="banner banner-danger" style={{ marginTop: 10 }}>{error}</div>}
+    </ConfirmDialog>
   )
 }
