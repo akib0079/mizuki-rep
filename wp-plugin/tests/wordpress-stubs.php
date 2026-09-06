@@ -17,7 +17,14 @@ function register_activation_hook( $f, $cb ) {}
 function register_deactivation_hook( $f, $cb ) {}
 function plugin_dir_path( $f ) { return dirname( $f ) . '/'; }
 function plugin_dir_url( $f ) { return 'https://example.test/wp-content/plugins/' . basename( dirname( $f ) ) . '/'; }
-function get_option( $k, $d = false ) { return empty( $GLOBALS['no_api'] ) ? array( 'api_base' => 'https://api.mizuki.com.sg', 'webhook_secret' => 'x' ) : array(); }
+/* Options a test wants to steer go in $GLOBALS['mzk_options']; everything else is the plugin's
+   own settings row, which most of the harness expects to be filled in. */
+function get_option( $k, $d = false ) {
+	if ( isset( $GLOBALS['mzk_options'][ $k ] ) ) {
+		return $GLOBALS['mzk_options'][ $k ];
+	}
+	return empty( $GLOBALS['no_api'] ) ? array( 'api_base' => 'https://api.mizuki.com.sg', 'webhook_secret' => 'x' ) : array();
+}
 function update_option( $k, $v ) {}
 function get_transient( $k ) { return false; }
 function set_transient( $k, $v, $t ) {}

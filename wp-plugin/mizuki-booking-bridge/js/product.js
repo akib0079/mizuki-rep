@@ -164,6 +164,137 @@
 		}, { threshold: 0 } ).observe( buy );
 	}
 
+	/* ------------------------------------------------------------ add to bag */
+
+	/**
+	 * Add to the bag without leaving the page.
+	 *
+	 * The request goes to WooCommerce's own add_to_cart endpoint rather than anything hand-rolled,
+	 * so the stock check, the validation and every hook an extension relies on all still run. The
+	 * form underneath is a real post to the same shop, so with the script blocked, in a new tab,
+	 * or if this ever fails, the button still works — it just reloads.
+	 */
+	function addToBag( form ) {
+		var endpoint = form.getAttribute( 'data-mzk-ajax' );
+		var product  = form.querySelector( '[name="add-to-cart"]' );
+		var quantity = form.querySelector( '[name="quantity"]' );
+		var button   = form.querySelector( '.mzk-pdp-buy__submit' );
+
+		if ( ! endpoint || ! product || ! window.fetch || ! window.FormData ) {
+			return false;
+		}
+
+		var body = new FormData();
+		body.append( 'product_id', product.value );
+		body.append( 'quantity', quantity ? quantity.value || '1' : '1' );
+
+		var idle = button ? button.textContent : '';
+		if ( button ) {
+			button.disabled = true;
+			button.textContent = button.getAttribute( 'data-mzk-busy' ) || idle;
+		}
+
+		function done() {
+			if ( button ) {
+				button.disabled = false;
+				button.textContent = idle;
+			}
+		}
+
+		fetch( endpoint, { method: 'POST', body: body, credentials: 'same-origin' } )
+			.then( function ( response ) {
+				return response.ok ? response.json() : Promise.reject( new Error( 'HTTP ' + response.status ) );
+			} )
+			.then( function ( data ) {
+				/*
+				 * WooCommerce answers a refusal — out of stock, a rule from some extension — with
+				 * an error and the product's own address, because that is where the reason is
+				 * shown. Sending them there is the honest thing to do; inventing our own wording
+				 * for a message we cannot read would be worse than the reload.
+				 */
+				if ( ! data || data.error ) {
+					if ( data && data.product_url ) {
+						window.location = data.product_url;
+						return;
+					}
+					form.submit();
+					return;
+				}
+
+				applyFragments( data.fragments );
+				announce( form );
+				done();
+
+				/*
+				 * The event WooCommerce's own button fires. Mini-carts, cart counts and anything
+				 * else a theme hangs off adding to the bag are listening for exactly this — fire
+				 * it and the rest of the site updates itself.
+				 */
+				if ( window.jQuery ) {
+					window.jQuery( document.body ).trigger( 'added_to_cart', [
+						data.fragments,
+						data.cart_hash,
+						window.jQuery( button )
+					] );
+				}
+			} )
+			.catch( function () {
+				// Anything unexpected: fall back to the post the form was always going to make.
+				done();
+				form.submit();
+			} );
+
+		return true;
+	}
+
+	/** Swap in the bits of the page WooCommerce says have changed. */
+	function applyFragments( fragments ) {
+		if ( ! fragments ) {
+			return;
+		}
+
+		Object.keys( fragments ).forEach( function ( selector ) {
+			var target;
+
+			try {
+				target = document.querySelector( selector );
+			} catch ( error ) {
+				// A fragment key is a selector chosen by whatever plugin registered it, and an
+				// unparseable one must not take the rest of them down.
+				return;
+			}
+
+			if ( target ) {
+				target.outerHTML = fragments[ selector ];
+			}
+		} );
+	}
+
+	/** Say it worked, once, in the space kept for it. */
+	function announce( form ) {
+		var said = document.querySelector( '[data-mzk-said]' );
+		if ( ! said ) {
+			return;
+		}
+
+		var added = said.getAttribute( 'data-added' ) || '';
+		var cart  = said.getAttribute( 'data-cart' ) || '';
+		var url   = said.getAttribute( 'data-cart-url' ) || '';
+
+		said.textContent = added;
+
+		if ( cart && url ) {
+			said.appendChild( document.createTextNode( ' ' ) );
+
+			var link = document.createElement( 'a' );
+			link.href = url;
+			link.textContent = cart;
+			said.appendChild( link );
+		}
+
+		said.hidden = false;
+	}
+
 	/* ----------------------------------------------------------------- wiring */
 
 	document.addEventListener( 'click', function ( event ) {
@@ -244,6 +375,19 @@
 		var landed = thumbs[ ( next + thumbs.length ) % thumbs.length ];
 		if ( landed ) {
 			landed.focus();
+		}
+	} );
+
+	document.addEventListener( 'submit', function ( event ) {
+		var form = event.target;
+		if ( ! form || ! form.matches || ! form.matches( '[data-mzk-buy]' ) ) {
+			return;
+		}
+
+		// Intercepted at submit rather than at the button, so the phone bar and the Enter key
+		// both take the same path.
+		if ( addToBag( form ) ) {
+			event.preventDefault();
 		}
 	} );
 

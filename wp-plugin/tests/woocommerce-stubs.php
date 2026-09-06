@@ -45,3 +45,16 @@ function wc_get_product( $id ) {
 function wc_get_products( $args = array() ) {
 	return array_values( $GLOBALS['mzk_products'] );
 }
+
+/**
+ * The endpoint the script posts to.
+ *
+ * Real WooCommerce builds this from its own rewrite rules; all that matters here is that the
+ * widget asks WooCommerce for it rather than assembling a URL itself, and that it stops asking
+ * when the shop is set to redirect after adding.
+ */
+class WC_AJAX {
+	public static function get_endpoint( $request ) {
+		return 'https://example.test/?wc-ajax=' . $request;
+	}
+}

@@ -455,6 +455,22 @@
 
 .mzk-pdp .mzk-pdp-buy__submit { flex: 1 1 auto !important; }
 
+/* What the page says back once something is in the bag. */
+.mzk-pdp .mzk-pdp-buy__said {
+	margin: -8px 0 24px !important;
+	font-size: 14px !important;
+	line-height: 1.6 !important;
+	color: var(--pdp-green) !important;
+}
+.mzk-pdp .mzk-pdp-buy__said[hidden] { display: none !important; }
+.mzk-pdp .mzk-pdp-buy__said a {
+	color: var(--pdp-navy) !important;
+	text-decoration: underline !important;
+	text-underline-offset: 3px !important;
+	font-weight: 500 !important;
+}
+.mzk-pdp .mzk-pdp-buy__said a:hover { color: var(--pdp-green) !important; }
+
 .mzk-pdp .mzk-pdp-trust { display: flex !important; flex-direction: column !important; gap: 16px !important; margin: 24px 0 40px !important; }
 .mzk-pdp .mzk-pdp-trust li { display: flex !important; align-items: center !important; gap: 16px !important; font-size: 14px !important; color: rgba(79, 83, 88, .9) !important; }
 .mzk-pdp .mzk-pdp-trust__icon { flex: none !important; display: inline-flex !important; color: var(--pdp-navy) !important; opacity: .8 !important; font-size: 20px !important; line-height: 1 !important; }

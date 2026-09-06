@@ -1384,6 +1384,137 @@ step( 'the rail, the arrows and the questions still work here', function () {
 	return 'two cards, arrows and accordion, all from the shared trait';
 } );
 
+
+echo "\nAdding to the bag without leaving the page\n";
+
+/*
+ * The form is a real post to WooCommerce that the script upgrades to a request staying on the
+ * page. Both halves matter: the upgrade is what the studio asked for, and the post underneath is
+ * what happens with the script blocked, in a new tab, or when the endpoint is unreachable.
+ */
+step( 'the form carries WooCommerce’s own endpoint', function () {
+	$widget           = new Mizuki_Elementor_Product_Page();
+	$widget->settings = array_merge( $widget->run_defaults(), array( 'product_id' => '13' ) );
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	if ( ! preg_match( '/data-mzk-ajax="([^"]+)"/', $html, $match ) ) {
+		throw new RuntimeException( 'no endpoint on the form' );
+	}
+	if ( false === strpos( html_entity_decode( $match[1] ), 'add_to_cart' ) ) {
+		throw new RuntimeException( 'that is not the add-to-cart endpoint: ' . $match[1] );
+	}
+
+	return 'the shop’s own handler, not a hand-rolled one';
+} );
+
+step( 'the ordinary form post is still underneath it', function () {
+	$widget           = new Mizuki_Elementor_Product_Page();
+	$widget->settings = array_merge( $widget->run_defaults(), array( 'product_id' => '13' ) );
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	foreach ( array( 'method="post"', 'name="add-to-cart" value="13"', 'name="quantity"' ) as $needed ) {
+		if ( false === strpos( $html, $needed ) ) {
+			throw new RuntimeException( 'missing ' . $needed );
+		}
+	}
+
+	return 'still a real post, so the button works without the script';
+} );
+
+/*
+ * A shop set to send people to the cart after adding has been told to do that by somebody.
+ * Staying on the page would quietly undo the setting, so the upgrade steps aside.
+ */
+step( 'a shop set to redirect after adding is left alone', function () {
+	$GLOBALS['mzk_options']['woocommerce_cart_redirect_after_add'] = 'yes';
+
+	$widget           = new Mizuki_Elementor_Product_Page();
+	$widget->settings = array_merge( $widget->run_defaults(), array( 'product_id' => '13' ) );
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	unset( $GLOBALS['mzk_options']['woocommerce_cart_redirect_after_add'] );
+
+	if ( false !== strpos( $html, 'data-mzk-ajax' ) ) {
+		throw new RuntimeException( 'it took the page over anyway' );
+	}
+	if ( false === strpos( $html, 'name="add-to-cart"' ) ) {
+		throw new RuntimeException( 'and it broke the ordinary form doing so' );
+	}
+
+	return 'no interception, ordinary form intact';
+} );
+
+step( 'there is somewhere to say it worked, announced but not shouted', function () {
+	$widget           = new Mizuki_Elementor_Product_Page();
+	$widget->settings = array_merge( $widget->run_defaults(), array( 'product_id' => '13' ) );
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	if ( ! preg_match( '/<p class="mzk-pdp-buy__said"[^>]*>/', $html, $match ) ) {
+		throw new RuntimeException( 'no confirmation element' );
+	}
+
+	$tag = $match[0];
+
+	foreach ( array( 'data-added=', 'data-cart-url=', 'aria-live="polite"', 'hidden' ) as $needed ) {
+		if ( false === strpos( $tag, $needed ) ) {
+			throw new RuntimeException( 'missing ' . $needed . ' on the confirmation' );
+		}
+	}
+
+	return 'empty and hidden until it has something to say';
+} );
+
+step( 'the wording is the studio’s to change', function () {
+	$widget           = new Mizuki_Elementor_Product_Page();
+	$widget->settings = array_merge( $widget->run_defaults(), array(
+		'product_id'       => '13',
+		'hero_button_busy' => 'One moment',
+		'hero_added_text'  => 'In your basket.',
+		'hero_cart_text'   => 'Go to basket',
+	) );
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	foreach ( array( 'One moment', 'In your basket.', 'Go to basket' ) as $needed ) {
+		if ( false === strpos( $html, $needed ) ) {
+			throw new RuntimeException( 'missing ' . $needed );
+		}
+	}
+
+	return 'button, confirmation and link all editable';
+} );
+
+step( 'no product means no form and nothing to announce', function () {
+	$widget           = new Mizuki_Elementor_Product_Page();
+	$widget->settings = $widget->run_defaults();
+
+	ob_start();
+	$widget->run_render();
+	$html = ob_get_clean();
+
+	foreach ( array( 'data-mzk-ajax', 'mzk-pdp-buy__said', 'add-to-cart' ) as $absent ) {
+		if ( false !== strpos( $html, $absent ) ) {
+			throw new RuntimeException( $absent . ' drawn with no product behind it' );
+		}
+	}
+
+	return 'nothing drawn';
+} );
+
 echo "\n";
 if ( $fail ) {
 	echo $fail . " failure(s).\n";

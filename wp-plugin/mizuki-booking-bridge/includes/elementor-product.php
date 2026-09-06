@@ -360,6 +360,26 @@ class Mizuki_Elementor_Product_Page extends \Elementor\Widget_Base {
 			'default' => __( 'Add to Bag', 'mizuki-booking' ),
 		) );
 
+		$this->add_control( 'hero_button_busy', array(
+			'label'       => __( 'Button, while adding', 'mizuki-booking' ),
+			'type'        => \Elementor\Controls_Manager::TEXT,
+			'default'     => __( 'Adding…', 'mizuki-booking' ),
+			'description' => __( 'Shown for the moment the bag is being updated.', 'mizuki-booking' ),
+		) );
+
+		$this->add_control( 'hero_added_text', array(
+			'label'   => __( 'Said after adding', 'mizuki-booking' ),
+			'type'    => \Elementor\Controls_Manager::TEXT,
+			'default' => __( 'Added to your bag.', 'mizuki-booking' ),
+		) );
+
+		$this->add_control( 'hero_cart_text', array(
+			'label'       => __( 'Link to the bag', 'mizuki-booking' ),
+			'type'        => \Elementor\Controls_Manager::TEXT,
+			'default'     => __( 'View bag', 'mizuki-booking' ),
+			'description' => __( 'Goes to the WooCommerce cart. Left out when empty.', 'mizuki-booking' ),
+		) );
+
 		$trust = new \Elementor\Repeater();
 		$trust->add_control( 'icon', array(
 			'label'   => __( 'Icon', 'mizuki-booking' ),
@@ -1194,9 +1214,25 @@ class Mizuki_Elementor_Product_Page extends \Elementor\Widget_Base {
 
 		$label = $this->get( $s, 'hero_button', __( 'Add to Bag', 'mizuki-booking' ) );
 
+		/*
+		 * The form still posts to WooCommerce the ordinary way; the script upgrades it to a
+		 * request that does not leave the page. So the button works with JavaScript blocked, in a
+		 * new tab, and if the endpoint is ever unreachable — and either way the adding is done by
+		 * WooCommerce, with its own stock check, validation and hooks.
+		 *
+		 * Left off when the shop is set to send people to the cart after adding: that is a
+		 * deliberate choice by whoever set it, and staying put would quietly undo it.
+		 */
+		$ajax = '';
+
+		if ( class_exists( 'WC_AJAX' ) && 'yes' !== get_option( 'woocommerce_cart_redirect_after_add' ) ) {
+			$ajax = \WC_AJAX::get_endpoint( 'add_to_cart' );
+		}
+
 		printf(
-			'<form class="mzk-pdp-buy" method="post" action="%s" data-mzk-buy>',
-			esc_url( $product->get_permalink() )
+			'<form class="mzk-pdp-buy" method="post" action="%s" data-mzk-buy%s>',
+			esc_url( $product->get_permalink() ),
+			$ajax ? ' data-mzk-ajax="' . esc_url( $ajax ) . '"' : ''
 		);
 
 		printf( '<input type="hidden" name="add-to-cart" value="%d" />', (int) $product->get_id() );
@@ -1219,11 +1255,25 @@ class Mizuki_Elementor_Product_Page extends \Elementor\Widget_Base {
 		echo '</div>';
 
 		printf(
-			'<button type="submit" class="mzk-pdp__btn mzk-pdp-buy__submit">%s</button>',
+			'<button type="submit" class="mzk-pdp__btn mzk-pdp-buy__submit" data-mzk-busy="%s">%s</button>',
+			esc_attr( $this->get( $s, 'hero_button_busy', __( 'Adding…', 'mizuki-booking' ) ) ),
 			esc_html( $label )
 		);
 
 		echo '</form>';
+
+		/*
+		 * Where the confirmation goes. Empty and polite, so a screen reader announces it when it
+		 * fills rather than reading an empty box on arrival — and rendered whether or not the
+		 * script is there, because it costs nothing and the alternative is creating it at the
+		 * moment it is needed, which is the moment least likely to go well.
+		 */
+		printf(
+			'<p class="mzk-pdp-buy__said" data-mzk-said data-added="%1$s" data-cart="%2$s" data-cart-url="%3$s" role="status" aria-live="polite" hidden></p>',
+			esc_attr( $this->get( $s, 'hero_added_text', __( 'Added to your bag.', 'mizuki-booking' ) ) ),
+			esc_attr( $this->get( $s, 'hero_cart_text', __( 'View bag', 'mizuki-booking' ) ) ),
+			esc_url( function_exists( 'wc_get_cart_url' ) ? wc_get_cart_url() : '' )
+		);
 	}
 
 	private function render_categories( $product ) {
