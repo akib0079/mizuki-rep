@@ -1515,6 +1515,153 @@ step( 'no product means no form and nothing to announce', function () {
 	return 'nothing drawn';
 } );
 
+
+echo "\nWhere a list of products comes from\n";
+
+/*
+ * One implementation behind three sections — the product page's more-products and the rails on
+ * both shop pages — so these run against each of them rather than against whichever was written
+ * last. A section that answers differently from the others is the failure this catches.
+ */
+$product_lists = array(
+	'Mizuki_Elementor_Product_Page' => array( 'more_items', 'mzk-pdp-more__item' ),
+	'Mizuki_Elementor_Picks_Page'   => array( 'picks', 'mzk-pk-card__link' ),
+	'Mizuki_Elementor_Tools_Page'   => array( 'picks', 'mzk-pk-card__link' ),
+);
+
+foreach ( $product_lists as $class => $about ) {
+	list( $prefix, $marker ) = $about;
+
+	$draw = function ( $extra ) use ( $class ) {
+		$widget           = new $class();
+		$widget->settings = array_merge( $widget->run_defaults(), $extra );
+
+		ob_start();
+		$widget->run_render();
+		return ob_get_clean();
+	};
+
+	step( $class . ': hand-picked products are drawn, a deleted one is skipped', function () use ( $draw, $prefix, $marker ) {
+		$html = $draw( array(
+			$prefix . '_source' => 'manual',
+			$prefix             => array(
+				array( 'product' => '13', 'label' => '', 'image' => array( 'url' => '' ), 'cta' => 'View' ),
+				array( 'product' => '99999', 'label' => '', 'image' => array( 'url' => '' ), 'cta' => 'View' ),
+				array( 'product' => '14', 'label' => '', 'image' => array( 'url' => '' ), 'cta' => 'View' ),
+			),
+		) );
+
+		if ( 2 !== substr_count( $html, $marker ) ) {
+			throw new RuntimeException( 'drew ' . substr_count( $html, $marker ) . ' for two live products' );
+		}
+
+		return 'two drawn, one skipped';
+	} );
+
+	step( $class . ': a category fills the list without naming a product', function () use ( $draw, $prefix, $marker ) {
+		$GLOBALS['mzk_cats'] = array( (object) array( 'term_id' => 7, 'name' => 'Naturepresso', 'slug' => 'naturepresso' ) );
+
+		$html = $draw( array(
+			$prefix . '_source'   => 'category',
+			$prefix . '_category' => array( '7' ),
+			$prefix               => array(),
+		) );
+
+		unset( $GLOBALS['mzk_cats'] );
+
+		if ( substr_count( $html, $marker ) < 2 ) {
+			throw new RuntimeException( 'a category of three drew ' . substr_count( $html, $marker ) );
+		}
+
+		return substr_count( $html, $marker ) . ' drawn, none named by hand';
+	} );
+
+	step( $class . ': a product can be left out of its category', function () use ( $draw, $prefix, $marker ) {
+		$GLOBALS['mzk_cats'] = array( (object) array( 'term_id' => 7, 'name' => 'Naturepresso', 'slug' => 'naturepresso' ) );
+
+		$all = $draw( array( $prefix . '_source' => 'category', $prefix . '_category' => array( '7' ) ) );
+		$few = $draw( array( $prefix . '_source' => 'category', $prefix . '_category' => array( '7' ), $prefix . '_exclude' => array( '13' ) ) );
+
+		unset( $GLOBALS['mzk_cats'] );
+
+		if ( substr_count( $few, $marker ) >= substr_count( $all, $marker ) ) {
+			throw new RuntimeException( 'excluding one changed nothing' );
+		}
+
+		/*
+		 * Checked by the link the card carries, not by the product's name. The name appears
+		 * elsewhere on both pages — it is what the product page is about, and the shop pages
+		 * mention it in their questions — so searching the whole page finds it either way.
+		 */
+		if ( false !== strpos( $few, 'example.test/product/13/' ) ) {
+			throw new RuntimeException( 'the excluded product still has a card' );
+		}
+		if ( false === strpos( $all, 'example.test/product/13/' ) ) {
+			throw new RuntimeException( 'it was not there to exclude in the first place' );
+		}
+
+		return substr_count( $all, $marker ) . ' without the exclusion, ' . substr_count( $few, $marker ) . ' with it';
+	} );
+
+	step( $class . ': a category with nothing chosen draws no section', function () use ( $draw, $prefix, $marker ) {
+		$html = $draw( array( $prefix . '_source' => 'category', $prefix . '_category' => array() ) );
+
+		if ( false !== strpos( $html, $marker ) ) {
+			throw new RuntimeException( 'it drew something anyway' );
+		}
+
+		return 'nothing drawn';
+	} );
+
+	step( $class . ': prices are the section’s to show or hide', function () use ( $draw, $prefix ) {
+		$picked = array( array( 'product' => '13', 'label' => '', 'image' => array( 'url' => '' ), 'cta' => 'View' ) );
+
+		$off = $draw( array( $prefix . '_source' => 'manual', $prefix => $picked, $prefix . '_show_price' => '' ) );
+		$on  = $draw( array( $prefix . '_source' => 'manual', $prefix => $picked, $prefix . '_show_price' => 'yes' ) );
+
+		if ( false !== strpos( $off, 'S$268.00' ) ) {
+			throw new RuntimeException( 'a price showed with the switch off' );
+		}
+		if ( false === strpos( $on, 'S$268.00' ) ) {
+			throw new RuntimeException( 'no price with the switch on' );
+		}
+
+		/*
+		 * The switch used to live on each card. Anyone who set one there keeps it, so turning the
+		 * section switch on adds prices and never takes one away.
+		 */
+		$kept = $draw( array(
+			$prefix . '_source'     => 'manual',
+			$prefix . '_show_price' => '',
+			$prefix                 => array( array( 'product' => '13', 'label' => '', 'image' => array( 'url' => '' ), 'cta' => 'View', 'show_price' => 'yes' ) ),
+		) );
+
+		if ( false === strpos( $kept, 'S$268.00' ) ) {
+			throw new RuntimeException( 'a price set on the card before the change was lost' );
+		}
+
+		return 'off, on, and an older per-card setting still honoured';
+	} );
+
+	step( $class . ': it draws nothing at all without WooCommerce’s answer', function () use ( $draw, $prefix, $marker ) {
+		$products = $GLOBALS['mzk_products'];
+		$GLOBALS['mzk_products'] = array();
+
+		$html = $draw( array(
+			$prefix . '_source' => 'manual',
+			$prefix             => array( array( 'product' => '13', 'label' => '', 'image' => array( 'url' => '' ), 'cta' => 'View' ) ),
+		) );
+
+		$GLOBALS['mzk_products'] = $products;
+
+		if ( false !== strpos( $html, $marker ) ) {
+			throw new RuntimeException( 'it drew a card for a product that is not there' );
+		}
+
+		return 'no shop, no section';
+	} );
+}
+
 echo "\n";
 if ( $fail ) {
 	echo $fail . " failure(s).\n";

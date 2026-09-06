@@ -24,6 +24,9 @@ class Mizuki_Elementor_Product_Page extends \Elementor\Widget_Base {
 
 	use Mizuki_Elementor_Shared;
 
+	/* Where a list of products comes from, shared with the two shop pages. */
+	use Mizuki_Elementor_Product_Source;
+
 	public function get_name() {
 		return 'mizuki-product-page';
 	}
@@ -53,87 +56,6 @@ class Mizuki_Elementor_Product_Page extends \Elementor\Widget_Base {
 	 * WooCommerce, at arm's length
 	 * -------------------------------------------------------------------------
 	 */
-
-	private function woo() {
-		return function_exists( 'wc_get_product' ) && function_exists( 'wc_get_products' );
-	}
-
-	/**
-	 * The product list for the pickers.
-	 *
-	 * Cached for an hour, because Elementor rebuilds a widget's controls on every keystroke in
-	 * the panel and a shop query per keystroke is a slow editor. Capped, because a catalogue of
-	 * ten thousand would be a select box nobody can use — past the cap the studio types an id.
-	 */
-	private function product_choices() {
-		if ( ! $this->woo() ) {
-			return array();
-		}
-
-		$cached = get_transient( 'mizuki_product_choices' );
-		if ( is_array( $cached ) ) {
-			return $cached;
-		}
-
-		$choices = array();
-
-		try {
-			$products = wc_get_products( array(
-				'status'  => 'publish',
-				'limit'   => 200,
-				'orderby' => 'title',
-				'order'   => 'ASC',
-				'return'  => 'objects',
-			) );
-
-			foreach ( $products as $product ) {
-				$choices[ (string) $product->get_id() ] = sprintf(
-					'%s (#%d)',
-					$product->get_name(),
-					$product->get_id()
-				);
-			}
-		} catch ( \Throwable $error ) {
-			// A shop that cannot be queried is not a reason to break the panel.
-			$choices = array();
-		}
-
-		/*
-		 * An empty answer is cached for two minutes, not an hour.
-		 *
-		 * Empty means one of three things: a shop with no products yet, a query that threw, or a
-		 * call that arrived before WooCommerce was ready. Two of those fix themselves, and an
-		 * hour of "there are no products" in the picker looks exactly like the picker being
-		 * broken — with no way for the studio to clear it.
-		 */
-		set_transient( 'mizuki_product_choices', $choices, $choices ? HOUR_IN_SECONDS : 2 * MINUTE_IN_SECONDS );
-
-		return $choices;
-	}
-
-	/**
-	 * The list, for a test to check.
-	 *
-	 * Elementor's control stack keeps a reduced record — type, tab, section, default, name — and
-	 * the rest is resolved elsewhere, so what a picker was given cannot be read back out of it.
-	 * Checking the list at its source is the honest test; whether Elementor then draws a select
-	 * with those options is Elementor's business.
-	 */
-	public function list_products_for_test() {
-		return $this->product_choices();
-	}
-
-	/** A product object, or null — never a fatal. */
-	private function product( $id ) {
-		$id = (int) $id;
-		if ( ! $id || ! $this->woo() ) {
-			return null;
-		}
-
-		$product = wc_get_product( $id );
-
-		return ( $product && is_a( $product, 'WC_Product' ) && 'publish' === get_post_status( $id ) ) ? $product : null;
-	}
 
 	/**
 	 * The pictures the page was designed around, so an untouched widget shows the studio's own
@@ -190,41 +112,16 @@ class Mizuki_Elementor_Product_Page extends \Elementor\Widget_Base {
 		);
 	}
 
-	/** A product picker. Used for the page's own product and for each cross-sell. */
-	private function product_control( $target, $key, $label, $description = '' ) {
-		$choices = $this->product_choices();
-
-		/*
-		 * Which control this is depends on whether WooCommerce is here, not on whether the list
-		 * came back with anything. A shop that genuinely has no products should still show a
-		 * picker — swapping to a text box because the query was empty means a studio who adds
-		 * their first product finds a box asking for an ID they have no way to look up.
-		 */
-		$has_shop = $this->woo();
-
-		$target->add_control(
-			$key,
-			array(
-				'label'       => $label,
-				'type'        => $has_shop ? \Elementor\Controls_Manager::SELECT2 : \Elementor\Controls_Manager::TEXT,
-				'options'     => $choices,
-				'label_block' => true,
-				'default'     => '',
-				'description' => $has_shop
-					? $description
-					: __( 'WooCommerce is not active, so there is no list to choose from — enter a product ID.', 'mizuki-booking' ),
-			)
-		);
-	}
-
 	private function register_product_controls() {
 		$this->start_controls_section( 'section_product', array( 'label' => __( 'Product', 'mizuki-booking' ) ) );
 
-		$this->product_control(
-			$this,
+		$this->add_control(
 			'product_id',
-			__( 'This page is about', 'mizuki-booking' ),
-			__( 'The price, the categories and the Add to bag button all come from this product, so they stay right without anyone editing the page.', 'mizuki-booking' )
+			$this->picker_args(
+				__( 'This page is about', 'mizuki-booking' ),
+				$this->product_choices(),
+				__( 'The price, the categories and the Add to bag button all come from this product, so they stay right without anyone editing the page.', 'mizuki-booking' )
+			)
 		);
 
 		$this->add_control(
@@ -744,36 +641,31 @@ class Mizuki_Elementor_Product_Page extends \Elementor\Widget_Base {
 		) );
 
 		$item = new \Elementor\Repeater();
-		$this->product_control( $item, 'product', __( 'Product', 'mizuki-booking' ) );
+
+		$item->add_control( 'product', $this->picker_args(
+			__( 'Product', 'mizuki-booking' ),
+			$this->product_choices()
+		) );
+
 		$item->add_control( 'label', array(
 			'label'       => __( 'Label above the name', 'mizuki-booking' ),
 			'type'        => \Elementor\Controls_Manager::TEXT,
 			'default'     => '',
 			'description' => __( 'Leave empty to use the product’s first category.', 'mizuki-booking' ),
 		) );
+
 		$item->add_control( 'image', array(
 			'label'       => __( 'Image', 'mizuki-booking' ),
 			'type'        => \Elementor\Controls_Manager::MEDIA,
 			'default'     => array( 'url' => '' ),
 			'description' => __( 'Leave empty to use the product’s own image.', 'mizuki-booking' ),
 		) );
-		$item->add_control( 'show_price', array(
-			'label'        => __( 'Show the price', 'mizuki-booking' ),
-			'type'         => \Elementor\Controls_Manager::SWITCHER,
-			'label_on'     => __( 'Yes', 'mizuki-booking' ),
-			'label_off'    => __( 'No', 'mizuki-booking' ),
-			'return_value' => 'yes',
-			'default'      => '',
-		) );
 
-		$this->add_control( 'more_items', array(
-			'label'       => __( 'Products', 'mizuki-booking' ),
-			'type'        => \Elementor\Controls_Manager::REPEATER,
-			'fields'      => $item->get_controls(),
-			'title_field' => '{{{ label || "Product" }}}',
-			'default'     => array(),
-			'description' => __( 'The section is left out entirely until at least one product is chosen.', 'mizuki-booking' ),
-		) );
+		$this->add_product_source_controls(
+			'more_items',
+			$item,
+			__( 'The section is left out entirely until at least one product is chosen.', 'mizuki-booking' )
+		);
 
 		$this->add_control( 'more_link_text', array(
 			'label'   => __( 'Link', 'mizuki-booking' ),
@@ -1523,14 +1415,7 @@ class Mizuki_Elementor_Product_Page extends \Elementor\Widget_Base {
 	 * "Continue your ritual" with three grey boxes under it is worse than no section.
 	 */
 	private function render_more( $s ) {
-		$items = array();
-
-		foreach ( $this->rows( $s, 'more_items' ) as $row ) {
-			$product = $this->product( isset( $row['product'] ) ? $row['product'] : '' );
-			if ( $product ) {
-				$items[] = array( 'row' => $row, 'product' => $product );
-			}
-		}
+		$items = $this->resolve_product_rows( $s, 'more_items' );
 
 		if ( ! $items ) {
 			return;
@@ -1578,7 +1463,7 @@ class Mizuki_Elementor_Product_Page extends \Elementor\Widget_Base {
 
 			printf( '<span class="mzk-pdp-more__name">%s</span>', esc_html( $product->get_name() ) );
 
-			if ( ! empty( $row['show_price'] ) && 'yes' === $row['show_price'] ) {
+			if ( $this->shows_price( $s, 'more_items', $row ) ) {
 				$price = $product->get_price_html();
 				if ( $price ) {
 					printf( '<span class="mzk-pdp-more__price">%s</span>', wp_kses_post( $price ) );

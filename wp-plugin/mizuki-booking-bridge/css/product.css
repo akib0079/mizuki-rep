@@ -751,6 +751,18 @@
 @media (min-width: 768px) { .mzk-pdp .mzk-pdp-more__grid { grid-template-columns: repeat(3, 1fr) !important; gap: 48px !important; } }
 
 .mzk-pdp .mzk-pdp-more__item { display: block !important; text-align: center !important; }
+
+/*
+ * Every part of a card is a span, because the whole card is one link and a link may not contain
+ * block elements in a way that survives every parser. A span is inline until told otherwise, and
+ * an inline box ignores width, height, aspect-ratio and vertical margins — so the picture frame
+ * collapsed to a strip of its own padding and the label sat on the same line as the name.
+ */
+.mzk-pdp .mzk-pdp-more__frame,
+.mzk-pdp .mzk-pdp-more__cat,
+.mzk-pdp .mzk-pdp-more__name,
+.mzk-pdp .mzk-pdp-more__price { display: block !important; }
+
 .mzk-pdp .mzk-pdp-more__frame {
 	background: var(--pdp-sand) !important;
 	aspect-ratio: 3 / 4 !important;

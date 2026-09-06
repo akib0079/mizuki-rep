@@ -17,6 +17,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 trait Mizuki_Elementor_Shop_Page {
 
+	/* Where a list of products comes from, and the WooCommerce access that needs. */
+	use Mizuki_Elementor_Product_Source;
+
 	public function get_style_depends() {
 		return array( 'mizuki-shop-page' );
 	}
@@ -52,60 +55,6 @@ trait Mizuki_Elementor_Shop_Page {
 	 * The list behind the pickers is shared with the product page widget — same transient, same
 	 * two-minute cache for an empty answer, same invalidation when the shop changes.
 	 */
-
-	private function woo() {
-		return function_exists( 'wc_get_product' ) && function_exists( 'wc_get_products' );
-	}
-
-	private function product_choices() {
-		if ( ! $this->woo() ) {
-			return array();
-		}
-
-		$cached = get_transient( 'mizuki_product_choices' );
-		if ( is_array( $cached ) ) {
-			return $cached;
-		}
-
-		$choices = array();
-
-		try {
-			foreach ( wc_get_products( array(
-				'status'  => 'publish',
-				'limit'   => 200,
-				'orderby' => 'title',
-				'order'   => 'ASC',
-				'return'  => 'objects',
-			) ) as $product ) {
-				$choices[ (string) $product->get_id() ] = sprintf( '%s (#%d)', $product->get_name(), $product->get_id() );
-			}
-		} catch ( \Throwable $error ) {
-			$choices = array();
-		}
-
-		// An empty answer is cached briefly: it means a shop with no products, a query that
-		// threw, or a call before WooCommerce was ready, and two of those fix themselves.
-		set_transient( 'mizuki_product_choices', $choices, $choices ? HOUR_IN_SECONDS : 2 * MINUTE_IN_SECONDS );
-
-		return $choices;
-	}
-
-	/** For a test to check the list at its source; Elementor's control stack cannot be read back. */
-	public function list_products_for_test() {
-		return $this->product_choices();
-	}
-
-	/** A product object, or null — never a fatal. */
-	private function product( $id ) {
-		$id = (int) $id;
-		if ( ! $id || ! $this->woo() ) {
-			return null;
-		}
-
-		$product = wc_get_product( $id );
-
-		return ( $product && is_a( $product, 'WC_Product' ) && 'publish' === get_post_status( $id ) ) ? $product : null;
-	}
 
 	/** The switch every section starts with, first in its panel and on by default. */
 	private function add_section_switch( $key, $label ) {
@@ -292,14 +241,7 @@ trait Mizuki_Elementor_Shop_Page {
 	 * rather than drawn as an empty card, and the whole section is left out when none resolve.
 	 */
 	private function render_picks( $s ) {
-		$cards = array();
-
-		foreach ( $this->rows( $s, 'picks' ) as $row ) {
-			$product = $this->product( isset( $row['product'] ) ? $row['product'] : '' );
-			if ( $product ) {
-				$cards[] = array( 'row' => $row, 'product' => $product );
-			}
-		}
+		$cards = $this->resolve_product_rows( $s, 'picks' );
 
 		if ( ! $cards ) {
 			return;
@@ -351,7 +293,7 @@ trait Mizuki_Elementor_Shop_Page {
 		);
 
 		foreach ( $cards as $card ) {
-			$this->render_pick( $card['row'], $card['product'] );
+			$this->render_pick( $card['row'], $card['product'], $s );
 		}
 
 		echo '</ul>';
@@ -418,7 +360,7 @@ trait Mizuki_Elementor_Shop_Page {
 		}
 	}
 
-	private function render_pick( $row, $product ) {
+	private function render_pick( $row, $product, $s ) {
 		$image = ! empty( $row['image']['url'] ) ? $row['image']['url'] : '';
 		if ( ! $image ) {
 			$image = wp_get_attachment_image_url( (int) $product->get_image_id(), 'large' );
@@ -467,7 +409,7 @@ trait Mizuki_Elementor_Shop_Page {
 			printf( '<span class="mzk-pk-card__text">%s</span>', esc_html( $text ) );
 		}
 
-		if ( ! empty( $row['show_price'] ) && 'yes' === $row['show_price'] ) {
+		if ( $this->shows_price( $s, 'picks', $row ) ) {
 			$price = $product->get_price_html();
 			if ( $price ) {
 				// get_price_html() returns markup — del/ins for a sale — so it is filtered rather

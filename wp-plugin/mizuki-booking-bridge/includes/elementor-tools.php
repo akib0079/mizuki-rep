@@ -185,15 +185,10 @@ class Mizuki_Elementor_Tools_Page extends \Elementor\Widget_Base {
 
 		$card = new \Elementor\Repeater();
 
-		$card->add_control( 'product', array(
-			'label'       => __( 'Product', 'mizuki-booking' ),
-			'type'        => $this->woo() ? \Elementor\Controls_Manager::SELECT2 : \Elementor\Controls_Manager::TEXT,
-			'options'     => $this->product_choices(),
-			'label_block' => true,
-			'default'     => '',
-			'description' => $this->woo()
-				? __( 'The name, picture and link all come from this product.', 'mizuki-booking' )
-				: __( 'WooCommerce is not active, so there is no list to choose from — enter a product ID.', 'mizuki-booking' ),
+		$card->add_control( 'product', $this->picker_args(
+			__( 'Product', 'mizuki-booking' ),
+			$this->product_choices(),
+			__( 'The name, picture and link all come from this product.', 'mizuki-booking' )
 		) );
 
 		$card->add_control( 'label', array(
@@ -210,29 +205,17 @@ class Mizuki_Elementor_Tools_Page extends \Elementor\Widget_Base {
 			'description' => __( 'Leave empty to use the product’s own image.', 'mizuki-booking' ),
 		) );
 
-		$card->add_control( 'show_price', array(
-			'label'        => __( 'Show the price', 'mizuki-booking' ),
-			'type'         => \Elementor\Controls_Manager::SWITCHER,
-			'label_on'     => __( 'Yes', 'mizuki-booking' ),
-			'label_off'    => __( 'No', 'mizuki-booking' ),
-			'return_value' => 'yes',
-			'default'      => '',
-		) );
-
 		$card->add_control( 'cta', array(
 			'label'   => __( 'Link text', 'mizuki-booking' ),
 			'type'    => \Elementor\Controls_Manager::TEXT,
 			'default' => __( 'View Product', 'mizuki-booking' ),
 		) );
 
-		$this->add_control( 'picks', array(
-			'label'       => __( 'Products', 'mizuki-booking' ),
-			'type'        => \Elementor\Controls_Manager::REPEATER,
-			'fields'      => $card->get_controls(),
-			'title_field' => '{{{ label || "Product" }}}',
-			'default'     => array(),
-			'description' => __( 'The whole section is left out until at least one product is chosen.', 'mizuki-booking' ),
-		) );
+		$this->add_product_source_controls(
+			'picks',
+			$card,
+			__( 'The whole section is left out until at least one product is chosen.', 'mizuki-booking' )
+		);
 
 		$this->add_control( 'picks_swipe', array(
 			'label'   => __( 'Hint on phones', 'mizuki-booking' ),

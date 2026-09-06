@@ -478,6 +478,19 @@
 @media (min-width: 768px)  { .mzk-pk .mzk-pk-card { width: 320px !important; } }
 @media (min-width: 1024px) { .mzk-pk .mzk-pk-card { width: 360px !important; } }
 
+/*
+ * A card is one link, so every part of it is a span. They happen to lay out correctly because
+ * their parents are flex containers and a flex item is blockified — but relying on that means a
+ * card stops working the day somebody changes a parent's display. Said outright instead; the
+ * same omission on the product page's cards collapsed the picture to a strip of its padding.
+ */
+.mzk-pk .mzk-pk-card__media,
+.mzk-pk .mzk-pk-card__label,
+.mzk-pk .mzk-pk-card__title,
+.mzk-pk .mzk-pk-card__text,
+.mzk-pk .mzk-pk-card__price,
+.mzk-pk .mzk-pk-card__cta { display: block !important; }
+
 .mzk-pk .mzk-pk-card__link { display: flex !important; flex-direction: column !important; height: 100% !important; }
 .mzk-pk .mzk-pk-card__media {
 	aspect-ratio: 4 / 5 !important;
@@ -523,7 +536,7 @@
 .mzk-pk .mzk-pk-card__price { font-size: 14px !important; font-weight: 500 !important; color: var(--pk-navy) !important; margin: 12px 0 0 !important; }
 .mzk-pk .mzk-pk-card__price del { opacity: .5 !important; margin-right: 8px !important; }
 .mzk-pk .mzk-pk-card__price ins { text-decoration: none !important; }
-.mzk-pk .mzk-pk-card__cta { margin-top: auto !important; padding-top: 16px !important; }
+.mzk-pk .mzk-pk-card__cta { display: inline-flex !important; margin-top: auto !important; padding-top: 16px !important; }
 .mzk-pk .mzk-pk-card:hover .mzk-pk-card__cta { color: var(--pk-green) !important; }
 
 .mzk-pk .mzk-pk-picks__swipe {

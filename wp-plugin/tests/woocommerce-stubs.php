@@ -17,6 +17,8 @@ class WC_Product {
 	public $image_id    = 0;
 	public $gallery     = array();
 	public $short_description = '';
+	/** Category slugs, so a stubbed query can be filtered by one. */
+	public $categories = array( 'naturepresso' );
 
 	public function __construct( $id, $name, $price_html = 'S$268.00' ) {
 		$this->id         = (int) $id;
@@ -42,8 +44,36 @@ function wc_get_product( $id ) {
 	return isset( $GLOBALS['mzk_products'][ $id ] ) ? $GLOBALS['mzk_products'][ $id ] : false;
 }
 
+/**
+ * Enough of the product query to mean something.
+ *
+ * It honours the arguments the widgets actually pass — `exclude`, `limit` and `category` — because
+ * a stub that ignores them cannot tell a working filter from one that was never applied, and the
+ * first version of this did exactly that: it returned every product whatever was asked, so a test
+ * for "leave this one out" passed against code that left nothing out.
+ */
 function wc_get_products( $args = array() ) {
-	return array_values( $GLOBALS['mzk_products'] );
+	$products = array_values( $GLOBALS['mzk_products'] );
+
+	if ( ! empty( $args['category'] ) ) {
+		$wanted   = (array) $args['category'];
+		$products = array_values( array_filter( $products, function ( $product ) use ( $wanted ) {
+			return array_intersect( $wanted, (array) $product->categories );
+		} ) );
+	}
+
+	if ( ! empty( $args['exclude'] ) ) {
+		$excluded = array_map( 'intval', (array) $args['exclude'] );
+		$products = array_values( array_filter( $products, function ( $product ) use ( $excluded ) {
+			return ! in_array( (int) $product->get_id(), $excluded, true );
+		} ) );
+	}
+
+	if ( ! empty( $args['limit'] ) ) {
+		$products = array_slice( $products, 0, (int) $args['limit'] );
+	}
+
+	return $products;
 }
 
 /**

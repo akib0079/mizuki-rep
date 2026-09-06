@@ -35,6 +35,8 @@ function mizuki_elementor_widget_instances() {
 	// under the same rule about when Elementor can resolve one.
 	require_once __DIR__ . '/elementor-ifda.php';
 	require_once __DIR__ . '/elementor-ikebana.php';
+
+	require_once __DIR__ . '/elementor-product-source.php';
 	require_once __DIR__ . '/elementor-product.php';
 	require_once __DIR__ . '/elementor-shop-shared.php';
 	require_once __DIR__ . '/elementor-picks.php';

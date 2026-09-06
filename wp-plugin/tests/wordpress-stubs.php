@@ -105,3 +105,13 @@ function get_the_terms( $id, $taxonomy ) { return $GLOBALS['mzk_terms'] ?? false
 function get_term_link( $term, $taxonomy = '' ) { return 'https://example.test/cat/' . ( is_object( $term ) ? $term->slug : $term ); }
 function get_post_status( $id ) { return $GLOBALS['mzk_post_status'] ?? 'publish'; }
 function _n( $single, $plural, $number, $domain = null ) { return 1 === (int) $number ? $single : $plural; }
+
+/* Taxonomy reads the product-source trait makes. $GLOBALS['mzk_cats'] is what a test says the
+   shop is filed under; without it there are no categories, which is a real state too. */
+function get_terms( $args = array() ) { return isset( $GLOBALS['mzk_cats'] ) ? $GLOBALS['mzk_cats'] : array(); }
+function get_term( $id, $taxonomy = '' ) {
+	foreach ( (array) ( $GLOBALS['mzk_cats'] ?? array() ) as $term ) {
+		if ( (int) $term->term_id === (int) $id ) { return $term; }
+	}
+	return null;
+}
