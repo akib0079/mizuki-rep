@@ -97,11 +97,11 @@ export const DEFAULT_TEMPLATES: Record<EmailTemplateKey, TemplateDefinition> = {
     description: 'Sent when a student asks to sign in or needs to confirm a booking.',
     subject: 'Your Mizuki Flora sign-in link',
     bodyHtml: layout(`<p>Hello {{studentName}},</p>
-      <p>Here is your sign-in link. It works once and expires in 30 minutes.</p>
+      <p>Here is your sign-in link. It works once, and stays valid for {{expiryHours}} hours.</p>
       ${button('Sign in', '{{magicLinkUrl}}')}
       <p style="color:${BRAND.muted};font-size:13px;">If you did not ask for this, you can ignore this email — nothing will happen.</p>`),
-    bodyText: `Hello {{studentName}},\n\nHere is your sign-in link (works once, expires in 30 minutes):\n{{magicLinkUrl}}\n\nIf you did not ask for this, you can ignore this email.\n\nMizuki Flora`,
-    variables: [...COMMON_VARS, 'magicLinkUrl'],
+    bodyText: `Hello {{studentName}},\n\nHere is your sign-in link (works once, valid for {{expiryHours}} hours):\n{{magicLinkUrl}}\n\nIf you did not ask for this, you can ignore this email.\n\nMizuki Flora`,
+    variables: [...COMMON_VARS, 'magicLinkUrl', 'expiryHours'],
   },
 
   booking_confirmation: {

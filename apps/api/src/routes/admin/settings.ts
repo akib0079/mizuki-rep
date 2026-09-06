@@ -426,6 +426,8 @@ const SAMPLE_VARS: Record<string, string | number> = {
   sessionListHtml: '<ul><li><strong>10:00 AM</strong> — Ikebana Workshop: 5/8 booked</li></ul>',
   sessionListText: '• 10:00 AM — Ikebana Workshop: 5/8 booked',
   magicLinkUrl: `${config.PUBLIC_API_URL}/api/auth/magic-link/verify?token=sample`,
+  // The real setting, so the preview cannot show a lifetime the links do not have.
+  expiryHours: config.MAGIC_LINK_TTL_HOURS,
   myBookingsUrl: myBookingsUrl(),
   bookingUrl: bookingPageUrl(),
   adminSessionUrl: `${config.PUBLIC_API_URL}/admin/calendar`,

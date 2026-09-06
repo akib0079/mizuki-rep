@@ -10,6 +10,7 @@ import {
 } from '@mizuki/shared'
 import { OutboxModel, type BookingDoc, type CourseTypeDoc, type PackageDoc, type SessionDoc, type StudentDoc } from '../models/index.js'
 import { renderTemplate, wrapEmailHtml } from './emailTemplates.js'
+import { kickOutbox } from './mailer.js'
 import {
   notificationRecipients,
   recordAdminNotification,
@@ -58,6 +59,12 @@ export async function queueMessage(type: string, opts: QueueOptions): Promise<bo
       relatedSessionId: opts.relatedSessionId ?? null,
       status: 'pending',
     })
+
+    /*
+     * Try to send it now rather than at the next five-minute tick. Fire-and-forget: whether the
+     * message goes out this second is not something the booking in front of it should depend on.
+     */
+    kickOutbox()
     return true
   } catch (err) {
     if (isDuplicateKeyError(err)) {
@@ -413,7 +420,13 @@ export async function queueAdminBookingChange(
 }
 
 export async function queueMagicLink(student: StudentDoc, url: string, tokenId: string): Promise<void> {
-  const rendered = await renderTemplate('magic_link', { ...studentVars(student), magicLinkUrl: url })
+  // Read from the same setting the link's actual lifetime comes from, so the email cannot go on
+  // promising a number the code stopped honouring — which is how it came to say thirty minutes.
+  const rendered = await renderTemplate('magic_link', {
+    ...studentVars(student),
+    magicLinkUrl: url,
+    expiryHours: config.MAGIC_LINK_TTL_HOURS,
+  })
   await queueMessage('magic_link', {
     // Keyed on the token, so every fresh request sends, but a retry of the same one does not.
     dedupeKey: `magic_link:${tokenId}`,

@@ -389,10 +389,42 @@ function BookingCard({
             <br />
             {formatTimeRange(start.toJSDate(), end.toJSDate())} · {formatDuration(row.session.durationMins)}
           </div>
+          {/*
+            The state of the place, said on the row itself.
+            `awaiting_confirmation` used to show nothing here and "This booking is no longer
+            active" below — the deny message from a reschedule check, rendered as though it were
+            the booking's status. A student who had just been emailed that their place was held
+            opened this page and read that it was dead.
+          */}
           {row.status === 'hold' && (
             <div className="mzk-tag mzk-tag-low" style={{ marginTop: 6 }}>Awaiting payment</div>
           )}
+          {row.status === 'awaiting_confirmation' && (
+            <div className="mzk-tag mzk-tag-low" style={{ marginTop: 6 }}>Reserved · awaiting confirmation</div>
+          )}
+          {row.status === 'confirmed' && (
+            <div className="mzk-tag mzk-tag-ok" style={{ marginTop: 6 }}>Confirmed</div>
+          )}
         </div>
+
+        {/*
+          Straight into their own calendar, which is where a class they have booked actually needs
+          to be. A link rather than a fetch: the endpoint answers with a calendar file and the
+          browser knows what to do with one, on a phone as well as a laptop.
+        */}
+        <a
+          className="mzk-btn mzk-addcal"
+          href={widgetApi.calendarUrl(row.id)}
+          target="_blank"
+          rel="noopener"
+        >
+          <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden focusable="false">
+            <rect x="2" y="3" width="12" height="11" rx="2" fill="none" stroke="currentColor" strokeWidth="1.3" />
+            <path d="M2 6.5h12M5.5 1.8v2.4M10.5 1.8v2.4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+            <path d="M8 8.6v3.2M6.4 10.2h3.2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+          </svg>
+          Add to calendar
+        </a>
       </div>
 
       {error && <div className="mzk-note mzk-note-error" style={{ marginTop: 12 }}>{error}</div>}
@@ -537,8 +569,7 @@ function SignInPanel({ embedded = false }: { embedded?: boolean }) {
           <>
             <h3 style={{ margin: '0 0 8px', fontSize: 16 }}>Check your email</h3>
             <div className="mzk-note mzk-note-ok">
-              If that address is registered with us, a sign-in link is on its way. It works once and
-              lasts 30 minutes.
+              If that address is registered with us, a sign-in link is on its way.
             </div>
           </>
         ) : (

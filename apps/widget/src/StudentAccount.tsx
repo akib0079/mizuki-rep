@@ -136,8 +136,8 @@ export function SignIn({
 
       {sent ? (
         <div className="mzk-note mzk-note-ok">
-          If that address is enrolled with us, a sign-in link is on its way. It works once and lasts
-          30 minutes — open it on this device and you will land back here.
+          If that address is enrolled with us, a sign-in link is on its way. Open it on this device
+          and you will land back here.
         </div>
       ) : (
         <>

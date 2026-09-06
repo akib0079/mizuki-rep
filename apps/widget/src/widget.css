@@ -268,6 +268,26 @@
 .mzk-btn-primary:hover:not(:disabled) { background: var(--mzk-accent-dark); }
 .mzk-btn-block { width: 100%; }
 
+/* "Add to calendar" — a quiet, compact action beside the class it belongs to, not a call to
+   action competing with Change date and Cancel below it. */
+.mzk-addcal {
+  gap: 6px;
+  flex: none;
+  padding: 7px 11px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--mzk-soft);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.mzk-addcal:hover { color: var(--mzk-accent-dark); border-color: var(--mzk-accent); }
+
+/* Narrow, the button beside the title squeezes the date onto three lines. Its own row instead —
+   the row already wraps, it just needs to be told to take the whole of the next one. */
+@media (max-width: 480px) {
+  .mzk-addcal { width: 100%; justify-content: center; margin-top: 4px; }
+}
+
 .mzk-note { padding: 12px 14px; border-radius: 8px; font-size: 14px; margin-bottom: 14px; }
 .mzk-note-info { background: var(--mzk-accent-light); color: var(--mzk-accent-dark); }
 .mzk-note-ok { background: #e8f5ef; color: var(--mzk-ok); }
@@ -658,6 +678,31 @@
 }
 
 .mzk .mzk-cal-head { display: flex !important; align-items: center !important; justify-content: space-between !important; gap: 10px !important; flex-wrap: wrap !important; }
+
+.mzk a.mzk-addcal {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  flex: none !important;
+  width: auto !important;
+  padding: 7px 11px !important;
+  border: 1px solid var(--mzk-line) !important;
+  border-radius: 8px !important;
+  background: var(--mzk-bg) !important;
+  color: var(--mzk-soft) !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
+  text-decoration: none !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  white-space: nowrap !important;
+  box-shadow: none !important;
+}
+.mzk a.mzk-addcal:hover { color: var(--mzk-accent-dark) !important; border-color: var(--mzk-accent) !important; background: var(--mzk-canvas) !important; }
+@media (max-width: 480px) {
+  .mzk a.mzk-addcal { width: 100% !important; justify-content: center !important; margin-top: 4px !important; }
+}
 
 /* Month navigation */
 .mzk .mzk-nav button {

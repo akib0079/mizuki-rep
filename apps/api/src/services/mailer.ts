@@ -4,7 +4,7 @@ import webpush from 'web-push'
 import { DateTime } from 'luxon'
 import { STUDIO_TZ } from '@mizuki/shared'
 import { OutboxModel, PushSubscriptionModel, SessionModel, type OutboxDoc } from '../models/index.js'
-import { config } from '../config.js'
+import { config, myBookingsUrl } from '../config.js'
 import { PLAIN_KEYS, SECRET_KEYS, getPlain, getSecret } from './secretStore.js'
 import { logger } from '../logger.js'
 
@@ -101,6 +101,59 @@ export async function drainOutbox(limit = 25): Promise<DrainResult> {
   }
 
   return result
+}
+
+/**
+ * Send what is waiting, now, without making the caller wait for it.
+ *
+ * The queue used to be drained only by the five-minute scheduler tick, which is fine for a
+ * reminder and wrong for everything a person is sitting looking at. A student asks for a sign-in
+ * link and watches an empty inbox for up to five minutes: long past the point where anyone
+ * concludes it is broken, asks for another, and gives up. The studio reported exactly that, and
+ * the same delay sat in front of the confirmation sent when a place is approved.
+ *
+ * Deliberately not awaited by callers. Booking a class must not fail, or get slower, because
+ * Resend is having a bad second — that is what the queue and its retries are for. This only
+ * changes when the first attempt happens.
+ *
+ * Coalesced behind a short timer, so a booking that queues five messages drains once rather than
+ * five times, and `pending` catches anything queued while a drain is already running.
+ */
+let drainTimer: NodeJS.Timeout | null = null
+let draining = false
+let queuedWhileDraining = false
+
+export function kickOutbox(): void {
+  /*
+   * Tests drive the queue explicitly and assert on what is still pending; a background drain
+   * would empty it underneath them — and with no API key every message would be parked as
+   * undeliverable rather than left alone.
+   */
+  if (config.isTest) return
+
+  if (draining) {
+    queuedWhileDraining = true
+    return
+  }
+  if (drainTimer) return
+
+  drainTimer = setTimeout(() => {
+    drainTimer = null
+    draining = true
+
+    void drainOutbox()
+      .catch((err) => logger.error({ err }, 'Immediate send failed — the next scheduled run will retry'))
+      .finally(() => {
+        draining = false
+        if (queuedWhileDraining) {
+          queuedWhileDraining = false
+          kickOutbox()
+        }
+      })
+  }, 800)
+
+  // Never hold the process open for this; a redeploy mid-drain is retried by the next tick.
+  drainTimer.unref()
 }
 
 async function deliver(message: OutboxDoc): Promise<boolean> {
@@ -274,18 +327,34 @@ export async function buildIcs(sessionId: string): Promise<string | null> {
     .lean()
   if (!session) return null
 
-  const start = DateTime.fromJSDate(session.startAt).setZone(STUDIO_TZ)
-  const end = DateTime.fromJSDate(session.endAt).setZone(STUDIO_TZ)
+  /*
+   * Written as UTC, which is the only zone that means the same thing on every machine.
+   *
+   * This used to build the time array in the studio's zone and hand it over as `local`, which
+   * tells the library to read those numbers in *the server's* timezone and convert. The server is
+   * not in Singapore — so a 10am class was written into the file as 10am wherever the host
+   * happened to be, and landed in the student's calendar hours out. It was wrong by two hours on
+   * this machine and would be wrong by eight on a UTC host, in every confirmation email already
+   * sent with an invitation attached.
+   *
+   * A real instant in UTC is also the right thing for a calendar to hold: a student in Singapore
+   * sees 10am, and one reading it from abroad sees the hour that is actually the same moment.
+   */
+  const start = DateTime.fromJSDate(session.startAt).toUTC()
+  const end = DateTime.fromJSDate(session.endAt).toUTC()
 
   const event: EventAttributes = {
     title: session.title || session.courseTypeId.name,
     start: [start.year, start.month, start.day, start.hour, start.minute],
     end: [end.year, end.month, end.day, end.hour, end.minute],
-    startInputType: 'local',
-    endInputType: 'local',
+    startInputType: 'utc',
+    endInputType: 'utc',
+    startOutputType: 'utc',
+    endOutputType: 'utc',
     location: 'Mizuki Flora, #2/F, 148 Jalan Besar, Singapore 208866',
-    url: `${config.PUBLIC_SITE_URL}/my-bookings`,
-    organizer: { name: 'Mizuki Flora', email: 'mizukisg148@gmail.com' },
+    // The booking page that exists, rather than the one this predates.
+    url: myBookingsUrl(),
+    organizer: { name: 'Mizuki Flora', email: config.STUDIO_EMAIL },
     productId: 'mizuki-booking',
   }
 

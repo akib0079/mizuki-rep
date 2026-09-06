@@ -43,7 +43,7 @@ const loginLimiter = rateLimit({
   message: { error: { code: 'rate_limited', message: 'Too many attempts. Please try again shortly.' } },
 })
 
-const MAGIC_LINK_TTL_MS = 30 * 60_000
+const MAGIC_LINK_TTL_MS = config.MAGIC_LINK_TTL_HOURS * 3600_000
 /** How long after the first use a link keeps working — enough to outlast a provider's scan. */
 const MAGIC_LINK_GRACE_MS = 10 * 60_000
 
@@ -96,7 +96,7 @@ authRouter.get(
      * another one produces another link that is scanned in exactly the same way.
      *
      * The grace window does not widen the exposure: `expiresAt` is unchanged, so the link still
-     * dies thirty minutes after it was issued whether or not anyone used it.
+     * dies at its own deadline whether or not anyone used it.
      */
     const now = new Date()
     const graceFrom = new Date(now.getTime() - MAGIC_LINK_GRACE_MS)

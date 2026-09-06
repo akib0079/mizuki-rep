@@ -14,6 +14,7 @@ export type RuleCode =
   | 'session_past'
   | 'session_full'
   | 'booking_inactive'
+  | 'awaiting_confirmation'
   | 'cutoff_passed'
   | 'package_exhausted'
   | 'package_expired'
@@ -30,6 +31,20 @@ export interface RuleResult {
 }
 
 const ok = (): RuleResult => ({ allowed: true, code: 'ok', message: '' })
+
+/**
+ * A place that is reserved and waiting on the studio, said as that.
+ *
+ * It used to fall through to "This booking is no longer active", which is what a student saw on
+ * their own bookings page after booking successfully and being emailed that their place was
+ * held. Two statements of the opposite thing, and the alarming one is on the page they check.
+ *
+ * Changing the date is still not offered, because the studio has not settled payment yet and
+ * moving an unconfirmed place mid-conversation helps nobody — but that is a "not yet", not a
+ * "this is dead", and the difference is the whole message.
+ */
+const AWAITING_MESSAGE =
+  'Your place is reserved and held for you. The studio will confirm it shortly — get in touch if you need to change the date.'
 
 const deny = (code: RuleCode, message: string, deadline?: Date): RuleResult => ({
   allowed: false,
@@ -121,6 +136,9 @@ export function evaluateReschedule(ctx: RescheduleContext, now: Date): RuleResul
   if (session.status === 'cancelled') {
     return deny('session_cancelled', 'This class has been cancelled. Please contact us to rebook.')
   }
+  if (booking.status === 'awaiting_confirmation') {
+    return deny('awaiting_confirmation', AWAITING_MESSAGE)
+  }
   if (booking.status !== 'confirmed' && booking.status !== 'hold') {
     return deny('booking_inactive', 'This booking is no longer active.')
   }
@@ -146,6 +164,9 @@ export function evaluateCancel(
 ): RuleResult {
   const { booking, session, courseType } = ctx
 
+  if (booking.status === 'awaiting_confirmation') {
+    return deny('awaiting_confirmation', AWAITING_MESSAGE)
+  }
   if (booking.status !== 'confirmed' && booking.status !== 'hold') {
     return deny('booking_inactive', 'This booking is no longer active.')
   }

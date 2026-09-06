@@ -72,6 +72,16 @@ const envSchema = z.object({
 
   /** Minutes a WooCommerce checkout holds a place before it goes back on sale. */
   HOLD_TTL_MINUTES: z.coerce.number().int().min(5).max(120).default(20),
+  /**
+   * How long a student's sign-in link keeps working.
+   *
+   * Was thirty minutes, which assumed the link is read the moment it lands. People book a class
+   * on their phone at work and sit down to it in the evening, and a link that died in between
+   * sends them back to a form to ask for another — the same one they already asked for, and the
+   * point at which most people give up. Six hours covers a working day either side of the
+   * request. Single use plus a short grace window is what keeps it safe, not a short life.
+   */
+  MAGIC_LINK_TTL_HOURS: z.coerce.number().int().min(1).max(72).default(6),
   /** How far ahead the public calendar and the session generator run. */
   CALENDAR_MONTHS_AHEAD: z.coerce.number().int().min(1).max(12).default(3),
   /** Studio-local hour for the 2-day reminder and the daily digest. */
