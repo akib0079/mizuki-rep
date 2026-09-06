@@ -1302,6 +1302,40 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .inline-form .field { margin: 0; flex: 1 1 190px; }
 
+/* Adding an admin: the two fields, then how they get in, then the button. */
+.add-admin { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line, #e2e8f0); }
+.add-admin .inline-form { margin-top: 0; padding-top: 0; border-top: 0; }
+.add-admin > .field { max-width: 420px; margin-top: 4px; }
+.add-admin > .btn { margin-top: 16px; }
+
+.choice-set { border: 0; padding: 0; margin: 18px 0 0; }
+.choice-set legend {
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft, #475569);
+  margin-bottom: 8px;
+}
+.choice {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 11px 13px;
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: 9px;
+  cursor: pointer;
+  max-width: 560px;
+}
+.choice + .choice { margin-top: 8px; }
+.choice:hover { border-color: var(--accent); }
+/* The checked state has to be visible without reading the radio itself. */
+.choice:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.choice:focus-within { outline: 2px solid var(--accent-soft); outline-offset: 1px; }
+.choice input { margin-top: 3px; accent-color: var(--accent); }
+.choice > span { display: flex; flex-direction: column; gap: 2px; }
+.choice strong { font-size: 14px; font-weight: 600; }
+.choice .muted { font-size: 12.5px; line-height: 1.5; }
+
 .row-inactive { opacity: 0.55; }
 .row-actions { display: flex; gap: 12px; justify-content: flex-end; }
 
@@ -1893,3 +1927,19 @@ h3 { letter-spacing: -0.01em; }
 /* Keeps the flag, the country code and the number together when a narrow column wraps. */
 .phone-abroad { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 .phone-abroad .flag { margin-right: 1px; }
+
+/* The bottom of an edit screen, where the irreversible thing lives — set apart from Save so the
+   two are never adjacent buttons. */
+.danger-zone {
+  margin-top: 28px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line, #e2e8f0);
+}
+.danger-zone .section-title { color: var(--danger, #b3382c); }
+.danger-zone p { margin: 6px 0 12px; }
+
+.plain-list { margin: 8px 0 0; padding-left: 20px; }
+.plain-list li { margin: 3px 0; }
+
+/* A channel that is switched off, said plainly rather than left to be inferred from its absence. */
+.recipient-pill.is-off { opacity: 0.6; }

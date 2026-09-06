@@ -143,6 +143,14 @@ export function TemplatesPage({ adminEmail }: { adminEmail: string }) {
               <h2 className="card-title">{active.label}</h2>
               <p className="card-sub">{active.description}</p>
 
+              {!active.brandingIsCurrent && (
+                <div className="banner banner-warn">
+                  This is your own wording, so it kept the older look while the rest were updated
+                  to the studio&rsquo;s colours and logo. Reset it below to take the new design —
+                  you will lose the changes you made to this one.
+                </div>
+              )}
+
               {message && <div className={`banner banner-${message.kind}`}>{message.text}</div>}
 
               <label className="field">

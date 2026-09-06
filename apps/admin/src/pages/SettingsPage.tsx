@@ -4,6 +4,7 @@ import { DateTime } from 'luxon'
 import { STUDIO_TZ } from '@mizuki/shared'
 import { ApiError, api, type Course } from '../api.js'
 import { PasswordField } from '../components/PasswordField.js'
+import { SkeletonLine } from '../components/Skeleton.js'
 
 interface EmailHealth {
   ok: boolean
@@ -227,6 +228,8 @@ export function SettingsPage({ totpEnabled }: { totpEnabled: boolean }) {
       </div>
 
       <SetCoursesCard onMessage={setMessage} />
+
+      <AlertsCard onMessage={setMessage} />
 
       <IntegrationsCard onMessage={setMessage} />
 
@@ -506,6 +509,187 @@ interface Integrations {
  * ever shown — the screen answers "is the right key in there?" without becoming a way to read a
  * secret back out.
  */
+interface AlertsHealth {
+  recipients: string[]
+  channels: { email: boolean; telegram: boolean; webPush: boolean }
+  scheduler: {
+    enabled: boolean
+    everyMinutes: number
+    lastRunAt: string | null
+    minutesSinceLastRun: number | null
+    stale: boolean
+    lastError: string | null
+  }
+  queued: number
+  studioTime: string
+  digest: { sendHour: number; lastSentAt: string | null }
+  reminders: { sendHour: number; lastSentAt: string | null }
+  newBookings: { lastSentAt: string | null }
+}
+
+/**
+ * Is the studio actually being told things?
+ *
+ * Each part of this was knowable before and none of it was in one place, which is how a daily
+ * digest that had never once been sent went unnoticed for months: nothing failed, so nothing
+ * appeared as a failure, and the only symptom was an email that never came. What is missing from
+ * a screen full of green ticks is a line saying when each kind of message last actually went out.
+ */
+function AlertsCard({ onMessage }: { onMessage: (m: { kind: 'ok' | 'danger'; text: string }) => void }) {
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ['alerts-health'],
+    queryFn: () => api.get<AlertsHealth>('/api/admin/settings/alerts'),
+    // The scheduler line goes stale on its own, so re-ask while the page is open.
+    refetchInterval: 60_000,
+  })
+
+  const sendNow = useMutation({
+    mutationFn: () =>
+      api.post<{ sent: number; failed: number; recipients: string[] }>(
+        '/api/admin/settings/alerts/digest-now',
+      ),
+    onSuccess: (r) => {
+      onMessage(
+        r.failed > 0
+          ? { kind: 'danger', text: `${r.failed} copy/copies did not send — see Email below for why.` }
+          : { kind: 'ok', text: `Today's summary sent to ${r.recipients.join(', ')}.` },
+      )
+      void refetch()
+    },
+    onError: (err) =>
+      onMessage({ kind: 'danger', text: err instanceof ApiError ? err.message : 'Could not send it.' }),
+  })
+
+  if (isLoading || !data) {
+    return (
+      <div className="card">
+        <h2 className="card-title">Alerts to you</h2>
+        <SkeletonLine w="70%" />
+      </div>
+    )
+  }
+
+  const { scheduler } = data
+  const hour = (h: number) => DateTime.fromObject({ hour: h }).toFormat('h a')
+
+  return (
+    <div className="card">
+      <h2 className="card-title">Alerts to you</h2>
+      <p className="card-sub">
+        What the system sends the studio, and when each kind last went out. Studio time is{' '}
+        {data.studioTime}.
+      </p>
+
+      {data.recipients.length === 0 ? (
+        <div className="banner banner-danger">
+          Nobody is set to receive alerts, so you will not hear about new bookings. Add someone on
+          the Team page.
+        </div>
+      ) : (
+        <p className="small">
+          Going to <strong>{data.recipients.join(', ')}</strong>. Change this on the Team page.
+        </p>
+      )}
+
+      {scheduler.stale && (
+        <div className="banner banner-danger">
+          Scheduled work last ran {scheduler.minutesSinceLastRun} minutes ago, and should run every{' '}
+          {scheduler.everyMinutes}. Reminders and summaries are not going out.
+          {scheduler.lastError ? ` Last error: ${scheduler.lastError}` : ''}
+        </div>
+      )}
+
+      {!scheduler.enabled && (
+        <div className="banner banner-warn">
+          The built-in timer is switched off, so nothing is sent unless something else is calling
+          the jobs endpoint.
+        </div>
+      )}
+
+      <div className="table-wrap">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>What</th>
+              <th>When</th>
+              <th>Last sent</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <strong>Today&rsquo;s summary</strong>
+                <div className="small muted">Every class today, and how many are booked.</div>
+              </td>
+              <td>{hour(data.digest.sendHour)} each morning</td>
+              <td>
+                <LastSent at={data.digest.lastSentAt} />
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <strong>New booking</strong>
+                <div className="small muted">The moment someone books.</div>
+              </td>
+              <td>Straight away</td>
+              <td>
+                <LastSent at={data.newBookings.lastSentAt} />
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <strong>Student reminders</strong>
+                <div className="small muted">Sent to students two days before their class.</div>
+              </td>
+              <td>{hour(data.reminders.sendHour)}, two days before</td>
+              <td>
+                <LastSent at={data.reminders.lastSentAt} />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div className="row" style={{ marginTop: 14, alignItems: 'center', gap: 12 }}>
+        <button
+          type="button"
+          className="btn btn-quiet"
+          disabled={sendNow.isPending || data.recipients.length === 0}
+          onClick={() => sendNow.mutate()}
+        >
+          {sendNow.isPending ? 'Sending\u2026' : 'Send today\u2019s summary now'}
+        </button>
+        <span className="small muted">
+          {/* Waiting until tomorrow to find out whether it works is not a test. */}
+          Goes to everyone above, right now, without waiting for the morning.
+        </span>
+      </div>
+
+      <ul className="pill-list" style={{ marginTop: 14 }}>
+        <li className={`recipient-pill ${data.channels.email ? '' : 'is-off'}`}>
+          Email {data.channels.email ? 'on' : 'off'}
+        </li>
+        <li className={`recipient-pill ${data.channels.telegram ? '' : 'is-off'}`}>
+          Telegram {data.channels.telegram ? 'on' : 'off'}
+        </li>
+        <li className={`recipient-pill ${data.channels.webPush ? '' : 'is-off'}`}>
+          Phone notifications {data.channels.webPush ? 'on' : 'off'}
+        </li>
+        {data.queued > 0 && <li className="recipient-pill">{data.queued} waiting to send</li>}
+      </ul>
+    </div>
+  )
+}
+
+/** "3 hours ago", or the fact that it has never happened — which is the answer that matters. */
+function LastSent({ at }: { at: string | null }) {
+  if (!at) return <span className="pill pill-warn">Never</span>
+  const when = DateTime.fromISO(at).setZone(STUDIO_TZ)
+  return (
+    <span title={when.toFormat('ccc d LLL yyyy, h:mm a')}>{when.toRelative() ?? when.toFormat('d LLL')}</span>
+  )
+}
+
 function IntegrationsCard({ onMessage }: { onMessage: (m: { kind: 'ok' | 'danger'; text: string }) => void }) {
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState<string | null>(null)

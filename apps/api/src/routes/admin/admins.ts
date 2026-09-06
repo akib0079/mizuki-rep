@@ -63,7 +63,13 @@ adminAdminsRouter.get(
 )
 
 /**
- * Add someone, and return the link that lets them set their own password.
+ * Add someone — either by handing them a link, or by setting their password here and now.
+ *
+ * The link is the better of the two and stays the default: nobody but its owner ever knows the
+ * password, so the audit log means what it says. But it assumes the two people can pass a link
+ * between them, and the studio's case is often the opposite one — sitting beside the person,
+ * setting up their access in front of them. Refusing that turns into a shared login, which is
+ * worse than either.
  *
  * The link comes back in the response rather than only by email because email cannot be relied
  * on to reach them: on the sandbox sender it will not, and the invite would be a dead end with
@@ -76,6 +82,14 @@ adminAdminsRouter.post(
       .object({
         name: z.string().trim().min(1).max(80),
         email: z.string().trim().toLowerCase().email(),
+        /**
+         * Set this and they can sign in immediately; leave it out and they get an invitation.
+         *
+         * Same length the account holder is held to when they choose their own, because a
+         * password someone else picks for you is the one most likely to be short and guessable —
+         * and this one is typed by a person who will not be the one living with it.
+         */
+        password: z.string().min(12, 'Please choose a password of at least 12 characters').optional(),
       })
       .parse(req.body)
 
@@ -85,17 +99,37 @@ adminAdminsRouter.post(
     }
 
     /*
-     * A random password nobody is told, so the account cannot be signed into until the invite is
-     * used. The field is required, and leaving it empty or predictable would be the difference
-     * between an unusable account and an open one.
+     * Without a password chosen here: a random one nobody is told, so the account cannot be
+     * signed into until the invite is used. The field is required, and leaving it empty or
+     * predictable would be the difference between an unusable account and an open one.
      */
     const admin = await AdminUserModel.create({
       name: input.name,
       email: input.email,
-      passwordHash: await argon2.hash(randomBytes(32).toString('hex'), { type: argon2.argon2id }),
+      passwordHash: await argon2.hash(input.password ?? randomBytes(32).toString('hex'), {
+        type: argon2.argon2id,
+      }),
       role: 'owner',
       active: true,
     })
+
+    if (input.password) {
+      await recordAudit({
+        action: 'admin.create',
+        entity: 'AdminUser',
+        entityId: admin._id,
+        actor: actorOf(req),
+        // Recorded because it is the one route where somebody else knows the password.
+        reason: `Added ${input.name} <${input.email}> as an admin with a password set by hand`,
+      })
+
+      res.status(201).json({
+        admin: { id: String(admin._id), name: admin.name, email: admin.email, active: true },
+        passwordSet: true,
+        signInUrl: `${config.PUBLIC_API_URL}/admin`,
+      })
+      return
+    }
 
     const raw = randomBytes(32).toString('base64url')
     await AdminInviteModel.create({
@@ -118,6 +152,51 @@ adminAdminsRouter.post(
       inviteUrl: `${config.PUBLIC_API_URL}/admin/accept-invite?token=${raw}`,
       expiresInHours: INVITE_TTL_HOURS,
     })
+  }),
+)
+
+/**
+ * Set another admin's password directly.
+ *
+ * The reset link above is still the right answer whenever the two people are not in the same
+ * room, and it stays the button the console offers first. This is for the case the studio
+ * actually hit: a person who cannot receive the link — email that does not reach them, a shared
+ * device, someone standing right there — where the alternative is not a more secure flow, it is
+ * two people using one login.
+ *
+ * Every existing session for that account ends, exactly as a reset link does. If the reason is
+ * that the old password leaked, leaving those sessions alive defeats the point.
+ */
+adminAdminsRouter.post(
+  '/:id/set-password',
+  asyncRoute(async (req, res) => {
+    const { password } = z
+      .object({
+        password: z.string().min(12, 'Please choose a password of at least 12 characters'),
+      })
+      .parse(req.body)
+
+    const admin = await AdminUserModel.findById(req.params.id)
+    if (!admin) throw new NotFoundError('Admin')
+
+    admin.passwordHash = await argon2.hash(password, { type: argon2.argon2id })
+    admin.tokenVersion += 1
+    admin.failedLoginCount = 0
+    admin.lockedUntil = null
+    await admin.save()
+
+    // Any outstanding invitation or reset link stops working — there is a password now.
+    await AdminInviteModel.deleteMany({ adminUserId: admin._id, usedAt: null })
+
+    await recordAudit({
+      action: 'admin.set_password',
+      entity: 'AdminUser',
+      entityId: admin._id,
+      actor: actorOf(req),
+      reason: `Set a password by hand for ${admin.email} and signed out their sessions`,
+    })
+
+    res.json({ ok: true, email: admin.email })
   }),
 )
 

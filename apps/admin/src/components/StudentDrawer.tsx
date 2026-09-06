@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { DateTime } from 'luxon'
 import { STUDIO_COUNTRY, STUDIO_TZ } from '@mizuki/shared'
 import { ApiError, api, type Course, type PackageSummary } from '../api.js'
+import { ConfirmDialog } from './ConfirmDialog.js'
 import { CountryFlag } from './CountryFlag.js'
 import { Icon } from './Icon.js'
 import { QueryState } from './QueryState.js'
@@ -263,7 +264,15 @@ export function StudentDrawer({ studentId, onClose }: { studentId: string; onClo
           )}
 
           {tab === 'notes' && (
-            <DetailsTab student={student} onChanged={refresh} onMessage={setMessage} />
+            <DetailsTab
+              student={student}
+              onChanged={refresh}
+              onMessage={setMessage}
+              onDeleted={() => {
+                void queryClient.invalidateQueries({ queryKey: ['students'] })
+                onClose()
+              }}
+            />
           )}
         </div>
       </aside>
@@ -497,11 +506,14 @@ function DetailsTab({
   student,
   onChanged,
   onMessage,
+  onDeleted,
 }: {
   student: StudentDetail['student']
   onChanged: () => void
   onMessage: (m: { kind: 'ok' | 'danger'; text: string }) => void
+  onDeleted: () => void
 }) {
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [form, setForm] = useState({
     name: student.name,
     email: student.email,
@@ -553,7 +565,115 @@ function DetailsTab({
       <button type="button" className="btn btn-primary" disabled={save.isPending} onClick={() => save.mutate()}>
         {save.isPending ? 'Saving…' : 'Save changes'}
       </button>
+
+      <div className="danger-zone">
+        <div className="section-title">Remove this student</div>
+        <p className="muted small">
+          Deletes {student.name} and everything attached to them — bookings, history and course
+          packages. Their places go back on sale. This cannot be undone, and nobody is emailed.
+        </p>
+        <p className="muted small">
+          If this is the same person as another record, join them on the Students page instead —
+          that keeps both histories.
+        </p>
+        <button type="button" className="btn btn-danger" onClick={() => setConfirmingDelete(true)}>
+          Delete student
+        </button>
+      </div>
+
+      {confirmingDelete && (
+        <DeleteStudentDialog
+          studentId={student.id}
+          name={student.name}
+          onCancel={() => setConfirmingDelete(false)}
+          onDeleted={onDeleted}
+        />
+      )}
     </>
+  )
+}
+
+interface DeletionPreview {
+  name: string
+  email: string
+  upcomingBookings: { title: string; when: string }[]
+  totalBookings: number
+  packages: number
+  unusedSessions: number
+}
+
+/**
+ * What deleting somebody actually takes with it, asked before rather than said after.
+ *
+ * The preview is the whole point. "Delete student" on a name in a list gives no hint that the
+ * same click cancels a class they are booked into on Saturday, or writes off four course sessions
+ * they have paid for — and those are exactly the two things worth stopping for.
+ */
+function DeleteStudentDialog({
+  studentId,
+  name,
+  onCancel,
+  onDeleted,
+}: {
+  studentId: string
+  name: string
+  onCancel: () => void
+  onDeleted: () => void
+}) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['student-deletion', studentId],
+    queryFn: () => api.get<DeletionPreview>(`/api/admin/students/${studentId}/deletion`),
+  })
+
+  const remove = useMutation({
+    mutationFn: () => api.delete(`/api/admin/students/${studentId}`),
+    onSuccess: onDeleted,
+  })
+
+  return (
+    <ConfirmDialog
+      title={`Delete ${name}?`}
+      confirmLabel="Delete permanently"
+      danger
+      busy={remove.isPending}
+      onCancel={onCancel}
+      onConfirm={async () => {
+        await remove.mutateAsync()
+      }}
+    >
+      {isLoading ? (
+        <p className="muted">Checking what this would remove…</p>
+      ) : (
+        <>
+          <p>This removes {data?.email} and everything below. It cannot be undone.</p>
+          <ul className="plain-list">
+            <li>{data?.totalBookings ?? 0} booking(s), including their history</li>
+            <li>{data?.packages ?? 0} course package(s)</li>
+          </ul>
+
+          {(data?.upcomingBookings.length ?? 0) > 0 && (
+            <div className="banner banner-warn" style={{ marginTop: 12 }}>
+              <strong>They are still booked into {data!.upcomingBookings.length} class(es).</strong>
+              <ul className="plain-list">
+                {data!.upcomingBookings.map((b) => (
+                  <li key={`${b.title}-${b.when}`}>
+                    {b.title} — {DateTime.fromISO(b.when).setZone(STUDIO_TZ).toFormat('ccc d LLL, h:mm a')}
+                  </li>
+                ))}
+              </ul>
+              Their places go back on sale. They will not be told.
+            </div>
+          )}
+
+          {(data?.unusedSessions ?? 0) > 0 && (
+            <div className="banner banner-danger" style={{ marginTop: 12 }}>
+              They have <strong>{data!.unusedSessions} unused course session(s)</strong> that they
+              have paid for. Deleting writes those off.
+            </div>
+          )}
+        </>
+      )}
+    </ConfirmDialog>
   )
 }
 

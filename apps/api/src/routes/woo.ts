@@ -11,12 +11,13 @@ import { BookingModel, CourseTypeModel, PackageModel, SessionModel, StudentModel
 import { confirmHold, createBooking, cancelBooking } from '../services/bookingService.js'
 import { grantSessions } from '../services/packageService.js'
 import { bookSeries, findSeriesByProduct } from '../services/seriesService.js'
-import { queueMessage } from '../services/notificationService.js'
+import { queueAdminBroadcast, queueMessage } from '../services/notificationService.js'
 import { safeEqual } from '../auth/tokens.js'
 import { asyncRoute } from '../middleware/errorHandler.js'
 import { ForbiddenError } from '../errors.js'
 import { SessionFullError } from '../errors.js'
-import { config } from '../config.js'
+import { BRAND, wrapEmailHtml } from '../services/emailTemplates.js'
+import { config, bookingPageUrl } from '../config.js'
 import { logger } from '../logger.js'
 
 /**
@@ -266,19 +267,24 @@ async function notifyPackageGranted(
     dedupeKey: `package_granted:${pkg._id}`,
     to: student.email,
     subject: `Your ${course.name} course is ready to book`,
-    bodyText: `Hello ${student.name},\n\nThank you — your ${course.name} course package is ready. You have ${pkg.totalSessions} sessions to use.${expiryLine}\n\nBook your dates: ${config.PUBLIC_SITE_URL}/book\n\nMizuki Flora`,
-    bodyHtml: `<p>Hello ${student.name},</p><p>Thank you — your <strong>${course.name}</strong> course package is ready. You have <strong>${pkg.totalSessions}</strong> sessions to use.${expiryLine}</p><p><a href="${config.PUBLIC_SITE_URL}/book">Book your dates</a></p><p>Mizuki Flora</p>`,
+    bodyText: `Hello ${student.name},\n\nThank you — your ${course.name} course package is ready. You have ${pkg.totalSessions} sessions to use.${expiryLine}\n\nBook your dates: ${bookingPageUrl()}\n\nMizuki Flora`,
+    bodyHtml: wrapEmailHtml(
+      `<p>Hello ${student.name},</p><p>Thank you — your <strong>${course.name}</strong> course package is ready. You have <strong>${pkg.totalSessions}</strong> sessions to use.${expiryLine}</p>` +
+        `<p style="margin:24px 0;"><a href="${bookingPageUrl()}" style="display:inline-block;background:${BRAND.primary};color:${BRAND.onPrimary};text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:600;">Book your dates</a></p>`,
+      config.PUBLIC_SITE_URL,
+    ),
   })
 
-  if (config.ADMIN_ALERT_EMAIL) {
-    await queueMessage('admin_package_sold', {
-      dedupeKey: `admin_package_sold:${pkg._id}`,
-      to: config.ADMIN_ALERT_EMAIL,
-      subject: `Course package sold: ${student.name} — ${course.name}`,
-      bodyText: `${student.name} (${student.email}) bought a ${course.name} package of ${pkg.totalSessions} sessions.`,
-      bodyHtml: `<p><strong>${student.name}</strong> (${student.email}) bought a ${course.name} package of ${pkg.totalSessions} sessions.</p>`,
-    })
-  }
+  await queueAdminBroadcast('admin_package_sold', {
+    dedupeSuffix: String(pkg._id),
+    subject: `Course package sold: ${student.name} — ${course.name}`,
+    text: `${student.name} (${student.email}) bought a ${course.name} package of ${pkg.totalSessions} sessions.`,
+    html: wrapEmailHtml(
+      `<p><strong>${student.name}</strong> (${student.email}) bought a ${course.name} package of ${pkg.totalSessions} sessions.</p>`,
+      config.PUBLIC_SITE_URL,
+    ),
+    telegramText: `💳 ${student.name} bought a ${course.name} package — ${pkg.totalSessions} sessions.`,
+  })
 }
 
 async function releaseOrder(payload: OrderPayload): Promise<number> {
@@ -341,20 +347,15 @@ async function alertPaidButFull(payload: OrderPayload, sessionId: string): Promi
    * in the system is the one most likely to vanish — so the Outbox row is always written, and
    * delivery is what depends on configuration. An undelivered row still surfaces in the console.
    */
-  await queueMessage('admin_paid_but_full', {
-    dedupeKey: `admin_paid_but_full:${payload.orderId}:${sessionId}`,
-    to: config.ADMIN_ALERT_EMAIL ?? '',
+  await queueAdminBroadcast('admin_paid_but_full', {
+    dedupeSuffix: `${payload.orderId}:${sessionId}`,
     subject: `Action needed: order #${payload.orderId} paid for a full class`,
-    bodyText: line,
-    bodyHtml: `<p style="font-weight:600;color:#b3382c">Payment received for a class with no places left.</p><p>${line.replace(/\n/g, '<br />')}</p>`,
-    payload: { urgent: true, orderId: payload.orderId, sessionId },
+    text: line,
+    html: wrapEmailHtml(
+      `<p style="font-weight:600;color:#b3382c">Payment received for a class with no places left.</p><p>${line.replace(/\n/g, '<br />')}</p>`,
+      config.PUBLIC_SITE_URL,
+    ),
+    telegramText: line,
+    alwaysQueue: true,
   })
-
-  if (config.TELEGRAM_BOT_TOKEN && config.TELEGRAM_CHAT_ID) {
-    await queueMessage('admin_paid_but_full', {
-      dedupeKey: `admin_paid_but_full:telegram:${payload.orderId}:${sessionId}`,
-      channel: 'telegram',
-      bodyText: line,
-    })
-  }
 }

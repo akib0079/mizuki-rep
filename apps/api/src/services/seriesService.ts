@@ -15,7 +15,8 @@ import {
   type CourseSeriesDoc,
 } from '../models/index.js'
 import { releaseSeat, reserveSeat } from './seatService.js'
-import { queueMessage } from './notificationService.js'
+import { queueAdminBroadcast, queueMessage } from './notificationService.js'
+import { wrapEmailHtml } from './emailTemplates.js'
 import { recordAudit } from './auditService.js'
 import { AppError, ConflictError, NotFoundError, SessionFullError } from '../errors.js'
 import { config } from '../config.js'
@@ -208,18 +209,22 @@ async function notifySeriesBooked(
     to: student.email,
     subject: `You're booked on ${series.name}`,
     bodyText: `Hello ${student.name},\n\nYour place on ${series.name} is confirmed. All ${sessions.length} dates are booked for you:\n\n${dateLines}\n\nWe look forward to seeing you.\n\nMizuki Flora`,
-    bodyHtml: `<p>Hello ${student.name},</p><p>Your place on <strong>${series.name}</strong> is confirmed. All ${sessions.length} dates are booked for you:</p><ul>${dateHtml}</ul><p>We look forward to seeing you.</p><p>Mizuki Flora</p>`,
+    bodyHtml: wrapEmailHtml(
+      `<p>Hello ${student.name},</p><p>Your place on <strong>${series.name}</strong> is confirmed. All ${sessions.length} dates are booked for you:</p><ul>${dateHtml}</ul><p>We look forward to seeing you.</p>`,
+      config.PUBLIC_SITE_URL,
+    ),
   })
 
-  if (config.ADMIN_ALERT_EMAIL) {
-    await queueMessage('admin_series_booked', {
-      dedupeKey: `admin_series_booked:${series._id}:${student._id}:${bookings[0]?._id}`,
-      to: config.ADMIN_ALERT_EMAIL,
-      subject: `Course booked: ${student.name} — ${series.name}`,
-      bodyText: `${student.name} (${student.email}) booked all ${sessions.length} dates of ${series.name}.\n\n${dateLines}`,
-      bodyHtml: `<p><strong>${student.name}</strong> (${student.email}) booked all ${sessions.length} dates of ${series.name}.</p><ul>${dateHtml}</ul>`,
-    })
-  }
+  await queueAdminBroadcast('admin_series_booked', {
+    dedupeSuffix: `${series._id}:${student._id}:${bookings[0]?._id}`,
+    subject: `Course booked: ${student.name} — ${series.name}`,
+    text: `${student.name} (${student.email}) booked all ${sessions.length} dates of ${series.name}.\n\n${dateLines}`,
+    html: wrapEmailHtml(
+      `<p><strong>${student.name}</strong> (${student.email}) booked all ${sessions.length} dates of ${series.name}.</p><ul>${dateHtml}</ul>`,
+      config.PUBLIC_SITE_URL,
+    ),
+    telegramText: `📚 ${student.name} booked all ${sessions.length} dates of ${series.name}.\n\n${dateLines}`,
+  })
 }
 
 /** Cancel a student off every date of a course at once. */

@@ -1,5 +1,7 @@
 import { Router } from 'express'
 import { z } from 'zod'
+import { DateTime } from 'luxon'
+import { STUDIO_TZ } from '@mizuki/shared'
 import {
   courseTypeInputSchema,
   emailTemplateInputSchema,
@@ -13,6 +15,7 @@ import {
   CourseTypeModel,
   EmailTemplateModel,
   PackageModel,
+  OutboxModel,
   PushSubscriptionModel,
   ScheduleRuleModel,
   SessionModel,
@@ -20,11 +23,17 @@ import {
 import { getSeriesAvailability } from '../../services/seriesService.js'
 import { buildDashboard } from '../../services/dashboardService.js'
 import { hoursSinceLastBackup, listBackups, readBackup, runBackup } from '../../services/backupService.js'
-import { DEFAULT_TEMPLATES, renderTemplate, resetTemplate } from '../../services/emailTemplates.js'
+import {
+  DEFAULT_TEMPLATES,
+  renderTemplate,
+  resetTemplate,
+  usesCurrentBranding,
+} from '../../services/emailTemplates.js'
 import {
   checkEmailKey,
   checkTelegram,
   clearFailedMessages,
+  drainOutbox,
   sendDirectEmail,
   sendTelegramTest,
 } from '../../services/mailer.js'
@@ -38,6 +47,12 @@ import {
   setSecret,
 } from '../../services/secretStore.js'
 import { materializeSessions } from '../../services/scheduleService.js'
+import {
+  notificationRecipients,
+  telegramConfigured,
+} from '../../services/adminNotificationService.js'
+import { sendDailyDigest } from '../../jobs/index.js'
+import { schedulerStatus } from '../../scheduler.js'
 import { findSeatDrift, repairSeatDrift } from '../../services/seatService.js'
 import { recordAudit } from '../../services/auditService.js'
 import { actorOf } from '../../middleware/auth.js'
@@ -306,15 +321,22 @@ adminSettingsRouter.get(
     res.json({
       templates: Object.entries(DEFAULT_TEMPLATES).map(([key, def]) => {
         const override = byKey.get(key)
+        const bodyHtml = override?.bodyHtml ?? def.bodyHtml
         return {
           key,
           label: def.label,
           description: def.description,
           variables: def.variables,
           subject: override?.subject ?? def.subject,
-          bodyHtml: override?.bodyHtml ?? def.bodyHtml,
+          bodyHtml,
           bodyText: override?.bodyText ?? def.bodyText,
           isCustomised: Boolean(override) && override!.updatedBy !== 'seed',
+          /*
+           * Wording the studio wrote themselves is never overwritten by a deploy, so a design
+           * change reaches every email except theirs. Saying so is the difference between an
+           * offer to update it and one message in fifteen quietly looking wrong.
+           */
+          brandingIsCurrent: usesCurrentBranding(bodyHtml),
         }
       }),
     })
@@ -664,6 +686,101 @@ adminSettingsRouter.post(
   '/integrations/telegram/test',
   asyncRoute(async (_req, res) => {
     res.json(await sendTelegramTest())
+  }),
+)
+
+// --- Alerts to the studio ---------------------------------------------------
+
+/**
+ * Is the studio actually being told things?
+ *
+ * Every part of this was already knowable and none of it was in one place, which is how a daily
+ * digest that had never once been sent went unnoticed: nothing was failing, so nothing showed up
+ * as a failure. The three questions that matter are who it goes to, whether the timer that sends
+ * it is running, and when each kind last went out — so they are answered together, on one screen.
+ */
+adminSettingsRouter.get(
+  '/alerts',
+  asyncRoute(async (_req, res) => {
+    const scheduler = schedulerStatus()
+    const studioNow = DateTime.now().setZone(STUDIO_TZ)
+
+    const [recipients, telegram, lastDigest, lastReminder, lastBooking, queued] = await Promise.all([
+      notificationRecipients(),
+      telegramConfigured(),
+      lastSentAt('admin_daily_digest'),
+      lastSentAt('reminder_2day'),
+      lastSentAt('admin_new_booking'),
+      OutboxModel.countDocuments({ status: 'pending' }),
+    ])
+
+    res.json({
+      recipients,
+      channels: {
+        email: recipients.length > 0,
+        telegram,
+        webPush: Boolean(config.VAPID_PUBLIC_KEY && config.VAPID_PRIVATE_KEY),
+      },
+      scheduler: {
+        enabled: scheduler.enabled,
+        everyMinutes: scheduler.everyMinutes,
+        lastRunAt: scheduler.lastRunAt,
+        minutesSinceLastRun: scheduler.minutesSinceLastRun,
+        // A timer that has quietly stopped looks exactly like one that is working.
+        stale:
+          scheduler.enabled &&
+          scheduler.minutesSinceLastRun !== null &&
+          scheduler.minutesSinceLastRun > 30,
+        lastError: scheduler.lastError,
+      },
+      queued,
+      studioTime: studioNow.toFormat('h:mm a, ccc d LLL'),
+      digest: { sendHour: config.DIGEST_SEND_HOUR, lastSentAt: lastDigest },
+      reminders: { sendHour: config.REMINDER_SEND_HOUR, lastSentAt: lastReminder },
+      newBookings: { lastSentAt: lastBooking },
+    })
+  }),
+)
+
+/** When a message of this kind last actually left the building — not when it was queued. */
+async function lastSentAt(type: string): Promise<Date | null> {
+  const row = await OutboxModel.findOne({ type, status: 'sent' })
+    .sort({ sentAt: -1 })
+    .select('sentAt')
+    .lean()
+  return row?.sentAt ?? null
+}
+
+/**
+ * Send this morning's digest right now.
+ *
+ * Waiting until tomorrow to find out whether a fix worked is not a test, it is a hope. This
+ * queues the digest to everyone it would normally go to and drains the queue in the same
+ * request, so the answer comes back as "sent to these three people" or as the reason it did not.
+ */
+adminSettingsRouter.post(
+  '/alerts/digest-now',
+  asyncRoute(async (req, res) => {
+    const recipients = await notificationRecipients()
+    if (recipients.length === 0) {
+      throw new AppError(
+        400,
+        'no_recipients',
+        'There is nobody to send it to. Add an admin, or an extra address, on the Team page.',
+      )
+    }
+
+    const queued = await sendDailyDigest(new Date(), { force: true })
+    const mail = await drainOutbox()
+
+    await recordAudit({
+      actor: actorOf(req),
+      action: 'settings.digest_test',
+      entity: 'Outbox',
+      reason: `Sent today's digest to ${recipients.join(', ')}`,
+    })
+
+    res.json({ queued, sent: mail.sent, failed: mail.failed, recipients })
   }),
 )
 

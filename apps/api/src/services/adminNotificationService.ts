@@ -1,5 +1,6 @@
 import type { Types } from 'mongoose'
 import { AdminNotificationModel, AdminUserModel, SettingModel } from '../models/index.js'
+import { SECRET_KEYS, getSecret } from './secretStore.js'
 import { config } from '../config.js'
 import { logger } from '../logger.js'
 
@@ -55,6 +56,25 @@ export async function setExtraRecipients(emails: string[]): Promise<string[]> {
 export async function getExtraRecipients(): Promise<string[]> {
   const row = await SettingModel.findOne({ key: EXTRA_RECIPIENTS_KEY }).lean()
   return Array.isArray(row?.value) ? (row.value as string[]) : []
+}
+
+/**
+ * Is the Telegram bot actually reachable — a token *and* a chat to send to?
+ *
+ * Asked of the secret store rather than the environment, because the settings page writes there.
+ * Every alert used to test `config.TELEGRAM_BOT_TOKEN` directly, so a bot the studio set up
+ * through the console was reported as "Ready" on that page and then skipped by every single
+ * alert: the check and the sender were reading two different places.
+ *
+ * A token with no chosen chat is the half-configured state Telegram makes easy to reach, and it
+ * sends nothing — so both halves are required here, exactly as the sender requires them.
+ */
+export async function telegramConfigured(): Promise<boolean> {
+  const [token, chatId] = await Promise.all([
+    getSecret(SECRET_KEYS.telegramBotToken, config.TELEGRAM_BOT_TOKEN),
+    getSecret(SECRET_KEYS.telegramChatId, config.TELEGRAM_CHAT_ID),
+  ])
+  return Boolean(token && chatId)
 }
 
 export interface NotifyInput {

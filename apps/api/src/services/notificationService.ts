@@ -9,8 +9,12 @@ import {
   type EmailTemplateKey,
 } from '@mizuki/shared'
 import { OutboxModel, type BookingDoc, type CourseTypeDoc, type PackageDoc, type SessionDoc, type StudentDoc } from '../models/index.js'
-import { renderTemplate } from './emailTemplates.js'
-import { notificationRecipients, recordAdminNotification } from './adminNotificationService.js'
+import { renderTemplate, wrapEmailHtml } from './emailTemplates.js'
+import {
+  notificationRecipients,
+  recordAdminNotification,
+  telegramConfigured,
+} from './adminNotificationService.js'
 import { config, bookingPageUrl, myBookingsUrl } from '../config.js'
 import { logger } from '../logger.js'
 import { isDuplicateKeyError } from './transaction.js'
@@ -188,38 +192,64 @@ export async function queueAdminAwaitingConfirmation(ctx: BookingContext): Promi
   const key = ctx.booking.wooOrderId ? 'admin_awaiting_confirmation' : 'admin_awaiting_payment'
   const rendered = await renderTemplate(key, vars)
 
-  await queueAdminEmail(key, {
+  await queueAdminBroadcast(key, {
     dedupeSuffix: String(ctx.booking._id),
     subject: rendered.subject,
     html: rendered.html,
     text: rendered.text,
+    telegramText:
+      `\u{1F4B3} ${ctx.student.name} \u2014 ${vars.sessionTitle}\n${vars.sessionDate} \u00B7 ${vars.sessionTimeRange}\n` +
+      (ctx.booking.wooOrderId ? 'Paid, waiting for you to confirm.' : 'Payment still to arrange.'),
     bookingId: ctx.booking._id,
     sessionId: ctx.session._id,
   })
 }
 
+export interface AdminBroadcast {
+  /** Tells one alert of this kind from the next: a booking id, an order number, today's date. */
+  dedupeSuffix: string
+  subject: string
+  html: string
+  text: string
+  /** The short form for a phone. Omit and this alert simply does not go to Telegram. */
+  telegramText?: string
+  bookingId?: unknown
+  sessionId?: unknown
+  /**
+   * Write the queue row even when there is nobody to send it to.
+   *
+   * For the one alert that must never evaporate — a student who paid for a place that no longer
+   * exists. An undelivered row is still visible in the console; a row that was never written is
+   * not anywhere.
+   */
+  alwaysQueue?: boolean
+}
+
 /**
- * Fan one message out to everyone who should hear about bookings.
+ * Fan one alert out to everyone who should hear about it, on every channel that is set up.
  *
- * The recipient list used to be a single environment variable, so a second person in the studio
- * meant a redeploy. The dedupe key carries the address, or the first recipient's row would claim
- * the key and everyone else would be silently skipped as a duplicate.
+ * Every studio-facing alert in the system goes through here, and that is the point. They used to
+ * be written out one at a time at each call site, each deciding for itself who to tell — and
+ * because the obvious thing to write is `config.ADMIN_ALERT_EMAIL`, most of them told exactly one
+ * address from the environment. The console said "every admin above is emailed automatically",
+ * and for all but one alert that was not true: an unset variable meant the daily digest went
+ * nowhere at all, silently, with three admins on the team page.
+ *
+ * Two rules keep this honest. Who hears about something is decided in one place
+ * (`notificationRecipients`), so adding an admin adds them to everything at once. And whether
+ * Telegram is on is asked of the secret store, which is where the console saves it — the old
+ * checks read the environment variable, so a bot configured through the console was reported as
+ * "Ready" on the settings page while every alert skipped it.
+ *
+ * The dedupe key carries the address, or the first recipient's row claims the key and everyone
+ * else is silently dropped as a duplicate.
  */
-async function queueAdminEmail(
-  key: string,
-  opts: {
-    dedupeSuffix: string
-    subject: string
-    html: string
-    text: string
-    bookingId?: unknown
-    sessionId?: unknown
-  },
-): Promise<void> {
+export async function queueAdminBroadcast(key: string, opts: AdminBroadcast): Promise<number> {
   const recipients = await notificationRecipients()
+  let queued = 0
 
   for (const to of recipients) {
-    await queueMessage(key, {
+    const sent = await queueMessage(key, {
       dedupeKey: `${key}:email:${opts.dedupeSuffix}:${to}`,
       to,
       subject: opts.subject,
@@ -228,7 +258,34 @@ async function queueAdminEmail(
       relatedBookingId: opts.bookingId as never,
       relatedSessionId: opts.sessionId as never,
     })
+    if (sent) queued++
   }
+
+  if (recipients.length === 0 && opts.alwaysQueue) {
+    const sent = await queueMessage(key, {
+      dedupeKey: `${key}:email:${opts.dedupeSuffix}`,
+      to: '',
+      subject: opts.subject,
+      bodyHtml: opts.html,
+      bodyText: opts.text,
+      relatedBookingId: opts.bookingId as never,
+      relatedSessionId: opts.sessionId as never,
+    })
+    if (sent) queued++
+  }
+
+  if (opts.telegramText && (await telegramConfigured())) {
+    const sent = await queueMessage(key, {
+      dedupeKey: `${key}:telegram:${opts.dedupeSuffix}`,
+      channel: 'telegram',
+      bodyText: opts.telegramText,
+      relatedBookingId: opts.bookingId as never,
+      relatedSessionId: opts.sessionId as never,
+    })
+    if (sent) queued++
+  }
+
+  return queued
 }
 
 export async function queueRescheduleConfirmation(
@@ -299,11 +356,14 @@ export async function queueAdminNewBooking(ctx: BookingContext): Promise<void> {
 
   const rendered = await renderTemplate('admin_new_booking', vars)
 
-  await queueAdminEmail('admin_new_booking', {
+  const shortLine = `📅 ${ctx.student.name} booked ${vars.sessionTitle}\n${vars.sessionDate} · ${vars.sessionTimeRange}\n${left} of ${ctx.session.capacity} places left`
+
+  await queueAdminBroadcast('admin_new_booking', {
     dedupeSuffix: String(ctx.booking._id),
     subject: rendered.subject,
     html: rendered.html,
     text: rendered.text,
+    telegramText: shortLine,
     bookingId: ctx.booking._id,
     sessionId: ctx.session._id,
   })
@@ -319,17 +379,6 @@ export async function queueAdminNewBooking(ctx: BookingContext): Promise<void> {
     studentId: ctx.student._id,
     dedupeKey: `new_booking:${ctx.booking._id}`,
   })
-
-  const shortLine = `📅 ${ctx.student.name} booked ${vars.sessionTitle}\n${vars.sessionDate} · ${vars.sessionTimeRange}\n${left} of ${ctx.session.capacity} places left`
-
-  if (config.TELEGRAM_BOT_TOKEN && config.TELEGRAM_CHAT_ID) {
-    await queueMessage('admin_new_booking', {
-      dedupeKey: `admin_new_booking:telegram:${ctx.booking._id}`,
-      channel: 'telegram',
-      bodyText: shortLine,
-      relatedBookingId: ctx.booking._id,
-    })
-  }
 
   if (config.VAPID_PUBLIC_KEY && config.VAPID_PRIVATE_KEY) {
     await queueMessage('admin_new_booking', {
@@ -352,25 +401,15 @@ export async function queueAdminBookingChange(
   const verb = kind === 'cancelled' ? 'cancelled' : 'moved to'
   const line = `⚠️ ${ctx.student.name} ${verb} ${vars.sessionTitle}\n${vars.sessionDate} · ${vars.sessionTimeRange}`
 
-  if (config.ADMIN_ALERT_EMAIL) {
-    await queueMessage(`admin_booking_${kind}`, {
-      dedupeKey: `admin_booking_${kind}:email:${ctx.booking._id}`,
-      to: config.ADMIN_ALERT_EMAIL,
-      subject: `Booking ${kind}: ${ctx.student.name} — ${vars.sessionTitle}, ${vars.sessionDate}`,
-      bodyText: line,
-      bodyHtml: `<p>${line.replace(/\n/g, '<br />')}</p>`,
-      relatedBookingId: ctx.booking._id,
-    })
-  }
-
-  if (config.TELEGRAM_BOT_TOKEN && config.TELEGRAM_CHAT_ID) {
-    await queueMessage(`admin_booking_${kind}`, {
-      dedupeKey: `admin_booking_${kind}:telegram:${ctx.booking._id}`,
-      channel: 'telegram',
-      bodyText: line,
-      relatedBookingId: ctx.booking._id,
-    })
-  }
+  await queueAdminBroadcast(`admin_booking_${kind}`, {
+    dedupeSuffix: String(ctx.booking._id),
+    subject: `Booking ${kind}: ${ctx.student.name} — ${vars.sessionTitle}, ${vars.sessionDate}`,
+    html: wrapEmailHtml(`<p>${line.replace(/\n/g, '<br />')}</p>`, config.PUBLIC_SITE_URL),
+    text: line,
+    telegramText: line,
+    bookingId: ctx.booking._id,
+    sessionId: ctx.session._id,
+  })
 }
 
 export async function queueMagicLink(student: StudentDoc, url: string, tokenId: string): Promise<void> {

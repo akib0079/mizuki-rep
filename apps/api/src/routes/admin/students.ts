@@ -13,6 +13,7 @@ import { cancelBooking, createBooking } from '../../services/bookingService.js'
 import { adjustPackage, grantSessions, summarisePackages } from '../../services/packageService.js'
 import { recordAudit } from '../../services/auditService.js'
 import { findDuplicateGroups, mergeStudents } from '../../services/mergeStudents.js'
+import { deleteStudent, previewStudentDeletion } from '../../services/studentDeletion.js'
 import { actorOf } from '../../middleware/auth.js'
 import { asyncRoute } from '../../middleware/errorHandler.js'
 import { AppError, NotFoundError } from '../../errors.js'
@@ -412,6 +413,36 @@ function escapeRegex(value: string): string {
  * Bookings and course credits move to the account being kept. Nothing is deleted — the other
  * record is emptied and marked, so the audit trail still resolves.
  */
+/**
+ * What deleting this student would take with it.
+ *
+ * Asked before the confirmation is shown, so "delete this student" is never a button somebody
+ * presses without knowing that it also cancels a class they are booked into next week.
+ */
+adminStudentsRouter.get(
+  '/:id/deletion',
+  asyncRoute(async (req, res) => {
+    res.json(await previewStudentDeletion(req.params.id!))
+  }),
+)
+
+/**
+ * Remove a student and everything attached to them.
+ *
+ * Merging is the right answer when two records are one person. This is for the record that
+ * should not exist at all — a test entry, a typo, someone who asked to be forgotten — where
+ * keeping it means scrolling past it forever.
+ *
+ * Nobody is emailed. Their places are freed first, so no class is left counting a student who
+ * has gone.
+ */
+adminStudentsRouter.delete(
+  '/:id',
+  asyncRoute(async (req, res) => {
+    res.json(await deleteStudent(req.params.id!, actorOf(req)))
+  }),
+)
+
 adminStudentsRouter.post(
   '/merge',
   asyncRoute(async (req, res) => {

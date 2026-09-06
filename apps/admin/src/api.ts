@@ -179,4 +179,12 @@ export interface EmailTemplate {
   bodyHtml: string
   bodyText: string
   isCustomised: boolean
+  /**
+   * False when this wording predates the current studio design.
+   *
+   * Only ever false for an email the studio wrote themselves: a deploy refreshes the shipped
+   * wording but never touches theirs, so without saying so, one email in fifteen quietly keeps
+   * the old colours and nobody knows which.
+   */
+  brandingIsCurrent: boolean
 }

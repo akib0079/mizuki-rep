@@ -12,8 +12,8 @@ import {
 } from '../models/index.js'
 import { releaseSeat, findSeatDrift } from '../services/seatService.js'
 import { restoreSession } from '../services/packageService.js'
-import { queueMessage, queueReminder } from '../services/notificationService.js'
-import { renderTemplate } from '../services/emailTemplates.js'
+import { queueAdminBroadcast, queueMessage, queueReminder } from '../services/notificationService.js'
+import { renderTemplate, wrapEmailHtml } from '../services/emailTemplates.js'
 import { materializeSessions } from '../services/scheduleService.js'
 import { drainOutbox } from '../services/mailer.js'
 import { hoursSinceLastBackup, pruneOutbox, runBackup } from '../services/backupService.js'
@@ -211,11 +211,30 @@ export async function sweepPackages(now: Date = new Date()): Promise<{ expired: 
   return { expired: expiredResult.modifiedCount, warned }
 }
 
-/** "Today: 3 classes, 11 students" — one message each morning. */
-export async function sendDailyDigest(now: Date = new Date()): Promise<boolean> {
+/**
+ * "Today: 3 classes, 11 students" — one message each morning.
+ *
+ * It goes to everyone on the team, not to one address from the environment. That was the bug the
+ * studio reported as "I am missing the daily email": `ADMIN_ALERT_EMAIL` was never set on the
+ * deployment, so this returned at the second line every morning and nothing was ever queued —
+ * no error, no failed row on the settings page, nothing to notice. With the recipients coming
+ * from the admin list there is always at least one person to send to, because an active admin is
+ * what you need to be reading this at all.
+ */
+export async function sendDailyDigest(
+  now: Date = new Date(),
+  /**
+   * Send it regardless of the hour, and regardless of whether today's has already gone.
+   *
+   * What the settings page's "send it to me now" button uses. Without the second half it would
+   * appear to do nothing for the rest of any day the digest had already been sent — which is
+   * every day after seven in the morning, and precisely when somebody is pressing it to find out
+   * whether the thing works.
+   */
+  opts: { force?: boolean } = {},
+): Promise<boolean> {
   const studioNow = DateTime.fromJSDate(now).setZone(STUDIO_TZ)
-  if (studioNow.hour < config.DIGEST_SEND_HOUR) return false
-  if (!config.ADMIN_ALERT_EMAIL && !config.TELEGRAM_BOT_TOKEN) return false
+  if (!opts.force && studioNow.hour < config.DIGEST_SEND_HOUR) return false
 
   const dateKey = studioNow.toFormat('yyyy-MM-dd')
   const sessions = await SessionModel.find({ dateKey, status: 'scheduled' }).sort({ startAt: 1 }).lean()
@@ -250,28 +269,15 @@ export async function sendDailyDigest(now: Date = new Date()): Promise<boolean> 
     siteUrl: config.PUBLIC_SITE_URL,
   })
 
-  let queued = false
-  if (config.ADMIN_ALERT_EMAIL) {
-    queued =
-      (await queueMessage('admin_daily_digest', {
-        dedupeKey: `admin_daily_digest:${dateKey}`,
-        to: config.ADMIN_ALERT_EMAIL,
-        subject: rendered.subject,
-        bodyHtml: rendered.html,
-        bodyText: rendered.text,
-      })) || queued
-  }
+  const queued = await queueAdminBroadcast('admin_daily_digest', {
+    dedupeSuffix: opts.force ? `${dateKey}:manual:${now.getTime()}` : dateKey,
+    subject: rendered.subject,
+    html: rendered.html,
+    text: rendered.text,
+    telegramText: `☀️ Today, ${studioNow.toFormat('ccc d LLL')}\n\n${listText}`,
+  })
 
-  if (config.TELEGRAM_BOT_TOKEN && config.TELEGRAM_CHAT_ID) {
-    queued =
-      (await queueMessage('admin_daily_digest', {
-        dedupeKey: `admin_daily_digest:telegram:${dateKey}`,
-        channel: 'telegram',
-        bodyText: `☀️ Today, ${studioNow.toFormat('ccc d LLL')}\n\n${listText}`,
-      })) || queued
-  }
-
-  return queued
+  return queued > 0
 }
 
 /**
@@ -290,19 +296,22 @@ export async function detectDrift(now: Date = new Date()): Promise<number> {
 
   logger.error({ drift }, 'Seat counter drift detected')
 
-  if (config.ADMIN_ALERT_EMAIL) {
-    await queueMessage('admin_seat_drift', {
-      dedupeKey: `admin_seat_drift:${studioNow.toFormat('yyyy-MM-dd')}`,
-      to: config.ADMIN_ALERT_EMAIL,
-      subject: `Booking system: ${drift.length} class(es) have mismatched place counts`,
-      bodyText: drift
-        .map((d) => `${d.dateKey} ${d.title}: counter says ${d.storedSeatsTaken}, bookings say ${d.actualSeatsTaken}`)
-        .join('\n'),
-      bodyHtml: `<p>These classes have place counts that do not match their bookings:</p><ul>${drift
+  const text = drift
+    .map((d) => `${d.dateKey} ${d.title}: counter says ${d.storedSeatsTaken}, bookings say ${d.actualSeatsTaken}`)
+    .join('\n')
+
+  await queueAdminBroadcast('admin_seat_drift', {
+    dedupeSuffix: studioNow.toFormat('yyyy-MM-dd'),
+    subject: `Booking system: ${drift.length} class(es) have mismatched place counts`,
+    text,
+    html: wrapEmailHtml(
+      `<p>These classes have place counts that do not match their bookings:</p><ul>${drift
         .map((d) => `<li>${d.dateKey} ${d.title}: counter ${d.storedSeatsTaken}, bookings ${d.actualSeatsTaken}</li>`)
         .join('')}</ul>`,
-    })
-  }
+      config.PUBLIC_SITE_URL,
+    ),
+    telegramText: `⚠️ ${drift.length} class(es) have mismatched place counts\n\n${text}`,
+  })
 
   return drift.length
 }
@@ -330,15 +339,17 @@ export async function backupNightly(now: Date = new Date()): Promise<boolean> {
   } catch (err) {
     logger.error({ err }, 'Backup failed')
 
-    if (config.ADMIN_ALERT_EMAIL) {
-      await queueMessage('admin_backup_failed', {
-        dedupeKey: `admin_backup_failed:${studioNow.toFormat('yyyy-MM-dd')}`,
-        to: config.ADMIN_ALERT_EMAIL,
-        subject: 'Mizuki booking: last night\'s backup did not run',
-        bodyText: `The nightly backup failed:\n\n${err instanceof Error ? err.message : String(err)}\n\nBookings are unaffected, but there is no fresh copy of the data until this is fixed.`,
-        bodyHtml: `<p>The nightly backup failed:</p><pre>${err instanceof Error ? err.message : String(err)}</pre><p>Bookings are unaffected, but there is no fresh copy of the data until this is fixed.</p>`,
-      })
-    }
+    const why = err instanceof Error ? err.message : String(err)
+    await queueAdminBroadcast('admin_backup_failed', {
+      dedupeSuffix: studioNow.toFormat('yyyy-MM-dd'),
+      subject: 'Mizuki booking: last night\'s backup did not run',
+      text: `The nightly backup failed:\n\n${why}\n\nBookings are unaffected, but there is no fresh copy of the data until this is fixed.`,
+      html: wrapEmailHtml(
+        `<p>The nightly backup failed:</p><pre>${why}</pre><p>Bookings are unaffected, but there is no fresh copy of the data until this is fixed.</p>`,
+        config.PUBLIC_SITE_URL,
+      ),
+      telegramText: `⚠️ Last night's backup did not run.\n\n${why}`,
+    })
     return false
   }
 }
