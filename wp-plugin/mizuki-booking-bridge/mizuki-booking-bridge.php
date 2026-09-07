@@ -3,7 +3,7 @@
  * Plugin Name:       Mizuki Booking Bridge
  * Plugin URI:        https://mizuki.com.sg
  * Description:       Embeds the Mizuki Flora class calendar into WordPress and connects WooCommerce checkout to the booking system, so a paid workshop holds its place until payment lands.
- * Version:           1.13.0
+ * Version:           1.14.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Mizuki Flora
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'MIZUKI_BRIDGE_VERSION', '1.13.0' );
+define( 'MIZUKI_BRIDGE_VERSION', '1.14.0' );
 define( 'MIZUKI_BRIDGE_FILE', __FILE__ );
 
 /** Query args carried from the booking widget into the shop. */
@@ -403,6 +403,13 @@ function mizuki_render_widget( $atts, $view, $extra = array() ) {
 		'data-mizuki-booking' => '1',
 		'data-api-base'       => $api_base,
 		'data-view'           => $view,
+		/*
+		 * The studio's mark, served from this plugin rather than from the booking system.
+		 *
+		 * Same origin as the page it appears on, so no third request to another host and
+		 * nothing to break if the studio reorganises their media library.
+		 */
+		'data-logo'           => plugin_dir_url( MIZUKI_BRIDGE_FILE ) . 'mizuki-logo.png',
 	);
 
 	if ( ! empty( $atts['course'] ) ) {

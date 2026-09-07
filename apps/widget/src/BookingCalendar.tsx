@@ -312,6 +312,7 @@ export function BookingCalendar({
       {booking && (
         <BookingDialog
           session={booking}
+          studio={studio}
           onClose={() => setBooking(null)}
           onSeeBookings={onSeeBookings}
           onBooked={() => {

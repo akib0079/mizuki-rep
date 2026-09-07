@@ -11,7 +11,14 @@ import {
 } from '@mizuki/shared'
 import { CountryFlag } from './CountryFlag.js'
 import { PasswordField } from './PasswordField.js'
-import { ApiError, widgetApi, type StartBookingResult, type StudentProfile } from './api.js'
+import {
+  ApiError,
+  studioLogo,
+  widgetApi,
+  type StartBookingResult,
+  type StudentProfile,
+  type StudioContact,
+} from './api.js'
 
 /**
  * The booking form.
@@ -23,16 +30,20 @@ import { ApiError, widgetApi, type StartBookingResult, type StudentProfile } fro
  */
 export function BookingDialog({
   session,
+  studio,
   onClose,
   onBooked,
   onSeeBookings,
 }: {
   session: PublicSession
+  /** How to reach the studio. Already loaded by the calendar, so no second request for it. */
+  studio?: StudioContact | null
   onClose: () => void
   onBooked: () => void
   /** Offered after a successful booking, so the next step is one click rather than a hunt. */
   onSeeBookings?: () => void
 }) {
+  const logo = studioLogo()
   const [form, setForm] = useState({ name: '', email: '', phone: '', phoneCountry: '', notes: '', attendeeName: '' })
   /*
    * The password for their new account.
@@ -45,6 +56,10 @@ export function BookingDialog({
    * Only ever asked of a visitor. Somebody signed in already has an account.
    */
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+
+  /** Only complain once they have actually typed something into the second box. */
+  const passwordsDiffer = confirmPassword.length > 0 && password !== confirmPassword
   /** Ticked when the number is not Singaporean, which swaps in the country picker. */
   const [abroad, setAbroad] = useState(false)
 
@@ -201,11 +216,29 @@ export function BookingDialog({
                   )}
                 </dl>
 
-                <p className="mzk-bk-where">
-                  Mizuki Flora
-                  <br />
-                  #2/F, 148 Jalan Besar, Singapore 208866
-                </p>
+                {/*
+                  Who they are booking with, and how to reach them, at the moment they are
+                  deciding to hand over their details. Hidden on a phone, where the panel is a
+                  band above the form and every line of it pushes the first field further down.
+                */}
+                <div className="mzk-bk-studio">
+                  {logo && <img className="mzk-bk-logo" src={logo} alt="" width={34} height={34} />}
+                  <p className="mzk-bk-where">
+                    Mizuki Flora
+                    <br />
+                    #2/F, 148 Jalan Besar, Singapore 208866
+                  </p>
+                  {studio?.phone && (
+                    <a className="mzk-bk-contact" href={`tel:${studio.phone.replace(/\s+/g, '')}`}>
+                      {studio.phone}
+                    </a>
+                  )}
+                  {studio?.email && (
+                    <a className="mzk-bk-contact" href={`mailto:${studio.email}`}>
+                      {studio.email}
+                    </a>
+                  )}
+                </div>
               </div>
             </aside>
 
@@ -273,6 +306,19 @@ export function BookingDialog({
                         ? 'A few more characters — eight at least.'
                         : 'At least 8 characters. Use it with your email to see your bookings any time.'
                     }
+                  />
+
+                  {/*
+                    Typed twice, because this one is chosen in passing while booking a class —
+                    not on a page about passwords — and a typo here locks somebody out of an
+                    account they made ten seconds ago, with a booking already in it.
+                  */}
+                  <PasswordField
+                    label="Confirm password"
+                    value={confirmPassword}
+                    onChange={setConfirmPassword}
+                    autoComplete="new-password"
+                    hint={passwordsDiffer ? 'Those two do not match.' : undefined}
                   />
 
                   {/*
@@ -419,7 +465,13 @@ export function BookingDialog({
                 <button type="button" className="mzk-btn" onClick={onClose} disabled={busy}>
                   Cancel
                 </button>
-                <button type="submit" className="mzk-btn mzk-btn-primary" disabled={busy}>
+                <button
+                  type="submit"
+                  className="mzk-btn mzk-btn-primary"
+                  // A mismatch is caught here rather than by booking them in under a password
+                  // neither they nor we could reproduce.
+                  disabled={busy || (!account && (passwordsDiffer || confirmPassword.length === 0))}
+                >
                   {busy && <span className="mzk-spinner" />}
                   {busy ? 'Just a moment…' : 'Book this class'}
                 </button>

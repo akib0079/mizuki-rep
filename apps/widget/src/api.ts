@@ -49,8 +49,24 @@ export function hasCourseDetail(course: PublicCourse | undefined): boolean {
 
 let apiBase = ''
 
-export function configureApi(base: string): void {
+/**
+ * The studio's mark, handed over by the plugin at mount.
+ *
+ * A module-level value rather than a prop threaded through five components, for the same reason
+ * `apiBase` is one: it is a single fact about the site, settled before anything renders and
+ * never different in two places at once. Empty when the widget is embedded some other way, and
+ * everything that uses it simply shows nothing.
+ */
+let logoUrl = ''
+
+export function configureApi(base: string, logo = ''): void {
   apiBase = base.replace(/\/$/, '')
+  logoUrl = logo
+}
+
+/** The studio's mark, or an empty string when the host page did not supply one. */
+export function studioLogo(): string {
+  return logoUrl
 }
 
 export class ApiError extends Error {

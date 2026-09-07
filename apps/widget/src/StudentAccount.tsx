@@ -197,20 +197,6 @@ export function SignIn({
             {mode === 'password' && (
               <div className="mzk-cp-signin-field">
                 <PasswordField label="Password" value={password} onChange={setPassword} />
-                {/* Beside the box they have just failed to fill in, which is where it is
-                    looked for. The line below covers never having set one — a different
-                    question, and not one somebody who forgot theirs reads as their own. */}
-                <button
-                  type="button"
-                  className="mzk-linkbtn mzk-forgot"
-                  onClick={() => {
-                    setMode('link')
-                    setForgot(true)
-                    setError(null)
-                  }}
-                >
-                  Forgot your password?
-                </button>
               </div>
             )}
 
@@ -226,19 +212,43 @@ export function SignIn({
           </form>
 
           {/* The other way in, for anyone who has no password or has forgotten it. */}
-          <button
-            type="button"
-            className="mzk-linkbtn"
-            onClick={() => {
-              setMode((m) => (m === 'password' ? 'link' : 'password'))
-              setForgot(false)
-              setError(null)
-            }}
-          >
-            {mode === 'password'
-              ? 'Never set a password? Email me a sign-in link instead'
-              : 'Sign in with a password instead'}
-          </button>
+          {/*
+            Both ways out, below the form rather than inside it.
+            
+            This form is a row — email, password, button, side by side — so a link under the
+            password box sat in the gap between that row and the next line and read as belonging
+            to neither. Under the button it is out of the way and still the first thing found
+            after a password that did not work.
+          */}
+          <div className="mzk-signin-links">
+            {mode === 'password' && (
+              <button
+                type="button"
+                className="mzk-linkbtn"
+                onClick={() => {
+                  setMode('link')
+                  setForgot(true)
+                  setError(null)
+                }}
+              >
+                Forgot your password?
+              </button>
+            )}
+
+            <button
+              type="button"
+              className="mzk-linkbtn"
+              onClick={() => {
+                setMode((m) => (m === 'password' ? 'link' : 'password'))
+                setForgot(false)
+                setError(null)
+              }}
+            >
+              {mode === 'password'
+                ? 'Never set a password? Email me a sign-in link instead'
+                : 'Sign in with a password instead'}
+            </button>
+          </div>
         </>
       )}
 

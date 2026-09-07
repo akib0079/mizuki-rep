@@ -35,6 +35,8 @@ interface MountConfig {
    * as the page starting again.
    */
   bare?: boolean
+  /** The studio's mark, served by the plugin from its own folder. */
+  logo?: string
 }
 
 const roots = new WeakMap<Element, Root>()
@@ -137,7 +139,7 @@ function injectPageStyle(): void {
 }
 
 function mount(element: Element, config: MountConfig): void {
-  configureApi(config.apiBase)
+  configureApi(config.apiBase, config.logo)
 
   const container = containerFor(element)
   applyHostColours(element as HTMLElement, container)
@@ -196,6 +198,7 @@ function mountFromElement(element: Element): void {
     heading: el.dataset.heading || undefined,
     intro: el.dataset.intro || undefined,
     bare: el.dataset.bare === '1',
+    logo: el.dataset.logo || undefined,
   })
 }
 
