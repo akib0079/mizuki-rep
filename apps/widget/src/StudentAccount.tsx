@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { DateTime } from 'luxon'
 import { STUDIO_TZ } from '@mizuki/shared'
 import { Scope } from './Scope.js'
-import { widgetApi, type PackageRow, type StudentProfile } from './api.js'
+import { ApiError, widgetApi, type PackageRow, type StudentProfile } from './api.js'
 
 /**
  * The student's account block: sign in, or what you have left.
@@ -110,6 +110,15 @@ export function SignIn({
   onSignedIn: () => void
 }) {
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  /*
+   * Password first, link second.
+   *
+   * The link was the only way in, and it stops working the moment email does — which is exactly
+   * how this was reported: a student who could not receive the email could not reach their own
+   * bookings at all. Anyone without a password uses the link and is offered one afterwards.
+   */
+  const [mode, setMode] = useState<'password' | 'link'>('password')
   const [sent, setSent] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -149,10 +158,21 @@ export function SignIn({
               setBusy(true)
               setError(null)
               try {
-                await widgetApi.requestMagicLink(email.trim(), returnTo)
-                setSent(true)
-              } catch {
-                setError('We could not send that just now. Please try again in a moment.')
+                if (mode === 'password') {
+                  await widgetApi.signInWithPassword(email.trim(), password)
+                  onSignedIn()
+                } else {
+                  await widgetApi.requestMagicLink(email.trim(), returnTo)
+                  setSent(true)
+                }
+              } catch (err) {
+                setError(
+                  mode === 'password'
+                    ? err instanceof ApiError
+                      ? err.message
+                      : 'We could not sign you in just now. Please try again in a moment.'
+                    : 'We could not send that just now. Please try again in a moment.',
+                )
               } finally {
                 setBusy(false)
               }
@@ -169,10 +189,44 @@ export function SignIn({
                 onChange={(e) => setEmail(e.target.value)}
               />
             </label>
+
+            {mode === 'password' && (
+              <label className="mzk-field mzk-cp-signin-field">
+                <span>Password</span>
+                <input
+                  type="password"
+                  required
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </label>
+            )}
+
             <button type="submit" className="mzk-btn mzk-btn-primary" disabled={busy}>
-              {busy ? 'Sending…' : 'Email me a sign-in link'}
+              {busy
+                ? mode === 'password'
+                  ? 'Signing in…'
+                  : 'Sending…'
+                : mode === 'password'
+                  ? 'Sign in'
+                  : 'Email me a sign-in link'}
             </button>
           </form>
+
+          {/* The other way in, for anyone who has no password or has forgotten it. */}
+          <button
+            type="button"
+            className="mzk-linkbtn"
+            onClick={() => {
+              setMode((m) => (m === 'password' ? 'link' : 'password'))
+              setError(null)
+            }}
+          >
+            {mode === 'password'
+              ? 'No password? Email me a sign-in link instead'
+              : 'Sign in with a password instead'}
+          </button>
           <p className="mzk-muted mzk-small">No password needed.</p>
         </>
       )}

@@ -64,6 +64,25 @@ export const phoneCountrySchema = z
  * The identity fields are only trusted on this path. Once someone is signed in the server uses
  * their account and ignores whatever the form sends — see `startBookingSignedInSchema`.
  */
+/**
+ * Long enough to be worth having, short enough that people will actually set one.
+ *
+ * Eight rather than the studio console's twelve: this guards one person's own class bookings,
+ * not the studio's entire calendar and student list, and a length nobody meets is a password
+ * nobody sets.
+ */
+export const studentPasswordSchema = z
+  .string()
+  .min(8, 'Please choose at least 8 characters')
+  .max(200)
+
+export const studentLoginSchema = z.object({
+  email: emailSchema,
+  password: z.string().min(1, 'Please enter your password'),
+})
+
+export const setStudentPasswordSchema = z.object({ password: studentPasswordSchema })
+
 export const startBookingSchema = z.object({
   sessionId: objectIdSchema,
   email: emailSchema,
@@ -80,6 +99,14 @@ export const startBookingSchema = z.object({
    * an address or number that is definitely someone else's.
    */
   confirmedNewAccount: z.boolean().default(false),
+  /**
+   * A password, set while booking, so they can sign back in without waiting on an email.
+   *
+   * Optional on purpose. Booking is the thing the student came to do, and making them invent a
+   * password first is a step between them and a class — anyone who skips it still gets in with a
+   * sign-in link.
+   */
+  password: studentPasswordSchema.optional(),
 })
 
 /**
@@ -330,5 +357,7 @@ export const studentSelfUpdateSchema = z.object({
   phone: phoneSchema,
   marketingOptIn: z.boolean(),
 })
+
+
 
 export type StudentSelfUpdateInput = z.infer<typeof studentSelfUpdateSchema>

@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import argon2 from 'argon2'
 import rateLimit from 'express-rate-limit'
 import {
   cancelBookingSchema,
@@ -30,7 +31,14 @@ import { optionalStudent, requireStudent } from '../middleware/auth.js'
 import { asyncRoute } from '../middleware/errorHandler.js'
 import { AppError, ForbiddenError, NotFoundError } from '../errors.js'
 import { LoginTokenModel } from '../models/index.js'
-import { generateHoldToken, generateMagicToken } from '../auth/tokens.js'
+import {
+  COOKIE_NAMES,
+  STUDENT_SESSION_DAYS,
+  cookieOptions,
+  generateHoldToken,
+  generateMagicToken,
+  signStudentToken,
+} from '../auth/tokens.js'
 import { z } from 'zod'
 import { findExistingStudent } from '../services/studentMatch.js'
 import { config } from '../config.js'
@@ -162,7 +170,29 @@ bookingRouter.post(
         phone: visitor.phone,
         phoneCountry: visitor.phoneCountry,
         marketingOptIn: visitor.marketingOptIn,
+        /*
+         * A password, if they chose one while booking, so they can sign back in without waiting
+         * on an email. Optional: skipping it costs them nothing, because the sign-in link still
+         * works and is how they would set one later.
+         */
+        ...(visitor.password
+          ? { passwordHash: await argon2.hash(visitor.password, { type: argon2.argon2id }) }
+          : {}),
       })
+
+      /*
+       * Signed in from the moment they book.
+       *
+       * Booking already proves nothing about the inbox, but it does not need to: they are on
+       * this page, they just told us who they are, and the alternative is showing someone their
+       * own booking confirmation and then asking them to go and find an email to see it. Same
+       * session either way, so a link or a password later lands them in the same place.
+       */
+      res.cookie(
+        COOKIE_NAMES.student,
+        signStudentToken({ sub: String(student._id), email: student.email }),
+        cookieOptions(STUDENT_SESSION_DAYS * 24 * 3600_000),
+      )
     }
 
     const isSignedIn = Boolean(signedIn)

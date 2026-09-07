@@ -51,7 +51,14 @@ export function MyBookings({ embedded = false }: { embedded?: boolean } = {}) {
     void load()
   }, [])
 
-  if (signedOut) return <Scope embedded={embedded}><SignInPanel embedded /></Scope>
+  // Signing in with a password never leaves the page, so the list has to reload itself.
+  if (signedOut) {
+    return (
+      <Scope embedded={embedded}>
+        <SignInPanel embedded onSignedIn={() => void load()} />
+      </Scope>
+    )
+  }
 
   if (error) {
     return (
@@ -181,7 +188,10 @@ export function MyBookings({ embedded = false }: { embedded?: boolean } = {}) {
       {tab === 'course' && <CoursePackages packages={data.packages} />}
 
       {tab === 'details' && profile && (
-        <ProfileForm profile={profile} onSaved={() => void load()} />
+        <>
+          <ProfileForm profile={profile} onSaved={() => void load()} />
+          <PasswordForm hasPassword={Boolean(profile.hasPassword)} onSaved={() => void load()} />
+        </>
       )}
 
       {rescheduling && (
@@ -344,6 +354,85 @@ function ProfileForm({ profile, onSaved }: { profile: StudentProfile; onSaved: (
 
       <button type="submit" className="mzk-btn mzk-btn-primary" disabled={state === 'saving'}>
         {state === 'saving' ? 'Saving…' : 'Save changes'}
+      </button>
+    </form>
+  )
+}
+
+/**
+ * Choose a password, so signing in never depends on an email arriving.
+ *
+ * Its own form rather than a field on the profile above: saving your phone number and changing
+ * your password are different decisions, and one Save button for both means half the people
+ * pressing it did not mean to do the other thing.
+ */
+function PasswordForm({ hasPassword, onSaved }: { hasPassword: boolean; onSaved: () => void }) {
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [state, setState] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const [error, setError] = useState<string | null>(null)
+
+  const tooShort = password.length > 0 && password.length < 8
+  const mismatch = confirm.length > 0 && password !== confirm
+  const ready = password.length >= 8 && password === confirm
+
+  async function save(event: FormEvent) {
+    event.preventDefault()
+    if (!ready) return
+    setState('saving')
+    setError(null)
+    try {
+      await widgetApi.setPassword(password)
+      setState('saved')
+      setPassword('')
+      setConfirm('')
+      onSaved()
+    } catch (err) {
+      setState('idle')
+      setError(err instanceof ApiError ? err.message : 'We could not save that. Please try again.')
+    }
+  }
+
+  return (
+    <form className="mzk-panel" onSubmit={save} style={{ marginTop: 12 }}>
+      <h3 style={{ margin: '0 0 6px', fontSize: 15 }}>
+        {hasPassword ? 'Change your password' : 'Set a password'}
+      </h3>
+      <p className="mzk-muted mzk-small" style={{ marginTop: 0 }}>
+        {hasPassword
+          ? 'Sign in with your email and this password, on any device.'
+          : 'Optional. With one you can sign in straight away instead of waiting for an emailed link.'}
+      </p>
+
+      {error && <div className="mzk-note mzk-note-error">{error}</div>}
+      {state === 'saved' && <div className="mzk-note mzk-note-ok">Password saved.</div>}
+
+      <label className="mzk-field">
+        <span>{hasPassword ? 'New password' : 'Password'}</span>
+        <input
+          type="password"
+          autoComplete="new-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <span className="mzk-muted mzk-small">
+          {tooShort ? 'A few more characters — eight at least.' : 'At least 8 characters.'}
+        </span>
+      </label>
+
+      <label className="mzk-field">
+        <span>Type it again</span>
+        <input
+          type="password"
+          autoComplete="new-password"
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+        />
+        {mismatch && <span className="mzk-muted mzk-small">Those two do not match.</span>}
+      </label>
+
+      <button type="submit" className="mzk-btn" disabled={!ready || state === 'saving'}>
+        {state === 'saving' ? 'Saving…' : hasPassword ? 'Change password' : 'Set password'}
       </button>
     </form>
   )
@@ -541,9 +630,18 @@ function RescheduleDialog({
   )
 }
 
-/** Shown when the visitor is not signed in — a link, not a password. */
-function SignInPanel({ embedded = false }: { embedded?: boolean }) {
+/**
+ * Shown when the visitor is not signed in.
+ *
+ * A password first, and the emailed link behind it. The link used to be the only way in, and it
+ * is only ever as reliable as the inbox it lands in — a student whose email was not arriving
+ * could not reach their own bookings at all, which is how this was reported. Anyone who never
+ * set a password still uses the link, and is offered one once they are in.
+ */
+function SignInPanel({ embedded = false, onSignedIn }: { embedded?: boolean; onSignedIn: () => void }) {
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [mode, setMode] = useState<'password' | 'link'>('password')
   const [sent, setSent] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -553,10 +651,21 @@ function SignInPanel({ embedded = false }: { embedded?: boolean }) {
     setBusy(true)
     setError(null)
     try {
-      await widgetApi.requestMagicLink(email.trim(), window.location.href)
-      setSent(true)
-    } catch {
-      setError('We could not send that link. Please try again shortly.')
+      if (mode === 'password') {
+        await widgetApi.signInWithPassword(email.trim(), password)
+        onSignedIn()
+      } else {
+        await widgetApi.requestMagicLink(email.trim(), window.location.href)
+        setSent(true)
+      }
+    } catch (err) {
+      setError(
+        mode === 'password'
+          ? err instanceof ApiError
+            ? err.message
+            : 'We could not sign you in. Please try again shortly.'
+          : 'We could not send that link. Please try again shortly.',
+      )
     } finally {
       setBusy(false)
     }
@@ -573,30 +682,67 @@ function SignInPanel({ embedded = false }: { embedded?: boolean }) {
             </div>
           </>
         ) : (
-          <form onSubmit={submit}>
-            <h3 style={{ margin: '0 0 4px', fontSize: 16 }}>See your bookings</h3>
-            <p className="mzk-muted mzk-small">
-              Enter your email and we'll send you a link — no password needed.
-            </p>
+          <>
+            <form onSubmit={submit}>
+              <h3 style={{ margin: '0 0 4px', fontSize: 16 }}>See your bookings</h3>
+              <p className="mzk-muted mzk-small">
+                {mode === 'password'
+                  ? 'Sign in with the email you booked with.'
+                  : "Enter your email and we'll send you a link to sign in."}
+              </p>
 
-            {error && <div className="mzk-note mzk-note-error">{error}</div>}
+              {error && <div className="mzk-note mzk-note-error">{error}</div>}
 
-            <label className="mzk-field">
-              <span>Email</span>
-              <input
-                type="email"
-                value={email}
-                required
-                autoComplete="email"
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </label>
+              <label className="mzk-field">
+                <span>Email</span>
+                <input
+                  type="email"
+                  value={email}
+                  required
+                  autoComplete="email"
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </label>
 
-            <button className="mzk-btn mzk-btn-primary mzk-btn-block" disabled={busy}>
-              {busy && <span className="mzk-spinner" />}
-              {busy ? 'Sending…' : 'Email me a sign-in link'}
+              {mode === 'password' && (
+                <label className="mzk-field">
+                  <span>Password</span>
+                  <input
+                    type="password"
+                    value={password}
+                    required
+                    autoComplete="current-password"
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                </label>
+              )}
+
+              <button className="mzk-btn mzk-btn-primary mzk-btn-block" disabled={busy}>
+                {busy && <span className="mzk-spinner" />}
+                {busy
+                  ? mode === 'password'
+                    ? 'Signing in…'
+                    : 'Sending…'
+                  : mode === 'password'
+                    ? 'Sign in'
+                    : 'Email me a sign-in link'}
+              </button>
+            </form>
+
+            {/* The other way in, for anyone with no password or who has forgotten theirs. */}
+            <button
+              type="button"
+              className="mzk-linkbtn"
+              onClick={() => {
+                setMode((m) => (m === 'password' ? 'link' : 'password'))
+                setError(null)
+              }}
+            >
+              {mode === 'password'
+                ? 'No password? Email me a sign-in link instead'
+                : 'Sign in with a password instead'}
             </button>
-          </form>
+          </>
         )}
       </div>
     </Scope>

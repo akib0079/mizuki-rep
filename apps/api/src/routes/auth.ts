@@ -4,7 +4,12 @@ import rateLimit from 'express-rate-limit'
 import argon2 from 'argon2'
 import { authenticator } from 'otplib'
 import { z } from 'zod'
-import { emailSchema, requestMagicLinkSchema } from '@mizuki/shared'
+import {
+  emailSchema,
+  requestMagicLinkSchema,
+  setStudentPasswordSchema,
+  studentLoginSchema,
+} from '@mizuki/shared'
 import { AdminInviteModel, AdminUserModel, LoginTokenModel, StudentModel } from '../models/index.js'
 import {
   ADMIN_SESSION_HOURS,
@@ -42,6 +47,22 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: { code: 'rate_limited', message: 'Too many attempts. Please try again shortly.' } },
 })
+
+/**
+ * Forget the per-IP counts. Tests only.
+ *
+ * Every request in a test suite arrives from the same loopback address, so one test that
+ * deliberately exhausts an account's attempts also exhausts the IP budget for every test after
+ * it — a failure that looks like the feature is broken and is not. Resetting between tests keeps
+ * the limiter switched on and doing its job in production, rather than skipping it under test
+ * and never exercising this path at all.
+ */
+export function resetAuthRateLimits(): void {
+  for (const key of ['::ffff:127.0.0.1', '127.0.0.1', '::1']) {
+    magicLinkLimiter.resetKey(key)
+    loginLimiter.resetKey(key)
+  }
+}
 
 const MAGIC_LINK_TTL_MS = config.MAGIC_LINK_TTL_HOURS * 3600_000
 /** How long after the first use a link keeps working — enough to outlast a provider's scan. */
@@ -130,6 +151,87 @@ authRouter.get(
   }),
 )
 
+/**
+ * Sign in with an email and a password.
+ *
+ * The sign-in link stays, and stays the default for anyone who has not set a password — but a
+ * link is only as good as the inbox it lands in, and a student who cannot receive email cannot
+ * see their own bookings. This is the way in that does not depend on anything arriving.
+ *
+ * Guarded the same way the studio console is: one message for every kind of failure, a lockout
+ * after repeated wrong attempts, and a rate limit per address on top.
+ */
+authRouter.post(
+  '/student/login',
+  loginLimiter,
+  asyncRoute(async (req, res) => {
+    const { email, password } = studentLoginSchema.parse(req.body)
+
+    const student = await StudentModel.findOne({ email, mergedInto: null }).select(
+      '+passwordHash +failedLoginCount +lockedUntil',
+    )
+
+    /*
+     * One message whether the address is unknown, has no password, or the password is wrong.
+     * Anything more specific turns this into a way to ask which of the studio's students exist.
+     */
+    const genericFailure = new AuthError('Those details do not match. Please try again.')
+
+    if (!student || !student.passwordHash) throw genericFailure
+
+    if (student.lockedUntil && student.lockedUntil > new Date()) {
+      throw new AppError(429, 'locked', 'Too many failed attempts. Please try again in a few minutes.')
+    }
+
+    const valid = await argon2.verify(student.passwordHash, password)
+    if (!valid) {
+      student.failedLoginCount += 1
+      if (student.failedLoginCount >= LOCKOUT_THRESHOLD) {
+        student.lockedUntil = new Date(Date.now() + LOCKOUT_MS)
+        student.failedLoginCount = 0
+      }
+      await student.save()
+      throw genericFailure
+    }
+
+    student.failedLoginCount = 0
+    student.lockedUntil = null
+    student.lastLoginAt = new Date()
+    await student.save()
+
+    const token = signStudentToken({ sub: String(student._id), email: student.email })
+    res.cookie(COOKIE_NAMES.student, token, cookieOptions(STUDENT_SESSION_DAYS * 24 * 3600_000))
+
+    res.json({ student: { id: String(student._id), name: student.name, email: student.email } })
+  }),
+)
+
+/**
+ * Choose a password, or change the one you have.
+ *
+ * Needs a signed-in session, which means it is reachable from a sign-in link as well as from an
+ * existing password — so a student who never set one, or forgot theirs, gets in by email once
+ * and then never has to again. That is the recovery path; there is deliberately no separate
+ * "forgot your password" flow, because the sign-in link already is one.
+ */
+authRouter.post(
+  '/student/password',
+  requireStudent,
+  asyncRoute(async (req, res) => {
+    const { password } = setStudentPasswordSchema.parse(req.body)
+
+    const student = await StudentModel.findById(req.student!._id).select('+passwordHash')
+    if (!student) throw new AuthError()
+
+    student.passwordHash = await argon2.hash(password, { type: argon2.argon2id })
+    student.failedLoginCount = 0
+    student.lockedUntil = null
+    await student.save()
+
+    res.json({ ok: true })
+  }),
+)
+
 /** Only ever bounce back into the studio's own site — never to a URL an attacker supplied. */
 function safeRedirect(target: string): string {
   try {
@@ -147,13 +249,19 @@ authRouter.get(
   requireStudent,
   asyncRoute(async (req, res) => {
     const student = req.student!
-    const packages = await summarisePackages(student._id)
+    const [packages, withPassword] = await Promise.all([
+      summarisePackages(student._id),
+      // Whether one exists, never anything about it — enough for the page to offer "set" or
+      // "change" and nothing more.
+      StudentModel.exists({ _id: student._id, passwordHash: { $ne: null } }),
+    ])
     res.json({
       student: {
         id: String(student._id),
         name: student.name,
         email: student.email,
         phone: student.phone,
+        hasPassword: Boolean(withPassword),
       },
       packages,
     })

@@ -704,6 +704,26 @@
   .mzk a.mzk-addcal { width: 100% !important; justify-content: center !important; margin-top: 4px !important; }
 }
 
+.mzk button.mzk-linkbtn {
+  display: inline-block !important;
+  width: auto !important;
+  min-height: 0 !important;
+  margin-top: 10px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: none !important;
+  color: var(--mzk-accent-dark) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  line-height: 1.4 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  text-decoration: underline !important;
+  box-shadow: none !important;
+}
+.mzk button.mzk-linkbtn:hover { color: var(--mzk-accent) !important; background: none !important; }
+
 /* Month navigation */
 .mzk .mzk-nav button {
   width: 34px !important; height: 34px !important;

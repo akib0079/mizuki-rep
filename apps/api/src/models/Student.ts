@@ -60,6 +60,23 @@ const studentSchema = new Schema(
     marketingOptIn: { type: Boolean, default: false },
 
     lastLoginAt: { type: Date, default: null },
+
+    /**
+     * A password, for students who would rather not wait on an email.
+     *
+     * Optional, and always will be: everyone who has ever booked exists without one, and the
+     * sign-in link stays the way in for anyone who never sets one or forgets theirs. It is here
+     * because a link is only as reliable as the inbox it lands in, and a student who cannot read
+     * their email cannot see their own bookings.
+     *
+     * `select: false`, so it is never returned by an ordinary query and cannot leak into a
+     * response by someone adding a field to a serialiser.
+     */
+    passwordHash: { type: String, default: null, select: false },
+
+    /** Brute-force guards, matching the studio console's. */
+    failedLoginCount: { type: Number, default: 0, select: false },
+    lockedUntil: { type: Date, default: null, select: false },
   },
   { timestamps: true },
 )

@@ -128,6 +128,8 @@ export const widgetApi = {
     attendeeName?: string
     /** Sent only after they have been shown a possible duplicate and said it is not them. */
     confirmedNewAccount?: boolean
+    /** Optional: sets a password on the new account so they need not wait on an email to sign in. */
+    password?: string
   }) => request<StartBookingResult>('/api/bookings/start', { method: 'POST', body: JSON.stringify(body) }),
 
   myBookings: () => request<MyBookings>('/api/bookings/mine'),
@@ -153,6 +155,20 @@ export const widgetApi = {
     request<{ student: StudentProfile }>('/api/bookings/me', { method: 'PATCH', body: JSON.stringify(body) }),
 
   me: () => request<{ student: StudentProfile; packages: PackageRow[] }>('/api/auth/me'),
+
+  /** The way in that does not depend on an email arriving. */
+  signInWithPassword: (email: string, password: string) =>
+    request<{ student: { id: string; name: string; email: string } }>('/api/auth/student/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
+
+  /** Set one, or replace the one they have. Needs a session, so a sign-in link is the way back. */
+  setPassword: (password: string) =>
+    request<{ ok: boolean }>('/api/auth/student/password', {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    }),
 
   /**
    * Ends the session on this device.
@@ -248,6 +264,8 @@ export interface StudentProfile {
   email: string
   phone: string
   marketingOptIn?: boolean
+  /** Whether one is set — never anything about it. Decides "Set a password" versus "Change". */
+  hasPassword?: boolean
 }
 
 export interface PastClass {

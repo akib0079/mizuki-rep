@@ -33,6 +33,15 @@ export function BookingDialog({
   onSeeBookings?: () => void
 }) {
   const [form, setForm] = useState({ name: '', email: '', phone: '', phoneCountry: '', notes: '', attendeeName: '' })
+  /*
+   * A password, offered here and never required.
+   *
+   * Booking is what they came to do; making them invent a password first puts a step between a
+   * student and a class. Skipping it costs them nothing — the emailed sign-in link still works,
+   * and they can set one from their bookings page whenever they like.
+   */
+  const [wantsPassword, setWantsPassword] = useState(false)
+  const [password, setPassword] = useState('')
   /** Ticked when the number is not Singaporean, which swaps in the country picker. */
   const [abroad, setAbroad] = useState(false)
 
@@ -110,6 +119,7 @@ export function BookingDialog({
               notes: form.notes.trim(),
               attendeeName,
               confirmedNewAccount,
+              ...(wantsPassword && password.length >= 8 ? { password } : {}),
             },
       )
       setResult(outcome)
@@ -213,6 +223,42 @@ export function BookingDialog({
                     />
                     <span className="mzk-muted mzk-small">Your confirmation and reminder go here.</span>
                   </label>
+
+                  {/*
+                    Offered, not demanded. The checkbox keeps the form as short as it was for
+                    everyone who does not want one, and reveals a single field for those who do.
+                  */}
+                  <label className="mzk-row" style={{ gap: 8, marginBottom: wantsPassword ? 8 : 14, cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={wantsPassword}
+                      onChange={(e) => setWantsPassword(e.target.checked)}
+                    />
+                    {/* Short enough to sit on the checkbox's own line, like the two below it.
+                        What it buys them is said by the field's hint once it is revealed. */}
+                    <span className="mzk-small">Set a password for next time</span>
+                  </label>
+
+                  {wantsPassword && (
+                    <label className="mzk-field">
+                      <span>Password</span>
+                      <input
+                        type="password"
+                        value={password}
+                        // Required once asked for, so a too-short one is caught here rather
+                        // than dropped silently on submit.
+                        required
+                        minLength={8}
+                        autoComplete="new-password"
+                        onChange={(e) => setPassword(e.target.value)}
+                      />
+                      <span className="mzk-muted mzk-small">
+                        {password.length > 0 && password.length < 8
+                          ? 'A few more characters — eight at least.'
+                          : 'At least 8 characters. Sign in with your email and this password, instead of waiting for an emailed link.'}
+                      </span>
+                    </label>
+                  )}
 
                   {/*
                     Singapore by default, with a way out.
