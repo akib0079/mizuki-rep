@@ -637,6 +637,8 @@ function SignInPanel({ embedded = false, onSignedIn }: { embedded?: boolean; onS
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [mode, setMode] = useState<'password' | 'link'>('password')
+  /** Set when they arrived at the link by saying they had forgotten one, so the copy can say so. */
+  const [forgot, setForgot] = useState(false)
   const [sent, setSent] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -674,6 +676,8 @@ function SignInPanel({ embedded = false, onSignedIn }: { embedded?: boolean; onS
             <h3 style={{ margin: '0 0 8px', fontSize: 16 }}>Check your email</h3>
             <div className="mzk-note mzk-note-ok">
               If that address is registered with us, a sign-in link is on its way.
+              {/* Somebody who said they had forgotten one is owed the rest of the answer. */}
+              {forgot && ' Once you are in, you can set a new password under My details.'}
             </div>
           </>
         ) : (
@@ -683,7 +687,9 @@ function SignInPanel({ embedded = false, onSignedIn }: { embedded?: boolean; onS
               <p className="mzk-muted mzk-small">
                 {mode === 'password'
                   ? 'Sign in with the email you booked with.'
-                  : "Enter your email and we'll send you a link to sign in."}
+                  : forgot
+                    ? "No trouble — enter your email and we'll send you a link that signs you in. You can set a new password once you are in."
+                    : "Enter your email and we'll send you a link to sign in."}
               </p>
 
               {error && <div className="mzk-note mzk-note-error">{error}</div>}
@@ -700,7 +706,28 @@ function SignInPanel({ embedded = false, onSignedIn }: { embedded?: boolean; onS
               </label>
 
               {mode === 'password' && (
-                <PasswordField label="Password" value={password} onChange={setPassword} />
+                <>
+                  <PasswordField label="Password" value={password} onChange={setPassword} />
+              {/*
+                Where people look for it: beside the box they have just failed to fill in.
+                
+                The link below covers never having set one, which is a different question — and
+                somebody who had a password and forgot it does not read "No password?" as being
+                about them. Both do the same thing, because the emailed link already is the
+                reset: it signs them in, and a signed-in student can set a new password.
+              */}
+              <button
+                type="button"
+                className="mzk-linkbtn mzk-forgot"
+                onClick={() => {
+                  setMode('link')
+                  setForgot(true)
+                  setError(null)
+                }}
+              >
+                Forgot your password?
+              </button>
+                </>
               )}
 
               <button className="mzk-btn mzk-btn-primary mzk-btn-block" disabled={busy}>
@@ -721,11 +748,12 @@ function SignInPanel({ embedded = false, onSignedIn }: { embedded?: boolean; onS
               className="mzk-linkbtn"
               onClick={() => {
                 setMode((m) => (m === 'password' ? 'link' : 'password'))
+                setForgot(false)
                 setError(null)
               }}
             >
               {mode === 'password'
-                ? 'No password? Email me a sign-in link instead'
+                ? 'Never set a password? Email me a sign-in link instead'
                 : 'Sign in with a password instead'}
             </button>
           </>

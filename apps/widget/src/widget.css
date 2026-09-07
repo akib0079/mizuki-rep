@@ -826,6 +826,7 @@
   box-shadow: none !important;
 }
 .mzk button.mzk-linkbtn:hover { color: var(--mzk-accent) !important; background: none !important; }
+.mzk button.mzk-forgot { margin-top: 2px !important; font-size: 12.5px !important; font-weight: 500 !important; }
 
 /* Password field: the toggle is a button, and a theme's button styling would make it a block. */
 .mzk .mzk-pw { position: relative !important; display: block !important; }
@@ -1313,6 +1314,10 @@
   white-space: nowrap;
 }
 .mzk-linkbtn:hover { color: var(--mzk-accent-dark); }
+
+/* Sits tight under its own field rather than spaced like a paragraph, so it reads as belonging
+   to the password box above it and not as a second thing to do. */
+.mzk-forgot { margin-top: 2px; font-size: 12.5px; font-weight: 500; }
 
 .mzk-portal-summary {
   display: flex;

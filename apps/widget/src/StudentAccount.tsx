@@ -120,6 +120,8 @@ export function SignIn({
    * bookings at all. Anyone without a password uses the link and is offered one afterwards.
    */
   const [mode, setMode] = useState<'password' | 'link'>('password')
+  /** Set when they reached the link by saying they had forgotten one, so the copy can say so. */
+  const [forgot, setForgot] = useState(false)
   const [sent, setSent] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -148,6 +150,7 @@ export function SignIn({
         <div className="mzk-note mzk-note-ok">
           If that address is enrolled with us, a sign-in link is on its way. Open it on this device
           and you will land back here.
+          {forgot && ' Once you are in, you can set a new password under My details.'}
         </div>
       ) : (
         <>
@@ -194,6 +197,20 @@ export function SignIn({
             {mode === 'password' && (
               <div className="mzk-cp-signin-field">
                 <PasswordField label="Password" value={password} onChange={setPassword} />
+                {/* Beside the box they have just failed to fill in, which is where it is
+                    looked for. The line below covers never having set one — a different
+                    question, and not one somebody who forgot theirs reads as their own. */}
+                <button
+                  type="button"
+                  className="mzk-linkbtn mzk-forgot"
+                  onClick={() => {
+                    setMode('link')
+                    setForgot(true)
+                    setError(null)
+                  }}
+                >
+                  Forgot your password?
+                </button>
               </div>
             )}
 
@@ -214,11 +231,12 @@ export function SignIn({
             className="mzk-linkbtn"
             onClick={() => {
               setMode((m) => (m === 'password' ? 'link' : 'password'))
+              setForgot(false)
               setError(null)
             }}
           >
             {mode === 'password'
-              ? 'No password? Email me a sign-in link instead'
+              ? 'Never set a password? Email me a sign-in link instead'
               : 'Sign in with a password instead'}
           </button>
         </>
