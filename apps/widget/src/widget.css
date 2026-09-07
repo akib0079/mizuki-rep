@@ -270,7 +270,23 @@
 
 /* --- Password field ------------------------------------------------------- */
 
-.mzk-pw { position: relative; display: block; }
+/*
+ * The wrapper round the input, not a second label.
+ *
+ * `.mzk-field > span` styles every direct span child as the field's label — block, small, bold,
+ * grey, with five pixels under it. This is a span and a direct child, so it took all of that:
+ * the five pixels made the password column taller than the email one beside it, and in a
+ * bottom-aligned row that reads as a gap above the label. Restated rather than renamed, because
+ * the same selector is what makes the hint underneath work.
+ */
+.mzk-pw {
+  position: relative;
+  display: block;
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+}
 /* Room for the toggle, so a long password never runs underneath it. */
 .mzk-pw-input { width: 100%; padding-right: 42px !important; }
 .mzk-pw-toggle {
@@ -836,11 +852,12 @@
 }
 .mzk button.mzk-linkbtn:hover { color: var(--mzk-accent) !important; background: none !important; }
 .mzk button.mzk-forgot { margin-top: 2px !important; font-size: 12.5px !important; font-weight: 500 !important; }
-.mzk .mzk-signin-links { display: flex !important; flex-direction: column !important; align-items: flex-start !important; gap: 6px !important; margin-top: 10px !important; }
+.mzk .mzk-cp-signin-field > .mzk-field { margin-bottom: 0 !important; }
+.mzk .mzk-signin-links { display: flex !important; flex-wrap: wrap !important; align-items: center !important; gap: 6px 18px !important; margin-top: 10px !important; }
 .mzk .mzk-signin-links button.mzk-linkbtn { margin-top: 0 !important; }
 
 /* Password field: the toggle is a button, and a theme's button styling would make it a block. */
-.mzk .mzk-pw { position: relative !important; display: block !important; }
+.mzk .mzk-pw { position: relative !important; display: block !important; margin: 0 !important; font-size: inherit !important; font-weight: inherit !important; color: inherit !important; }
 .mzk .mzk-pw-input { width: 100% !important; padding-right: 42px !important; }
 .mzk button.mzk-pw-toggle {
   position: absolute !important;
@@ -1336,8 +1353,13 @@
    to the password box above it and not as a second thing to do. */
 .mzk-forgot { margin-top: 2px; font-size: 12.5px; font-weight: 500; }
 
-/* The two ways out, stacked under the form so neither sits inside a row of fields. */
-.mzk-signin-links { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-top: 10px; }
+/*
+ * The two ways out, side by side under the form.
+ *
+ * Wrapping to two lines when there is no room, which on a phone there is not — but on a laptop
+ * one line reads as two options rather than as a list of problems.
+ */
+.mzk-signin-links { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; margin-top: 10px; }
 .mzk-signin-links .mzk-linkbtn { margin-top: 0; }
 
 .mzk-portal-summary {
@@ -1575,6 +1597,12 @@
 /* The field and its button on one line, because it is one short task. */
 .mzk-cp-signin-form { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; margin: 12px 0 4px; }
 .mzk-cp-signin-field { flex: 1; min-width: 220px; margin-bottom: 0; }
+/*
+ * The password box is a component inside this column rather than the column itself, so it brings
+ * its own bottom margin along. The row is bottom-aligned, so that margin sat under the input and
+ * lifted it thirteen pixels clear of the email box beside it — read as a gap above the label.
+ */
+.mzk-cp-signin-field > .mzk-field { margin-bottom: 0; }
 
 .mzk-cp .mzk-course-contact { margin-top: 22px; padding-top: 18px; }
 

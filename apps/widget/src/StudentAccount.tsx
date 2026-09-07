@@ -221,20 +221,11 @@ export function SignIn({
             after a password that did not work.
           */}
           <div className="mzk-signin-links">
-            {mode === 'password' && (
-              <button
-                type="button"
-                className="mzk-linkbtn"
-                onClick={() => {
-                  setMode('link')
-                  setForgot(true)
-                  setError(null)
-                }}
-              >
-                Forgot your password?
-              </button>
-            )}
-
+            {/*
+              The link first: it is the way in for everyone who has never set a password, which
+              is every student who booked before passwords existed. Forgetting one is the rarer
+              case and reads better as the afterthought.
+            */}
             <button
               type="button"
               className="mzk-linkbtn"
@@ -248,6 +239,20 @@ export function SignIn({
                 ? 'Never set a password? Email me a sign-in link instead'
                 : 'Sign in with a password instead'}
             </button>
+
+            {mode === 'password' && (
+              <button
+                type="button"
+                className="mzk-linkbtn"
+                onClick={() => {
+                  setMode('link')
+                  setForgot(true)
+                  setError(null)
+                }}
+              >
+                Forgot your password?
+              </button>
+            )}
           </div>
         </>
       )}
