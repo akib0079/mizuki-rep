@@ -6,6 +6,7 @@ import { COOKIE_NAMES, signStudentToken } from '../auth/tokens.js'
 import { resetAuthRateLimits } from './auth.js'
 import { StudentModel } from '../models/index.js'
 import { makeCourseType, makeSession, makeStudent } from '../test/factories.js'
+import { createBooking } from '../services/bookingService.js'
 
 /**
  * Signing in with a password.
@@ -27,8 +28,13 @@ beforeEach(() => resetAuthRateLimits())
 const login = (email: string, password: string) =>
   request(app).post('/api/auth/student/login').send({ email, password })
 
-async function withPassword(password: string, email = 'aiko@example.com') {
-  const student = await makeStudent({ email })
+async function withPassword(password: string, email = 'aiko@example.com', phone?: string) {
+  /*
+   * Phone set at creation, not afterwards. `phoneDigits` — the field the duplicate check
+   * actually compares — is derived in a pre-save hook guarded on `isModified('phone')`, so
+   * writing the same value again leaves it empty and the match silently never fires.
+   */
+  const student = await makeStudent({ email, ...(phone ? { phone } : {}) })
   student.set('passwordHash', await argon2.hash(password, { type: argon2.argon2id }))
   await student.save()
   return student
@@ -192,5 +198,203 @@ describe('booking with a password', () => {
     const res = await request(app).get('/api/auth/me').set('Cookie', cookie).expect(200)
     expect(res.body.student.hasPassword).toBe(true)
     expect(res.body.student).not.toHaveProperty('passwordHash')
+  })
+})
+
+describe('a password cannot be used to reach somebody else', () => {
+  it('booking with an address already on file never touches that account\'s password', async () => {
+    const existing = await withPassword('coral-lantern-97', 'aiko@example.com')
+    const course = await makeCourseType({ bookingMode: 'paid' })
+    const session = await makeSession({ courseTypeId: course._id, date: '2027-04-10' })
+
+    /*
+     * The attack this rules out: booking under somebody else's address with a password of your
+     * choosing, and signing in as them. An exact email match is certain, so the route asks the
+     * visitor to sign in and creates nothing.
+     */
+    const res = await request(app)
+      .post('/api/bookings/start')
+      .send({
+        sessionId: String(session._id),
+        name: 'Not Aiko',
+        email: 'aiko@example.com',
+        phone: '+65 9000 0000',
+        password: 'chosen-by-a-stranger',
+      })
+      .expect(200)
+
+    expect(res.body.outcome).toBe('sign_in_required')
+    await login('aiko@example.com', 'chosen-by-a-stranger').expect(401)
+    await login('aiko@example.com', 'coral-lantern-97').expect(200)
+
+    // And no second account was made under that address.
+    expect(await StudentModel.countDocuments({ email: 'aiko@example.com' })).toBe(1)
+    expect(String(existing._id)).toBe(String((await StudentModel.findOne({ email: 'aiko@example.com' }))!._id))
+  })
+
+  it('does not touch it when the phone number is the one already on file either', async () => {
+    const held = await withPassword('coral-lantern-97', 'aiko@example.com', '+65 9123 4567')
+    expect(held.phoneDigits).toContain('91234567')
+
+    const course = await makeCourseType({ bookingMode: 'paid' })
+    const session = await makeSession({ courseTypeId: course._id, date: '2027-04-10' })
+
+    const res = await request(app)
+      .post('/api/bookings/start')
+      .send({
+        sessionId: String(session._id),
+        name: 'Someone Else',
+        email: 'different@example.com',
+        phone: '+65 9123 4567',
+        password: 'chosen-by-a-stranger',
+      })
+      .expect(200)
+
+    expect(res.body.outcome).toBe('sign_in_required')
+    await login('aiko@example.com', 'chosen-by-a-stranger').expect(401)
+  })
+
+  it('ignores a password sent by someone already signed in', async () => {
+    const victim = await withPassword('coral-lantern-97', 'aiko@example.com')
+    const other = await makeStudent({ email: 'other@example.com' })
+    const cookie = `${COOKIE_NAMES.student}=${signStudentToken({
+      sub: String(other._id),
+      email: other.email,
+    })}`
+
+    const course = await makeCourseType({ bookingMode: 'paid' })
+    const session = await makeSession({ courseTypeId: course._id, date: '2027-04-10' })
+
+    /*
+     * Signed in, the form's identity fields are not read at all — including this one. Booking is
+     * never a way to set a password, on your own account or anyone else's.
+     */
+    await request(app)
+      .post('/api/bookings/start')
+      .set('Cookie', cookie)
+      .send({ sessionId: String(session._id), email: 'aiko@example.com', password: 'chosen-by-a-stranger' })
+      .expect(200)
+
+    await login('aiko@example.com', 'chosen-by-a-stranger').expect(401)
+    await login('aiko@example.com', 'coral-lantern-97').expect(200)
+    expect(await StudentModel.exists({ _id: other._id, passwordHash: { $ne: null } })).toBeNull()
+    expect(String(victim._id)).toBeTruthy()
+  })
+
+  it('will not let a merged-away account sign in', async () => {
+    const kept = await makeStudent({ email: 'kept@example.com' })
+    const merged = await withPassword('coral-lantern-97', 'merged@example.com')
+    merged.mergedInto = kept._id
+    await merged.save()
+
+    // Their bookings and credits now live on the other record; signing in here would show an
+    // empty account and let them cancel nothing.
+    await login('merged@example.com', 'coral-lantern-97').expect(401)
+  })
+})
+
+describe('the session a password hands back', () => {
+  it('actually opens their own bookings', async () => {
+    const student = await withPassword('coral-lantern-97')
+    const course = await makeCourseType({ bookingMode: 'paid' })
+    const session = await makeSession({ courseTypeId: course._id, date: '2027-04-10' })
+    await createBooking({
+      sessionId: session._id,
+      studentId: student._id,
+      source: 'student_web',
+      notify: false,
+    })
+
+    const res = await login('aiko@example.com', 'coral-lantern-97').expect(200)
+    const cookie = res.headers['set-cookie']
+
+    const mine = await request(app).get('/api/bookings/mine').set('Cookie', cookie).expect(200)
+    expect(mine.body.bookings).toHaveLength(1)
+
+    const me = await request(app).get('/api/auth/me').set('Cookie', cookie).expect(200)
+    expect(me.body.student.email).toBe('aiko@example.com')
+  })
+})
+
+describe('the details of getting it wrong', () => {
+  it('accepts the address however it was typed', async () => {
+    await withPassword('coral-lantern-97', 'aiko@example.com')
+    // Stored lowercase; nobody types their own address consistently.
+    await login('Aiko@Example.COM', 'coral-lantern-97').expect(200)
+  })
+
+  it('forgets the failures once they get it right', async () => {
+    await withPassword('coral-lantern-97')
+
+    for (let i = 0; i < 7; i++) await login('aiko@example.com', `guess-${i}`)
+    await login('aiko@example.com', 'coral-lantern-97').expect(200)
+
+    /*
+     * Sixteen requests from one address is past the per-IP limit, which is a different guard
+     * with a different job. Cleared here so what is left under test is the account's own count.
+     */
+    resetAuthRateLimits()
+
+    // Without the reset, seven old failures plus one new one would lock a correct password out.
+    for (let i = 0; i < 7; i++) await login('aiko@example.com', `guess-again-${i}`)
+    await login('aiko@example.com', 'coral-lantern-97').expect(200)
+  })
+
+  it('lets them back in once the lockout has passed', async () => {
+    const student = await withPassword('coral-lantern-97')
+
+    for (let i = 0; i < 8; i++) await login('aiko@example.com', `guess-${i}`)
+    await login('aiko@example.com', 'coral-lantern-97').expect(429)
+
+    // A lockout that never lifts is an account nobody can recover without the studio.
+    student.set('lockedUntil', new Date(Date.now() - 1000))
+    await student.save()
+
+    await login('aiko@example.com', 'coral-lantern-97').expect(200)
+  })
+
+  it('keeps a password exactly as typed, spaces and all', async () => {
+    const student = await makeStudent({ email: 'aiko@example.com' })
+    const cookie = `${COOKIE_NAMES.student}=${signStudentToken({
+      sub: String(student._id),
+      email: student.email,
+    })}`
+
+    // Trimming would silently change what they chose, and lock them out of their own account.
+    await request(app)
+      .post('/api/auth/student/password')
+      .set('Cookie', cookie)
+      .send({ password: '  spaced out  ' })
+      .expect(200)
+
+    await login('aiko@example.com', '  spaced out  ').expect(200)
+    await login('aiko@example.com', 'spaced out').expect(401)
+  })
+
+  it('takes a password that is not written in English', async () => {
+    const student = await makeStudent({ email: 'aiko@example.com' })
+    const cookie = `${COOKIE_NAMES.student}=${signStudentToken({
+      sub: String(student._id),
+      email: student.email,
+    })}`
+
+    await request(app)
+      .post('/api/auth/student/password')
+      .set('Cookie', cookie)
+      .send({ password: '生け花のレッスン' })
+      .expect(200)
+
+    await login('aiko@example.com', '生け花のレッスン').expect(200)
+  })
+
+  it('says so when there is no password set, rather than guessing', async () => {
+    const student = await makeStudent({ email: 'aiko@example.com' })
+    const cookie = `${COOKIE_NAMES.student}=${signStudentToken({
+      sub: String(student._id),
+      email: student.email,
+    })}`
+
+    const res = await request(app).get('/api/auth/me').set('Cookie', cookie).expect(200)
+    expect(res.body.student.hasPassword).toBe(false)
   })
 })
