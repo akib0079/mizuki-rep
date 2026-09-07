@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { DateTime } from 'luxon'
 import { STUDIO_TZ } from '@mizuki/shared'
 import { Scope } from './Scope.js'
+import { PasswordField } from './PasswordField.js'
 import { ApiError, widgetApi, type PackageRow, type StudentProfile } from './api.js'
 
 /**
@@ -191,16 +192,9 @@ export function SignIn({
             </label>
 
             {mode === 'password' && (
-              <label className="mzk-field mzk-cp-signin-field">
-                <span>Password</span>
-                <input
-                  type="password"
-                  required
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </label>
+              <div className="mzk-cp-signin-field">
+                <PasswordField label="Password" value={password} onChange={setPassword} />
+              </div>
             )}
 
             <button type="submit" className="mzk-btn mzk-btn-primary" disabled={busy}>
@@ -227,7 +221,6 @@ export function SignIn({
               ? 'No password? Email me a sign-in link instead'
               : 'Sign in with a password instead'}
           </button>
-          <p className="mzk-muted mzk-small">No password needed.</p>
         </>
       )}
 

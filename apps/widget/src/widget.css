@@ -268,6 +268,29 @@
 .mzk-btn-primary:hover:not(:disabled) { background: var(--mzk-accent-dark); }
 .mzk-btn-block { width: 100%; }
 
+/* --- Password field ------------------------------------------------------- */
+
+.mzk-pw { position: relative; display: block; }
+/* Room for the toggle, so a long password never runs underneath it. */
+.mzk-pw-input { width: 100%; padding-right: 42px !important; }
+.mzk-pw-toggle {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--mzk-soft);
+  cursor: pointer;
+}
+.mzk-pw-toggle:hover { color: var(--mzk-ink); background: var(--mzk-canvas); }
+
 /* "Add to calendar" — a quiet, compact action beside the class it belongs to, not a call to
    action competing with Change date and Cancel below it. */
 .mzk-addcal {
@@ -420,6 +443,86 @@
   box-shadow: 0 12px 40px rgba(47, 41, 47, 0.22);
 }
 .mzk-modal h3 { margin: 0 0 6px; font-size: 18px; font-weight: 650; }
+
+/* --- Booking dialog -------------------------------------------------------
+   Two columns on anything wide enough: the class on the left so it stays in view, the form on
+   the right. One column below that, class first, so a phone still leads with what is being
+   booked before asking for anything. */
+
+.mzk-modal-wide { width: min(760px, 100%); padding: 0; }
+
+.mzk-bk { display: grid; grid-template-columns: 250px 1fr; }
+
+.mzk-bk-summary {
+  display: flex;
+  gap: 0;
+  background: var(--mzk-canvas);
+  border-right: 1px solid var(--mzk-line);
+  border-radius: 12px 0 0 12px;
+}
+.mzk-bk-stripe { width: 4px; flex: none; border-radius: 12px 0 0 12px; }
+.mzk-bk-summary-body { padding: 22px 20px; }
+
+.mzk-bk-course {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--mzk-soft);
+}
+.mzk-bk-summary h3 { margin: 0 0 16px; font-size: 17px; line-height: 1.35; }
+
+.mzk-bk-facts { margin: 0; }
+.mzk-bk-facts > div + div { margin-top: 11px; }
+.mzk-bk-facts dt {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--mzk-soft);
+}
+.mzk-bk-facts dd { margin: 2px 0 0; font-size: 14px; font-weight: 600; line-height: 1.4; }
+
+.mzk-bk-where {
+  margin: 18px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--mzk-line);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--mzk-soft);
+}
+
+.mzk-bk-form { padding: 22px; min-width: 0; }
+
+/* Sticky, so a long form never leaves the buttons off the bottom of the screen. */
+.mzk-bk-actions {
+  position: sticky;
+  bottom: -22px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin: 18px -22px -22px;
+  padding: 14px 22px;
+  background: #fff;
+  border-top: 1px solid var(--mzk-line);
+  border-radius: 0 0 12px 0;
+}
+
+@media (max-width: 620px) {
+  .mzk-bk { grid-template-columns: 1fr; }
+  .mzk-bk-summary { border-right: 0; border-bottom: 1px solid var(--mzk-line); border-radius: 12px 12px 0 0; }
+  .mzk-bk-stripe { width: 100%; height: 4px; border-radius: 12px 12px 0 0; }
+  /* Stripe above the text rather than beside it, so it reads as a band across the top. */
+  .mzk-bk-summary { flex-direction: column; }
+  .mzk-bk-summary-body { padding: 16px 18px; }
+  .mzk-bk-summary h3 { margin-bottom: 12px; }
+  .mzk-bk-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; }
+  .mzk-bk-facts > div + div { margin-top: 0; }
+  .mzk-bk-where { display: none; }
+  .mzk-bk-actions { border-radius: 0; }
+}
 
 .mzk-spinner {
   display: inline-block;
@@ -723,6 +826,64 @@
   box-shadow: none !important;
 }
 .mzk button.mzk-linkbtn:hover { color: var(--mzk-accent) !important; background: none !important; }
+
+/* Password field: the toggle is a button, and a theme's button styling would make it a block. */
+.mzk .mzk-pw { position: relative !important; display: block !important; }
+.mzk .mzk-pw-input { width: 100% !important; padding-right: 42px !important; }
+.mzk button.mzk-pw-toggle {
+  position: absolute !important;
+  top: 50% !important;
+  right: 6px !important;
+  transform: translateY(-50%) !important;
+  display: grid !important;
+  place-items: center !important;
+  width: 32px !important;
+  height: 32px !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: none !important;
+  color: var(--mzk-soft) !important;
+  box-shadow: none !important;
+}
+.mzk button.mzk-pw-toggle:hover { color: var(--mzk-ink) !important; background: var(--mzk-canvas) !important; }
+
+/* Booking dialog: the grid and the sticky footer, forced past a theme's layout rules. */
+.mzk.mzk-modal-wide { width: min(760px, 100%) !important; padding: 0 !important; }
+.mzk .mzk-bk { display: grid !important; grid-template-columns: 250px 1fr !important; }
+.mzk .mzk-bk-summary {
+  display: flex !important;
+  background: var(--mzk-canvas) !important;
+  border-right: 1px solid var(--mzk-line) !important;
+  border-radius: 12px 0 0 12px !important;
+}
+.mzk .mzk-bk-stripe { width: 4px !important; flex: none !important; border-radius: 12px 0 0 12px !important; }
+.mzk .mzk-bk-summary-body { padding: 22px 20px !important; }
+.mzk .mzk-bk-summary h3 { margin: 0 0 16px !important; font-size: 17px !important; line-height: 1.35 !important; }
+.mzk .mzk-bk-facts { margin: 0 !important; padding: 0 !important; }
+.mzk .mzk-bk-facts dt { margin: 0 !important; font-size: 11.5px !important; font-weight: 700 !important; letter-spacing: 0.05em !important; text-transform: uppercase !important; color: var(--mzk-soft) !important; }
+.mzk .mzk-bk-facts dd { margin: 2px 0 0 !important; font-size: 14px !important; font-weight: 600 !important; line-height: 1.4 !important; color: var(--mzk-ink) !important; }
+.mzk .mzk-bk-form { padding: 22px !important; min-width: 0 !important; }
+.mzk .mzk-bk-actions {
+  position: sticky !important;
+  bottom: -22px !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  gap: 10px !important;
+  margin: 18px -22px -22px !important;
+  padding: 14px 22px !important;
+  background: #fff !important;
+  border-top: 1px solid var(--mzk-line) !important;
+}
+
+@media (max-width: 620px) {
+  .mzk .mzk-bk { grid-template-columns: 1fr !important; }
+  .mzk .mzk-bk-summary { flex-direction: column !important; border-right: 0 !important; border-bottom: 1px solid var(--mzk-line) !important; border-radius: 12px 12px 0 0 !important; }
+  .mzk .mzk-bk-stripe { width: 100% !important; height: 4px !important; border-radius: 12px 12px 0 0 !important; }
+  .mzk .mzk-bk-summary-body { padding: 16px 18px !important; }
+  .mzk .mzk-bk-facts { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 10px 16px !important; }
+}
 
 /* Month navigation */
 .mzk .mzk-nav button {

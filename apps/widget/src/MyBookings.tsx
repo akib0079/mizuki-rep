@@ -4,6 +4,7 @@ import { formatDuration, formatTimeRange, type PublicSession,
   toStudio,
 } from '@mizuki/shared'
 import { Scope } from './Scope.js'
+import { PasswordField } from './PasswordField.js'
 import {
   ApiError,
   widgetApi,
@@ -407,29 +408,23 @@ function PasswordForm({ hasPassword, onSaved }: { hasPassword: boolean; onSaved:
       {error && <div className="mzk-note mzk-note-error">{error}</div>}
       {state === 'saved' && <div className="mzk-note mzk-note-ok">Password saved.</div>}
 
-      <label className="mzk-field">
-        <span>{hasPassword ? 'New password' : 'Password'}</span>
-        <input
-          type="password"
-          autoComplete="new-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <span className="mzk-muted mzk-small">
-          {tooShort ? 'A few more characters — eight at least.' : 'At least 8 characters.'}
-        </span>
-      </label>
+      <PasswordField
+        label={hasPassword ? 'New password' : 'Password'}
+        value={password}
+        onChange={setPassword}
+        autoComplete="new-password"
+        required={false}
+        hint={tooShort ? 'A few more characters — eight at least.' : 'At least 8 characters.'}
+      />
 
-      <label className="mzk-field">
-        <span>Type it again</span>
-        <input
-          type="password"
-          autoComplete="new-password"
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-        />
-        {mismatch && <span className="mzk-muted mzk-small">Those two do not match.</span>}
-      </label>
+      <PasswordField
+        label="Type it again"
+        value={confirm}
+        onChange={setConfirm}
+        autoComplete="new-password"
+        required={false}
+        hint={mismatch ? 'Those two do not match.' : undefined}
+      />
 
       <button type="submit" className="mzk-btn" disabled={!ready || state === 'saving'}>
         {state === 'saving' ? 'Saving…' : hasPassword ? 'Change password' : 'Set password'}
@@ -705,16 +700,7 @@ function SignInPanel({ embedded = false, onSignedIn }: { embedded?: boolean; onS
               </label>
 
               {mode === 'password' && (
-                <label className="mzk-field">
-                  <span>Password</span>
-                  <input
-                    type="password"
-                    value={password}
-                    required
-                    autoComplete="current-password"
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                </label>
+                <PasswordField label="Password" value={password} onChange={setPassword} />
               )}
 
               <button className="mzk-btn mzk-btn-primary mzk-btn-block" disabled={busy}>

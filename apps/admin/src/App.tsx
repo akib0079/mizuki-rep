@@ -25,6 +25,11 @@ interface Me {
 
 /** Pinned entries sit above the rest, as on the agency panel the studio already uses. */
 const PINNED: NavItem[] = [
+  /*
+   * First, and pinned, because it is the one entry whose worth changes minute to minute. The
+   * others are places you go when you have decided to; this is the one that tells you to.
+   */
+  { to: '/notifications', label: 'Notifications', icon: 'bell' },
   { to: '/calendar', label: 'Calendar', icon: 'calendar' },
   { to: '/students', label: 'Students', icon: 'students' },
 ]
@@ -37,7 +42,6 @@ const NAV: NavItem[] = [
   { to: '/courses', label: 'Courses', icon: 'note' },
   { to: '/closed-dates', label: 'Closed dates', icon: 'closed' },
   { to: '/templates', label: 'Emails', icon: 'mail' },
-  { to: '/notifications', label: 'Notifications', icon: 'bell' },
   { to: '/team', label: 'Team', icon: 'users' },
   { to: '/settings', label: 'Settings', icon: 'settings' },
 ]
@@ -188,49 +192,49 @@ export function App() {
         </button>
 
         <div className="side-heading side-heading-pinned">Pinned</div>
-        {PINNED.map((item) => (
-          // `title` is what makes the collapsed rail usable — an icon on its own is a guess.
-          <NavLink
-            key={`pin-${item.to}`}
-            to={item.to}
-            className={(state) => `${navClass(state)} nav-pinned`}
-            title={item.label}
-          >
-            <span className="nav-icon"><Icon name={item.icon} /></span>
-            <span className="nav-label">{item.label}</span>
-            <span className="pin nav-label"><Icon name="star" size={11} /></span>
-          </NavLink>
-        ))}
-
-        <div className="side-heading">Studio</div>
-        {NAV.map((item) => {
+        {PINNED.map((item) => {
           const count = item.to === '/notifications' ? unread : 0
 
           return (
+            // `title` is what makes the collapsed rail usable — an icon on its own is a guess.
             <NavLink
-              key={item.to}
+              key={`pin-${item.to}`}
               to={item.to}
-              className={navClass}
-              // The count belongs in the name too, or the collapsed rail's tooltip and every
-              // screen reader announce "Notifications" whether there are none or thirty.
+              className={(state) => `${navClass(state)} nav-pinned`}
               title={count > 0 ? `${item.label} — ${count} unread` : item.label}
-              end={item.to === '/dashboard'}
             >
               <span className="nav-icon"><Icon name={item.icon} /></span>
               <span className="nav-label">{item.label}</span>
-              {count > 0 && (
+              {/*
+                The count where the pin marker would be. Both at once is two badges on one row
+                saying different things, and the number is the one worth reading.
+              */}
+              {count > 0 ? (
                 <>
                   <span className="nav-count nav-label">{count > 99 ? '99+' : count}</span>
-                  {/*
-                    Collapsed, the label and its count are hidden — so the icon carries a dot
-                    instead, rather than the rail simply not mentioning it.
-                  */}
                   <span className="nav-count-dot" aria-hidden="true" />
                 </>
+              ) : (
+                <span className="pin nav-label"><Icon name="star" size={11} /></span>
               )}
             </NavLink>
           )
         })}
+
+        {/* Nothing down here carries a count — the only entry that does is pinned above. */}
+        <div className="side-heading">Studio</div>
+        {NAV.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            className={navClass}
+            title={item.label}
+            end={item.to === '/dashboard'}
+          >
+            <span className="nav-icon"><Icon name={item.icon} /></span>
+            <span className="nav-label">{item.label}</span>
+          </NavLink>
+        ))}
 
         <div className="sidebar-footer">
           <div className="avatar">{initials || 'M'}</div>

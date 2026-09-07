@@ -171,7 +171,13 @@ describe('booking with a password', () => {
     await login('aiko@example.com', 'coral-lantern-97').expect(200)
   })
 
-  it('is optional — booking without one still works', async () => {
+  it('still takes a booking without one, so a stale page cannot fail', async () => {
+    /*
+     * The form requires a password; the server does not. A visitor holding the page from before
+     * a deploy is running the old bundle, which sends none — and refusing that would turn a
+     * deploy into a window where booking simply breaks. The requirement belongs where the person
+     * is, and tolerance belongs at the door.
+     */
     const course = await makeCourseType({ bookingMode: 'paid' })
     const session = await makeSession({ courseTypeId: course._id, date: '2027-04-10' })
 

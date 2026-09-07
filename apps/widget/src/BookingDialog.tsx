@@ -10,6 +10,7 @@ import {
   type PublicSession,
 } from '@mizuki/shared'
 import { CountryFlag } from './CountryFlag.js'
+import { PasswordField } from './PasswordField.js'
 import { ApiError, widgetApi, type StartBookingResult, type StudentProfile } from './api.js'
 
 /**
@@ -34,13 +35,15 @@ export function BookingDialog({
 }) {
   const [form, setForm] = useState({ name: '', email: '', phone: '', phoneCountry: '', notes: '', attendeeName: '' })
   /*
-   * A password, offered here and never required.
+   * The password for their new account.
    *
-   * Booking is what they came to do; making them invent a password first puts a step between a
-   * student and a class. Skipping it costs them nothing — the emailed sign-in link still works,
-   * and they can set one from their bookings page whenever they like.
+   * Asked for outright rather than behind a tick. Offered as an extra, most people skipped it —
+   * and every one of them then depended on an email arriving to see their own booking, which is
+   * exactly what was not working. One field at the moment they are already typing their details
+   * is cheaper than a locked-out student later.
+   *
+   * Only ever asked of a visitor. Somebody signed in already has an account.
    */
-  const [wantsPassword, setWantsPassword] = useState(false)
   const [password, setPassword] = useState('')
   /** Ticked when the number is not Singaporean, which swaps in the country picker. */
   const [abroad, setAbroad] = useState(false)
@@ -119,7 +122,7 @@ export function BookingDialog({
               notes: form.notes.trim(),
               attendeeName,
               confirmedNewAccount,
-              ...(wantsPassword && password.length >= 8 ? { password } : {}),
+              password,
             },
       )
       setResult(outcome)
@@ -144,7 +147,12 @@ export function BookingDialog({
 
   return (
     <div className="mzk-modal-backdrop" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
-      <div className="mzk mzk-modal" role="dialog" aria-modal="true" aria-label="Book this class">
+      <div
+        className={result ? 'mzk mzk-modal' : 'mzk mzk-modal mzk-modal-wide'}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Book this class"
+      >
         {result ? (
           <BookingOutcome
             result={result}
@@ -158,40 +166,70 @@ export function BookingDialog({
             }}
           />
         ) : (
-          <form onSubmit={submit}>
-            <h3>{session.title}</h3>
-            <p className="mzk-muted mzk-small">
-              {start.toFormat('cccc d LLLL yyyy')}
-              <br />
-              {formatTimeRange(start.toJSDate(), end.toJSDate())} · {formatDuration(session.durationMins)}
-            </p>
+          <form className="mzk-bk" onSubmit={submit}>
+            {/*
+              What they are booking, kept beside what they are filling in.
+              
+              It used to be a heading and two grey lines at the top of a long form: by the time
+              anyone reached the phone field the date had scrolled away, and the only way to check
+              it was to abandon what they had typed. On its own side it simply stays there.
+            */}
+            <aside className="mzk-bk-summary">
+              <span className="mzk-bk-stripe" style={{ background: session.colour }} />
+              <div className="mzk-bk-summary-body">
+                <span className="mzk-bk-course">{session.courseName}</span>
+                <h3>{session.title}</h3>
 
-            {session.breaks.length > 0 && (
-              <p className="mzk-muted mzk-small">
-                Includes a break: {session.breaks.map((b) => `${b.label} ${b.start}–${b.end}`).join(', ')}
-              </p>
-            )}
+                <dl className="mzk-bk-facts">
+                  <div>
+                    <dt>Date</dt>
+                    <dd>{start.toFormat('cccc d LLLL yyyy')}</dd>
+                  </div>
+                  <div>
+                    <dt>Time</dt>
+                    <dd>{formatTimeRange(start.toJSDate(), end.toJSDate())}</dd>
+                  </div>
+                  <div>
+                    <dt>Length</dt>
+                    <dd>{formatDuration(session.durationMins)}</dd>
+                  </div>
+                  {session.breaks.length > 0 && (
+                    <div>
+                      <dt>Break</dt>
+                      <dd>{session.breaks.map((b) => `${b.label} ${b.start}–${b.end}`).join(', ')}</dd>
+                    </div>
+                  )}
+                </dl>
 
-            {error && <div className="mzk-note mzk-note-error">{error}</div>}
-
-            {alternatives && alternatives.length > 0 && (
-              <div className="mzk-note mzk-note-info">
-                <strong>Other dates with places:</strong>
-                <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
-                  {alternatives.map((alt) => (
-                    <li key={alt.id}>
-                      {toStudio(alt.startAt).toFormat('ccc d LLL')} ·{' '}
-                      {toStudio(alt.startAt).toFormat('h:mm a')} — {alt.seatsLeft} left
-                    </li>
-                  ))}
-                </ul>
-                <p className="mzk-small" style={{ margin: '8px 0 0' }}>
-                  Close this and pick one from the calendar.
+                <p className="mzk-bk-where">
+                  Mizuki Flora
+                  <br />
+                  #2/F, 148 Jalan Besar, Singapore 208866
                 </p>
               </div>
-            )}
+            </aside>
 
-            <div style={{ marginTop: 16 }}>
+            <div className="mzk-bk-form">
+              {error && <div className="mzk-note mzk-note-error">{error}</div>}
+
+              {alternatives && alternatives.length > 0 && (
+                <div className="mzk-note mzk-note-info">
+                  <strong>Other dates with places:</strong>
+                  <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
+                    {alternatives.map((alt) => (
+                      <li key={alt.id}>
+                        {toStudio(alt.startAt).toFormat('ccc d LLL')} ·{' '}
+                        {toStudio(alt.startAt).toFormat('h:mm a')} — {alt.seatsLeft} left
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mzk-small" style={{ margin: '8px 0 0' }}>
+                    Close this and pick one from the calendar.
+                  </p>
+                </div>
+              )}
+
+              <div>
               {account ? (
                 /*
                  * Signed in, so we already know who they are. Asking again would only invite the
@@ -224,41 +262,18 @@ export function BookingDialog({
                     <span className="mzk-muted mzk-small">Your confirmation and reminder go here.</span>
                   </label>
 
-                  {/*
-                    Offered, not demanded. The checkbox keeps the form as short as it was for
-                    everyone who does not want one, and reveals a single field for those who do.
-                  */}
-                  <label className="mzk-row" style={{ gap: 8, marginBottom: wantsPassword ? 8 : 14, cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={wantsPassword}
-                      onChange={(e) => setWantsPassword(e.target.checked)}
-                    />
-                    {/* Short enough to sit on the checkbox's own line, like the two below it.
-                        What it buys them is said by the field's hint once it is revealed. */}
-                    <span className="mzk-small">Set a password for next time</span>
-                  </label>
-
-                  {wantsPassword && (
-                    <label className="mzk-field">
-                      <span>Password</span>
-                      <input
-                        type="password"
-                        value={password}
-                        // Required once asked for, so a too-short one is caught here rather
-                        // than dropped silently on submit.
-                        required
-                        minLength={8}
-                        autoComplete="new-password"
-                        onChange={(e) => setPassword(e.target.value)}
-                      />
-                      <span className="mzk-muted mzk-small">
-                        {password.length > 0 && password.length < 8
-                          ? 'A few more characters — eight at least.'
-                          : 'At least 8 characters. Sign in with your email and this password, instead of waiting for an emailed link.'}
-                      </span>
-                    </label>
-                  )}
+                  <PasswordField
+                    label="Choose a password"
+                    value={password}
+                    onChange={setPassword}
+                    autoComplete="new-password"
+                    minLength={8}
+                    hint={
+                      password.length > 0 && password.length < 8
+                        ? 'A few more characters — eight at least.'
+                        : 'At least 8 characters. Use it with your email to see your bookings any time.'
+                    }
+                  />
 
                   {/*
                     Singapore by default, with a way out.
@@ -400,14 +415,15 @@ export function BookingDialog({
               </label>
             </div>
 
-            <div className="mzk-row" style={{ justifyContent: 'flex-end', marginTop: 4 }}>
-              <button type="button" className="mzk-btn" onClick={onClose} disabled={busy}>
-                Cancel
-              </button>
-              <button type="submit" className="mzk-btn mzk-btn-primary" disabled={busy}>
-                {busy && <span className="mzk-spinner" />}
-                {busy ? 'Just a moment…' : 'Book this class'}
-              </button>
+              <div className="mzk-bk-actions">
+                <button type="button" className="mzk-btn" onClick={onClose} disabled={busy}>
+                  Cancel
+                </button>
+                <button type="submit" className="mzk-btn mzk-btn-primary" disabled={busy}>
+                  {busy && <span className="mzk-spinner" />}
+                  {busy ? 'Just a moment…' : 'Book this class'}
+                </button>
+              </div>
             </div>
           </form>
         )}
