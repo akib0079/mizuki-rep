@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { DateTime } from 'luxon'
-import { STUDIO_TZ, evaluateCancel, evaluateReschedule, studioInstant } from '@mizuki/shared'
+import {
+  SEAT_OCCUPYING_STATUSES,
+  STUDIO_TZ,
+  evaluateCancel,
+  evaluateReschedule,
+  studioInstant,
+} from '@mizuki/shared'
 import { buildIcs } from './mailer.js'
 import { renderTemplate } from './emailTemplates.js'
 import { config } from '../config.js'
@@ -42,6 +48,30 @@ describe('a place that is reserved but not yet confirmed', () => {
 
   it('still calls a genuinely dead booking dead', () => {
     expect(evaluateReschedule(ctx('cancelled'), now).message).toContain('no longer active')
+  })
+
+  /*
+   * The studio hit this a second time, from the other end: a register marked before the class
+   * ran left a student looking at "This booking is no longer active" under a place they still
+   * hold. Every status the bookings page can list has to say something true, so the check is
+   * over the whole list rather than over the one that was reported.
+   */
+  it('never tells a student their live booking is dead, whatever state it is in', () => {
+    for (const status of SEAT_OCCUPYING_STATUSES) {
+      const verdict = evaluateReschedule(ctx(status), now)
+      expect(verdict.message, `${status} is described as inactive`).not.toContain('no longer active')
+      expect(evaluateCancel(ctx(status), now).message, `${status} on cancel`).not.toContain(
+        'no longer active',
+      )
+    }
+  })
+
+  it('says what an attended booking is, rather than nothing at all', () => {
+    const verdict = evaluateReschedule(ctx('attended'), now)
+    expect(verdict.code).toBe('already_attended')
+    expect(verdict.message).toContain('marked as attended')
+    // Marked early is usually a mis-tap, so the student is given a way to say so.
+    expect(verdict.message).toContain('not right')
   })
 
   it('lets a confirmed place be changed as before', () => {

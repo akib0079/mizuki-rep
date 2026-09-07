@@ -15,6 +15,7 @@ export type RuleCode =
   | 'session_full'
   | 'booking_inactive'
   | 'awaiting_confirmation'
+  | 'already_attended'
   | 'cutoff_passed'
   | 'package_exhausted'
   | 'package_expired'
@@ -45,6 +46,18 @@ const ok = (): RuleResult => ({ allowed: true, code: 'ok', message: '' })
  */
 const AWAITING_MESSAGE =
   'Your place is reserved and held for you. The studio will confirm it shortly — get in touch if you need to change the date.'
+
+/**
+ * A place the register already counts as taken.
+ *
+ * Also fell through to "This booking is no longer active", which is the opposite of true: the
+ * student is on the list. It reaches a student's own page when the studio marks a register
+ * before the class runs — by intent or by a mis-tap — so the wording says what the record
+ * currently claims and invites them to say if it is wrong, rather than asserting they were
+ * somewhere they have not been yet.
+ */
+const ATTENDED_MESSAGE =
+  'This class is marked as attended, so it cannot be changed here. Get in touch if that is not right.'
 
 const deny = (code: RuleCode, message: string, deadline?: Date): RuleResult => ({
   allowed: false,
@@ -139,6 +152,9 @@ export function evaluateReschedule(ctx: RescheduleContext, now: Date): RuleResul
   if (booking.status === 'awaiting_confirmation') {
     return deny('awaiting_confirmation', AWAITING_MESSAGE)
   }
+  if (booking.status === 'attended') {
+    return deny('already_attended', ATTENDED_MESSAGE)
+  }
   if (booking.status !== 'confirmed' && booking.status !== 'hold') {
     return deny('booking_inactive', 'This booking is no longer active.')
   }
@@ -166,6 +182,9 @@ export function evaluateCancel(
 
   if (booking.status === 'awaiting_confirmation') {
     return deny('awaiting_confirmation', AWAITING_MESSAGE)
+  }
+  if (booking.status === 'attended') {
+    return deny('already_attended', ATTENDED_MESSAGE)
   }
   if (booking.status !== 'confirmed' && booking.status !== 'hold') {
     return deny('booking_inactive', 'This booking is no longer active.')

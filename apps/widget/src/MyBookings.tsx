@@ -489,6 +489,14 @@ function BookingCard({
           {row.status === 'confirmed' && (
             <div className="mzk-tag mzk-tag-ok" style={{ marginTop: 6 }}>Confirmed</div>
           )}
+          {/*
+            A register marked before the class runs — deliberately, or by a mis-tap. The row used
+            to show no state at all and the line beneath it said the booking was no longer
+            active, which is the opposite of what an attended booking means.
+          */}
+          {row.status === 'attended' && (
+            <div className="mzk-tag mzk-tag-ok" style={{ marginTop: 6 }}>Attended</div>
+          )}
         </div>
 
         {/*
