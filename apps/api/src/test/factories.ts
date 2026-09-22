@@ -24,6 +24,7 @@ export async function makeCourseType(overrides: Partial<Record<string, unknown>>
     cancelCutoffHours: 72,
     defaultDurationMins: 150,
     defaultCapacity: 8,
+    wooProductIds: [42],
     ...overrides,
   })
 }
@@ -33,7 +34,7 @@ export async function makeSession(
 ): Promise<SessionDoc> {
   const {
     courseTypeId = new Types.ObjectId(),
-    date = '2026-09-12',
+    date = '2027-09-12',
     time = '10:00',
     durationMins = 180,
     ...rest

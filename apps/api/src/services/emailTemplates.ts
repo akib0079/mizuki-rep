@@ -112,11 +112,12 @@ export const DEFAULT_TEMPLATES: Record<EmailTemplateKey, TemplateDefinition> = {
       <p>Your place is confirmed. We look forward to seeing you.</p>
       ${sessionCard}
       <p>{{packageLine}}</p>
+      <p style="color:${BRAND.muted};">{{workshopPolicyLine}}</p>
       <p style="color:${BRAND.muted};">You can change this booking until <strong>{{rescheduleDeadline}}</strong>.</p>
       ${button('View my bookings', '{{myBookingsUrl}}')}
       <p style="color:${BRAND.muted};font-size:13px;">A calendar invitation is attached to this email.</p>`),
-    bodyText: `Hello {{studentName}},\n\nYour place is confirmed.\n\n{{sessionTitle}}\n{{sessionDate}}\n{{sessionTimeRange}} ({{sessionDuration}})\n\n{{packageLine}}\n\nYou can change this booking until {{rescheduleDeadline}}.\n{{myBookingsUrl}}\n\nMizuki Flora`,
-    variables: [...COMMON_VARS, ...SESSION_VARS, 'rescheduleDeadline', 'packageLine', 'myBookingsUrl'],
+    bodyText: `Hello {{studentName}},\n\nYour place is confirmed.\n\n{{sessionTitle}}\n{{sessionDate}}\n{{sessionTimeRange}} ({{sessionDuration}})\n\n{{packageLine}}\n\n{{workshopPolicyLine}}\n\nYou can change this booking until {{rescheduleDeadline}}.\n{{myBookingsUrl}}\n\nMizuki Flora`,
+    variables: [...COMMON_VARS, ...SESSION_VARS, 'rescheduleDeadline', 'packageLine', 'workshopPolicyLine', 'myBookingsUrl'],
   },
 
   reminder_2day: {
@@ -126,10 +127,11 @@ export const DEFAULT_TEMPLATES: Record<EmailTemplateKey, TemplateDefinition> = {
     bodyHtml: layout(`<p>Hello {{studentName}},</p>
       <p>A reminder that your class is in two days.</p>
       ${sessionCard}
+      <p style="color:${BRAND.muted};">{{workshopPolicyLine}}</p>
       <p>We are at <strong>#2/F, 148 Jalan Besar, Singapore 208866</strong>. Everything you need is provided — just bring yourself.</p>
-      <p style="color:${BRAND.muted};">Need to change something? Reply to this email or call us on {{studioPhone}}.</p>`),
-    bodyText: `Hello {{studentName}},\n\nA reminder that your class is in two days.\n\n{{sessionTitle}}\n{{sessionDate}}\n{{sessionTimeRange}} ({{sessionDuration}})\n\nWe are at #2/F, 148 Jalan Besar, Singapore 208866.\n\nNeed to change something? Reply to this email or call {{studioPhone}}.\n\nMizuki Flora`,
-    variables: [...COMMON_VARS, ...SESSION_VARS, 'myBookingsUrl'],
+      <p style="color:${BRAND.muted};">Need to change something? Reply to this email or WhatsApp us on {{studioPhone}}.</p>`),
+    bodyText: `Hello {{studentName}},\n\nA reminder that your class is in two days.\n\n{{sessionTitle}}\n{{sessionDate}}\n{{sessionTimeRange}} ({{sessionDuration}})\n\n{{workshopPolicyLine}}\n\nWe are at #2/F, 148 Jalan Besar, Singapore 208866.\n\nNeed to change something? Reply to this email or WhatsApp {{studioPhone}}.\n\nMizuki Flora`,
+    variables: [...COMMON_VARS, ...SESSION_VARS, 'workshopPolicyLine', 'myBookingsUrl'],
   },
 
   reschedule_confirmed: {

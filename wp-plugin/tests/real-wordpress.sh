@@ -65,10 +65,19 @@ if ( ! defined( 'ABSPATH' ) ) { define( 'ABSPATH', __DIR__ . '/' ); }
 require_once ABSPATH . 'wp-settings.php';
 PHP
 
-echo "→ Installing WordPress and Elementor"
+echo "→ Installing WordPress, Elementor and WooCommerce"
 $WP core install --url="http://localhost:$PORT" --title="Mizuki plugin test" \
 	--admin_user=admin --admin_password=admin --admin_email=test@example.test --skip-email
 $WP plugin install elementor --activate
+
+# WooCommerce, because three of these widgets are about products and a stubbed shop can only
+# ever agree with the code calling it. MIZUKI_SKIP_WOO=1 runs the Elementor half on its own,
+# which is the faster one.
+if [ "${MIZUKI_SKIP_WOO:-0}" != "1" ]; then
+	$WP plugin install woocommerce --activate
+	$WP option update woocommerce_currency SGD
+	$WP option update woocommerce_store_country "SG:SG"
+fi
 
 echo "→ Installing this plugin"
 cp -R "$ROOT/wp-plugin/mizuki-booking-bridge" wp-content/plugins/
@@ -79,6 +88,23 @@ echo "→ Checking it inside real Elementor"
 : > debug.log
 cp "$ROOT/wp-plugin/tests/elementor-checks.php" ./elementor-checks.php
 php wp-cli.phar eval-file elementor-checks.php
+
+if [ "${MIZUKI_SKIP_WOO:-0}" != "1" ]; then
+	echo
+	echo "→ Stocking a demo shop"
+	cp "$ROOT/wp-plugin/tests/woocommerce-demo.php" ./woocommerce-demo.php
+	php wp-cli.phar eval-file woocommerce-demo.php
+
+	echo
+	echo "→ Checking the product widgets against real WooCommerce"
+	cp "$ROOT/wp-plugin/tests/woocommerce-checks.php" ./woocommerce-checks.php
+	php wp-cli.phar eval-file woocommerce-checks.php
+
+	echo
+	echo "→ Building demo pages"
+	cp "$ROOT/wp-plugin/tests/demo-pages.php" ./demo-pages.php
+	php wp-cli.phar eval-file demo-pages.php
+fi
 
 if grep -q "Mizuki Booking:" debug.log 2>/dev/null; then
 	echo
@@ -114,7 +140,17 @@ if ! curl -s -b cookies.txt -m 60 "http://localhost:$PORT/wp-admin/" | grep -q '
 fi
 
 fail=0
-for path in "/" "/wp-admin/" "/wp-admin/plugins.php" "/wp-admin/admin.php?page=elementor"; do
+pages=("/" "/wp-admin/" "/wp-admin/plugins.php" "/wp-admin/admin.php?page=elementor")
+
+# Every demo page too, so each widget is also met the way a visitor meets it: rendered into a
+# real theme and served over HTTP, rather than called directly in PHP.
+if [ -f demo-page-paths.txt ]; then
+	while read -r path; do
+		[ -n "$path" ] && pages+=("$path")
+	done < demo-page-paths.txt
+fi
+
+for path in "${pages[@]}"; do
 	code=$(curl -s -b cookies.txt -o body.html -w '%{http_code}' -m 60 "http://localhost:$PORT$path")
 	if [ "$code" != "200" ] || grep -qiE "Fatal error|Uncaught|critical error" body.html; then
 		echo "  FAIL  $path -> HTTP $code"
@@ -137,4 +173,7 @@ if [ "$fail" -ne 0 ]; then
 	exit 1
 fi
 echo "Real WordPress, real Elementor: the plugin activates, registers, renders and serves pages."
+if [ "${MIZUKI_SKIP_WOO:-0}" != "1" ]; then
+	echo "Real WooCommerce: the product widgets draw real products, categories and prices."
+fi
 echo "The site is at $SITE — delete it when you are done."

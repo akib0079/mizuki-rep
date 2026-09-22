@@ -190,15 +190,17 @@ describe('how a hold ends', () => {
 })
 
 describe('a course with no shop product yet', () => {
-  it('still holds the place and sends the student to the shop', async () => {
-    // The studio has not linked a Woo product to this course yet — the place must still be
-    // protected, otherwise the gap between setup steps is a window for overselling.
+  it('explains the setup problem without taking a seat', async () => {
+    // Sending somebody to the general shop loses the chosen session and can take a seat forever.
+    // Stop before creating a hold, with a message the studio can fix by linking the product.
     await CourseTypeModel.updateOne({ _id: ikebana._id }, { $set: { wooProductIds: [] } })
     const session = await makeSession({ courseTypeId: ikebana._id, capacity: 2, date: '2026-10-17' })
 
-    const res = await startBooking(String(session._id)).expect(200)
+    const res = await startBooking(String(session._id)).expect(422)
 
-    expect(res.body.checkoutUrl).toContain('/shop')
-    expect((await SessionModel.findById(session._id))!.seatsTaken).toBe(1)
+    expect(res.body.error.code).toBe('shop_product_not_configured')
+    expect(res.body.error.message).toContain('not available for online payment yet')
+    expect((await SessionModel.findById(session._id))!.seatsTaken).toBe(0)
+    expect(await BookingModel.countDocuments({ sessionId: session._id })).toBe(0)
   })
 })

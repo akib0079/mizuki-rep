@@ -84,5 +84,10 @@ describe('the studio copy of a booking alert', () => {
       const body = `${message.bodyHtml ?? ''} ${message.bodyText ?? ''}`
       expect(body).not.toContain('course package')
     }
+
+    const studentMail = await OutboxModel.findOne({ to: 'walkin@example.com', type: 'booking_confirmation' }).lean()
+    expect(`${studentMail?.bodyHtml ?? ''} ${studentMail?.bodyText ?? ''}`).toContain(
+      'No refunds are available within 48 hours',
+    )
   })
 })

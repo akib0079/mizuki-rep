@@ -150,7 +150,7 @@ describe('choosing a password', () => {
 
 describe('booking with a password', () => {
   it('sets one, and signs them in there and then', async () => {
-    const course = await makeCourseType({ bookingMode: 'paid' })
+    const course = await makeCourseType({ bookingMode: 'paid', wooProductIds: [42] })
     const session = await makeSession({ courseTypeId: course._id, date: '2027-04-10' })
 
     const res = await request(app)
@@ -178,7 +178,7 @@ describe('booking with a password', () => {
      * deploy into a window where booking simply breaks. The requirement belongs where the person
      * is, and tolerance belongs at the door.
      */
-    const course = await makeCourseType({ bookingMode: 'paid' })
+    const course = await makeCourseType({ bookingMode: 'paid', wooProductIds: [42] })
     const session = await makeSession({ courseTypeId: course._id, date: '2027-04-10' })
 
     await request(app)
@@ -210,7 +210,7 @@ describe('booking with a password', () => {
 describe('a password cannot be used to reach somebody else', () => {
   it('booking with an address already on file never touches that account\'s password', async () => {
     const existing = await withPassword('coral-lantern-97', 'aiko@example.com')
-    const course = await makeCourseType({ bookingMode: 'paid' })
+    const course = await makeCourseType({ bookingMode: 'paid', wooProductIds: [42] })
     const session = await makeSession({ courseTypeId: course._id, date: '2027-04-10' })
 
     /*
@@ -242,7 +242,7 @@ describe('a password cannot be used to reach somebody else', () => {
     const held = await withPassword('coral-lantern-97', 'aiko@example.com', '+65 9123 4567')
     expect(held.phoneDigits).toContain('91234567')
 
-    const course = await makeCourseType({ bookingMode: 'paid' })
+    const course = await makeCourseType({ bookingMode: 'paid', wooProductIds: [42] })
     const session = await makeSession({ courseTypeId: course._id, date: '2027-04-10' })
 
     const res = await request(app)
@@ -268,7 +268,7 @@ describe('a password cannot be used to reach somebody else', () => {
       email: other.email,
     })}`
 
-    const course = await makeCourseType({ bookingMode: 'paid' })
+    const course = await makeCourseType({ bookingMode: 'paid', wooProductIds: [42] })
     const session = await makeSession({ courseTypeId: course._id, date: '2027-04-10' })
 
     /*
@@ -302,7 +302,7 @@ describe('a password cannot be used to reach somebody else', () => {
 describe('the session a password hands back', () => {
   it('actually opens their own bookings', async () => {
     const student = await withPassword('coral-lantern-97')
-    const course = await makeCourseType({ bookingMode: 'paid' })
+    const course = await makeCourseType({ bookingMode: 'paid', wooProductIds: [42] })
     const session = await makeSession({ courseTypeId: course._id, date: '2027-04-10' })
     await createBooking({
       sessionId: session._id,

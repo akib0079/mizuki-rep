@@ -459,6 +459,13 @@ export function BookingDialog({
                   onChange={(e) => setForm({ ...form, notes: e.target.value })}
                 />
               </label>
+
+              {session.bookingMode === 'paid' && (
+                <div className="mzk-note mzk-note-info">
+                  No refunds are available within 48 hours of the workshop. If you need to
+                  reschedule or have a question, please contact us on WhatsApp at +65 8821 9386.
+                </div>
+              )}
             </div>
 
               <div className="mzk-bk-actions">

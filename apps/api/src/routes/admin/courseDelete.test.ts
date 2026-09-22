@@ -118,3 +118,32 @@ describe('deleting a course', () => {
     expect(await CourseTypeModel.countDocuments({ _id: course._id })).toBe(1)
   })
 })
+
+describe('renaming a course', () => {
+  it('updates ordinary calendar titles and preserves custom session names', async () => {
+    const ordinary = await makeSession({ courseTypeId: course._id, title: course.name })
+    const custom = await makeSession({ courseTypeId: course._id, title: 'Seasonal morning workshop' })
+    await ScheduleRuleModel.create({
+      courseTypeId: course._id,
+      title: course.name,
+      recurrence: { freq: 'WEEKLY', byWeekday: [6], interval: 1 },
+      startTime: '10:00',
+      durationMins: 120,
+      capacity: 8,
+      breaks: [],
+      effectiveFrom: '2026-01-01',
+      active: true,
+    })
+
+    await request(app)
+      .patch(`/api/admin/settings/courses/${course._id}`)
+      .set('Cookie', asAdmin())
+      .send({ name: 'Correct Course Name' })
+      .expect(200)
+
+    expect((await CourseTypeModel.findById(course._id))!.name).toBe('Correct Course Name')
+    expect((await SessionModel.findById(ordinary._id))!.title).toBe('Correct Course Name')
+    expect((await SessionModel.findById(custom._id))!.title).toBe('Seasonal morning workshop')
+    expect((await ScheduleRuleModel.findOne({ courseTypeId: course._id }))!.title).toBe('Correct Course Name')
+  })
+})

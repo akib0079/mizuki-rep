@@ -106,6 +106,33 @@ adminSettingsRouter.patch(
 
     const course = await CourseTypeModel.findByIdAndUpdate(req.params.id, { $set: input }, { new: true })
 
+    /*
+     * A calendar class stores its own title so special sessions can be named differently. That
+     * also meant renaming a course left every ordinary future class showing the old name. Move
+     * only exact matches, preserving intentionally custom titles such as "Morning workshop".
+     */
+    if (input.name !== undefined && input.name !== before.name) {
+      await Promise.all([
+        SessionModel.updateMany(
+          { courseTypeId: before._id, title: before.name, status: 'scheduled' },
+          { $set: { title: input.name } },
+        ),
+        ScheduleRuleModel.updateMany(
+          { courseTypeId: before._id, title: before.name },
+          { $set: { title: input.name } },
+        ),
+      ])
+
+      await recordAudit({
+        actor: actorOf(req),
+        action: 'course.rename',
+        entity: 'CourseType',
+        entityId: course!._id,
+        before: { name: before.name },
+        after: { name: input.name },
+      })
+    }
+
     if (input.rescheduleCutoffHours !== undefined && input.rescheduleCutoffHours !== before.rescheduleCutoffHours) {
       await recordAudit({
         actor: actorOf(req),

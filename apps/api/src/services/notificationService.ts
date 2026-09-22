@@ -100,6 +100,11 @@ function studentVars(student: StudentDoc) {
   }
 }
 
+function workshopPolicyLine(courseType: CourseTypeDoc): string {
+  if (courseType.bookingMode !== 'paid') return ''
+  return 'No refunds are available within 48 hours of the workshop. If you need to reschedule or have a question, please contact us on WhatsApp at +65 8821 9386.'
+}
+
 /** "You have 6 of 8 sessions left" — omitted entirely for one-off paid workshops. */
 function packageLine(pkg: PackageDoc | null, courseName: string): string {
   if (!pkg) return ''
@@ -137,6 +142,7 @@ async function queueStudentEmail(
     ...studentVars(ctx.student),
     ...sessionVars(ctx.session, ctx.courseType),
     packageLine: packageLine(ctx.pkg ?? null, ctx.courseType.name),
+    workshopPolicyLine: workshopPolicyLine(ctx.courseType),
     ...extraVars,
   }
 

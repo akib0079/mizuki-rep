@@ -15,6 +15,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog.js'
  */
 
 interface Draft {
+  name: string
   description: string
   suitableFor: string
   whatYouLearn: string
@@ -25,6 +26,7 @@ interface Draft {
 }
 
 const EMPTY: Draft = {
+  name: '',
   description: '',
   suitableFor: '',
   whatYouLearn: '',
@@ -92,6 +94,7 @@ export function CoursesPage() {
   useEffect(() => {
     if (!selected) return
     setDraft({
+      name: selected.name,
       description: selected.description ?? '',
       suitableFor: selected.suitableFor ?? '',
       whatYouLearn: selected.whatYouLearn ?? '',
@@ -121,7 +124,7 @@ export function CoursesPage() {
   })
 
   /* Enough filled in for the student's panel to be worth opening. */
-  const filledCount = Object.values(draft).filter((v) => v.trim()).length
+  const filledCount = Object.entries(draft).filter(([key, value]) => key !== 'name' && value.trim()).length
 
   return (
     <>
@@ -196,6 +199,23 @@ export function CoursesPage() {
                 </div>
 
                 <label className="field">
+                  <span>Course or workshop name</span>
+                  <input
+                    value={draft.name}
+                    maxLength={80}
+                    onChange={(e) => {
+                      setSaved(false)
+                      setDraft({ ...draft, name: e.target.value })
+                    }}
+                    required
+                  />
+                  <div className="field-hint">
+                    This is the name students see in the booking calendar. Matching future class
+                    titles are renamed automatically; custom class titles stay as they are.
+                  </div>
+                </label>
+
+                <label className="field">
                   <span>Photograph (web address)</span>
                   <input
                     type="url"
@@ -234,7 +254,7 @@ export function CoursesPage() {
                   <button
                     type="button"
                     className="btn btn-primary"
-                    disabled={saveMutation.isPending}
+                    disabled={saveMutation.isPending || !draft.name.trim()}
                     onClick={() => saveMutation.mutate()}
                   >
                     {saveMutation.isPending ? 'Saving…' : saved ? 'Saved' : 'Save changes'}

@@ -34,7 +34,7 @@ beforeEach(async () => {
   ikebana = await makeCourseType({ name: 'Ikebana', bookingMode: 'paid' })
 
   sessions = await Promise.all(
-    ['2026-09-12', '2026-09-26', '2026-10-10', '2026-10-24'].map((date, i) =>
+    ['2027-09-12', '2027-09-26', '2027-10-10', '2027-10-24'].map((date, i) =>
       makeSession({
         courseTypeId: ikebana._id,
         date,
@@ -99,8 +99,8 @@ describe('booking a whole course', () => {
 
     const emails = await OutboxModel.find({ type: 'series_confirmation' })
     expect(emails).toHaveLength(1)
-    expect(emails[0]!.bodyText).toContain('12 Sep 2026')
-    expect(emails[0]!.bodyText).toContain('24 Oct 2026')
+    expect(emails[0]!.bodyText).toContain('12 Sep 2027')
+    expect(emails[0]!.bodyText).toContain('24 Oct 2027')
     expect(emails[0]!.bodyText).not.toMatch(/\{\{/)
   })
 
@@ -180,7 +180,7 @@ describe('what students see', () => {
     expect(availability.bookable).toBe(false)
     expect(availability.placesLeft).toBe(0)
     expect(availability.reason).toContain('Day 3')
-    expect(availability.reason).toContain('10 Oct 2026')
+    expect(availability.reason).toContain('10 Oct 2027')
   })
 
   it('lists the course over the public API in date order', async () => {
@@ -189,10 +189,10 @@ describe('what students see', () => {
     expect(res.body.series).toHaveLength(1)
     expect(res.body.series[0].name).toBe('Autumn Ikebana Course')
     expect(res.body.series[0].sessions.map((s: { startAt: string }) => s.startAt.slice(0, 10))).toEqual([
-      '2026-09-12',
-      '2026-09-26',
-      '2026-10-10',
-      '2026-10-24',
+      '2027-09-12',
+      '2027-09-26',
+      '2027-10-10',
+      '2027-10-24',
     ])
   })
 

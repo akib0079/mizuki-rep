@@ -296,6 +296,15 @@ bookingRouter.post(
      * The hold occupies a place exactly like a confirmed booking, and expires on its own if
      * payment never lands, which is what makes it safe to hand out optimistically.
      */
+    const productId = courseType.wooProductIds[0]
+    if (!productId) {
+      throw new AppError(
+        422,
+        'shop_product_not_configured',
+        `${courseType.name} is not available for online payment yet. Please contact Mizuki Flora for help.`,
+      )
+    }
+
     const holdToken = generateHoldToken()
     const holdExpiresAt = new Date(Date.now() + HOLD_TTL_MS)
 
@@ -315,10 +324,7 @@ bookingRouter.post(
       notify: false,
     })
 
-    const productId = courseType.wooProductIds[0]
-    const checkoutUrl = productId
-      ? `${config.PUBLIC_SITE_URL}/?add-to-cart=${productId}&mizuki_session=${session._id}&mizuki_hold=${holdToken}`
-      : `${config.PUBLIC_SITE_URL}/shop`
+    const checkoutUrl = `${config.PUBLIC_SITE_URL}/?add-to-cart=${productId}&mizuki_session=${session._id}&mizuki_hold=${holdToken}`
 
     res.json({
       outcome: 'checkout_required',

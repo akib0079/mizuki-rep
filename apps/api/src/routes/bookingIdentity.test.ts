@@ -26,7 +26,7 @@ function asStudent(id: string) {
 beforeEach(async () => {
   await seedEmailTemplates()
   const course = await makeCourseType({ name: 'Ikebana', slug: 'ike-identity', bookingMode: 'free' })
-  session = await makeSession({ courseTypeId: course._id, capacity: 6, date: '2026-09-19' })
+  session = await makeSession({ courseTypeId: course._id, capacity: 6, date: '2027-09-19' })
 })
 
 describe('booking as a visitor', () => {
