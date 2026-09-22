@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { studioInstant } from '@mizuki/shared'
 import { sendDailyDigest } from './index.js'
 import { AdminUserModel, OutboxModel, SettingModel } from '../models/index.js'
-import { setExtraRecipients } from '../services/adminNotificationService.js'
+import {
+  notificationRecipients,
+  removeNotificationRecipient,
+  setExtraRecipients,
+} from '../services/adminNotificationService.js'
 import { queueAdminBroadcast } from '../services/notificationService.js'
 import { makeCourseType, makeSession } from '../test/factories.js'
 import { config } from '../config.js'
@@ -92,6 +96,20 @@ describe('the daily digest', () => {
     await sendDailyDigest(morning)
 
     expect(await sentTo('admin_daily_digest')).toContain('bookings@mizuki.com.sg')
+  })
+
+  it('lets the console remove both additional and legacy server addresses', async () => {
+    await admin('mizukisg148@gmail.com')
+    await setExtraRecipients(['bookings@mizuki.com.sg'])
+
+    await removeNotificationRecipient('bookings@mizuki.com.sg')
+    await removeNotificationRecipient('studio@example.com')
+
+    expect(await notificationRecipients()).toEqual(['mizukisg148@gmail.com'])
+
+    // Adding an address again is also how the studio reverses a removal.
+    await setExtraRecipients(['studio@example.com'])
+    expect(await notificationRecipients()).toEqual(['mizukisg148@gmail.com', 'studio@example.com'])
   })
 
   it('sends once a day however often the tick runs', async () => {

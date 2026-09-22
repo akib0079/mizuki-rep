@@ -6,6 +6,7 @@ import { AdminInviteModel, AdminUserModel } from '../../models/index.js'
 import {
   getExtraRecipients,
   notificationRecipients,
+  removeNotificationRecipient,
   setExtraRecipients,
 } from '../../services/adminNotificationService.js'
 import { recordAudit } from '../../services/auditService.js'
@@ -58,6 +59,15 @@ adminAdminsRouter.get(
       extraRecipients: extra,
       /** Exactly who a booking alert goes to right now — admins plus extras, de-duplicated. */
       effectiveRecipients: recipients,
+      recipientDetails: recipients.map((email) => {
+        const activeAdmin = admins.some((admin) => admin.active && admin.email.toLowerCase() === email)
+        const additional = extra.includes(email)
+        return {
+          email,
+          source: activeAdmin ? 'admin' : additional ? 'extra' : 'server',
+          removable: !activeAdmin,
+        }
+      }),
     })
   }),
 )
@@ -351,5 +361,31 @@ adminAdminsRouter.put(
     })
 
     res.json({ extraRecipients: saved, effectiveRecipients: await notificationRecipients() })
+  }),
+)
+
+/** Remove one alert address directly from the list shown in the console. */
+adminAdminsRouter.delete(
+  '/recipients/:email',
+  asyncRoute(async (req, res) => {
+    const email = z.string().trim().toLowerCase().email().parse(req.params.email)
+    const admin = await AdminUserModel.findOne({ email, active: true }).lean()
+    if (admin) {
+      throw new AppError(
+        409,
+        'admin_receives_alerts',
+        'This address belongs to an active administrator. Remove their access above to stop their alerts.',
+      )
+    }
+
+    await removeNotificationRecipient(email)
+    await recordAudit({
+      action: 'settings.recipient_removed',
+      entity: 'Setting',
+      actor: actorOf(req),
+      reason: `Stopped booking alerts to ${email}`,
+    })
+
+    res.json({ effectiveRecipients: await notificationRecipients() })
   }),
 )

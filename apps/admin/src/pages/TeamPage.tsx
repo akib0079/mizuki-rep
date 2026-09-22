@@ -35,6 +35,11 @@ interface TeamResponse {
   admins: AdminRow[]
   extraRecipients: string[]
   effectiveRecipients: string[]
+  recipientDetails: {
+    email: string
+    source: 'admin' | 'extra' | 'server'
+    removable: boolean
+  }[]
 }
 
 export function TeamPage({ currentAdminId }: { currentAdminId: string }) {
@@ -125,6 +130,13 @@ export function TeamPage({ currentAdminId }: { currentAdminId: string }) {
       void refresh()
     },
     onError: (err) => setError(err instanceof ApiError ? err.message : 'That did not save.'),
+  })
+
+  const removeRecipient = useMutation({
+    mutationFn: (email: string) =>
+      api.delete(`/api/admin/admins/recipients/${encodeURIComponent(email)}`),
+    onSuccess: () => void refresh(),
+    onError: (err) => setError(err instanceof ApiError ? err.message : 'That address could not be removed.'),
   })
 
   const admins = data?.admins ?? []
@@ -386,12 +398,36 @@ export function TeamPage({ currentAdminId }: { currentAdminId: string }) {
         {recipients === null ? (
           <>
             <ul className="pill-list">
-              {(data?.effectiveRecipients ?? []).map((email) => (
-                <li key={email} className="recipient-pill">
-                  {email}
+              {(data?.recipientDetails ?? []).map((recipient) => (
+                <li key={recipient.email} className="recipient-pill">
+                  <span>{recipient.email}</span>
+                  <span className="recipient-source">
+                    {recipient.source === 'admin' ? 'Admin' : 'Additional'}
+                  </span>
+                  {recipient.removable && (
+                    <button
+                      type="button"
+                      className="recipient-remove"
+                      aria-label={`Remove ${recipient.email} from booking alerts`}
+                      title="Stop sending booking alerts to this address"
+                      disabled={removeRecipient.isPending}
+                      onClick={() => {
+                        setError(null)
+                        removeRecipient.mutate(recipient.email)
+                      }}
+                    >
+                      Remove
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
+            {(data?.recipientDetails ?? []).some((recipient) => recipient.source === 'admin') && (
+              <p className="field-hint">
+                Administrator addresses receive alerts automatically. Remove their access above
+                if they should no longer receive them.
+              </p>
+            )}
             <button
               type="button"
               className="btn btn-quiet"

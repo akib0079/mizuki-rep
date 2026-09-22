@@ -17,6 +17,17 @@ import { logger } from '../logger.js'
 
 /** The extra addresses setting: people who should hear about bookings without a console login. */
 const EXTRA_RECIPIENTS_KEY = 'notification_emails'
+/** Addresses deliberately removed in the console, including the legacy environment fallback. */
+const MUTED_RECIPIENTS_KEY = 'notification_emails_muted'
+
+const cleanEmails = (emails: unknown[]): string[] => [
+  ...new Set(
+    emails
+      .filter((value): value is string => typeof value === 'string')
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean),
+  ),
+]
 
 /**
  * Everyone who should receive booking email.
@@ -26,12 +37,15 @@ const EXTRA_RECIPIENTS_KEY = 'notification_emails'
  * deployment keeps working, but it is no longer the only way to be on the list.
  */
 export async function notificationRecipients(): Promise<string[]> {
-  const [admins, extra] = await Promise.all([
+  const [admins, extra, muted] = await Promise.all([
     AdminUserModel.find({ active: true }).select('email').lean(),
     SettingModel.findOne({ key: EXTRA_RECIPIENTS_KEY }).lean(),
+    SettingModel.findOne({ key: MUTED_RECIPIENTS_KEY }).lean(),
   ])
 
-  const extraList = Array.isArray(extra?.value) ? (extra.value as unknown[]) : []
+  const extraList = cleanEmails(Array.isArray(extra?.value) ? (extra.value as unknown[]) : [])
+  const mutedSet = new Set(cleanEmails(Array.isArray(muted?.value) ? (muted.value as unknown[]) : []))
+  const adminSet = new Set(cleanEmails(admins.map((admin) => admin.email)))
 
   const all = [
     ...admins.map((a) => a.email),
@@ -40,22 +54,39 @@ export async function notificationRecipients(): Promise<string[]> {
   ]
 
   // Lowercased before de-duplicating, or the same person listed two ways gets two copies.
-  return [...new Set(all.map((e) => e?.trim().toLowerCase()).filter((e): e is string => Boolean(e)))]
+  return cleanEmails(all).filter((email) => adminSet.has(email) || !mutedSet.has(email))
 }
 
 export async function setExtraRecipients(emails: string[]): Promise<string[]> {
-  const cleaned = [...new Set(emails.map((e) => e.trim().toLowerCase()).filter(Boolean))]
-  await SettingModel.findOneAndUpdate(
-    { key: EXTRA_RECIPIENTS_KEY },
-    { $set: { value: cleaned } },
-    { upsert: true },
-  )
+  const cleaned = cleanEmails(emails)
+  await Promise.all([
+    SettingModel.findOneAndUpdate(
+      { key: EXTRA_RECIPIENTS_KEY },
+      { $set: { value: cleaned } },
+      { upsert: true },
+    ),
+    // Adding an address again is an explicit unmute, including a legacy address removed before.
+    SettingModel.updateOne({ key: MUTED_RECIPIENTS_KEY }, { $pull: { value: { $in: cleaned } } }),
+  ])
   return cleaned
 }
 
 export async function getExtraRecipients(): Promise<string[]> {
   const row = await SettingModel.findOne({ key: EXTRA_RECIPIENTS_KEY }).lean()
-  return Array.isArray(row?.value) ? (row.value as string[]) : []
+  return cleanEmails(Array.isArray(row?.value) ? (row.value as unknown[]) : [])
+}
+
+/** Remove one address regardless of whether it came from the editable list or the old env setting. */
+export async function removeNotificationRecipient(email: string): Promise<void> {
+  const cleaned = email.trim().toLowerCase()
+  await Promise.all([
+    SettingModel.updateOne({ key: EXTRA_RECIPIENTS_KEY }, { $pull: { value: cleaned } }),
+    SettingModel.findOneAndUpdate(
+      { key: MUTED_RECIPIENTS_KEY },
+      { $addToSet: { value: cleaned } },
+      { upsert: true },
+    ),
+  ])
 }
 
 /**

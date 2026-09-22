@@ -1386,13 +1386,32 @@ button, input, select, textarea { font: inherit; color: inherit; }
    console's status pills, and redefining it here quietly turned every coloured one grey. */
 .pill-list { display: flex; flex-wrap: wrap; gap: 7px; list-style: none; padding: 0; margin: 12px 0; }
 .recipient-pill {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   padding: 4px 11px;
   border-radius: 999px;
   background: var(--canvas, #f1f5f9);
   color: var(--ink-soft, #475569);
   font-size: 12.5px;
 }
+.recipient-source {
+  color: var(--muted, #64748b);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.recipient-remove {
+  appearance: none;
+  border: 0;
+  border-left: 1px solid var(--line, #d8e0e5);
+  background: transparent;
+  color: var(--danger, #b3382c);
+  cursor: pointer;
+  font: inherit;
+  padding: 0 0 0 7px;
+}
+.recipient-remove:disabled { cursor: wait; opacity: 0.55; }
 
 .link-danger { color: var(--danger, #b3382c); }
 
