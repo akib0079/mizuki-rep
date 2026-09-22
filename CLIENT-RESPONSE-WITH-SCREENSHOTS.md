@@ -56,6 +56,8 @@ Students now receive the correct message for the booking journey.
 
 The workshop confirmation and reminder also include the refund and contact wording requested.
 
+The email connection can be checked under **Settings** in **Connected services**. The status shows whether sending is ready, and **Test email key** confirms delivery before accepting live bookings. If the connection is not ready, the system now shows the problem instead of failing silently.
+
 ![Student booking confirmation](docs/client-response/06-student-confirmation.jpg)
 
 ![Automatic two day reminder](docs/client-response/07-two-day-reminder.jpg)
