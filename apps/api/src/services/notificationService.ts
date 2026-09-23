@@ -1,5 +1,6 @@
 import { Types } from 'mongoose'
 import {
+  WORKSHOP_POLICY,
   formatDuration,
   formatSessionDateTime,
   formatTimeRange,
@@ -102,7 +103,7 @@ function studentVars(student: StudentDoc) {
 
 function workshopPolicyLine(courseType: CourseTypeDoc): string {
   if (courseType.bookingMode !== 'paid') return ''
-  return 'No refunds are available within 48 hours of the workshop. If you need to reschedule or have a question, please contact us on WhatsApp at +65 8821 9386.'
+  return WORKSHOP_POLICY
 }
 
 /** "You have 6 of 8 sessions left" — omitted entirely for one-off paid workshops. */

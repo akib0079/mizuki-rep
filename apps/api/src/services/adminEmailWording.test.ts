@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { studioInstant } from '@mizuki/shared'
+import { studioInstant, WORKSHOP_POLICY } from '@mizuki/shared'
 import { OutboxModel, type CourseTypeDoc } from '../models/index.js'
 import { createBooking } from './bookingService.js'
 import { seedEmailTemplates } from './emailTemplates.js'
@@ -86,8 +86,6 @@ describe('the studio copy of a booking alert', () => {
     }
 
     const studentMail = await OutboxModel.findOne({ to: 'walkin@example.com', type: 'booking_confirmation' }).lean()
-    expect(`${studentMail?.bodyHtml ?? ''} ${studentMail?.bodyText ?? ''}`).toContain(
-      'No refunds are available within 48 hours',
-    )
+    expect(`${studentMail?.bodyHtml ?? ''} ${studentMail?.bodyText ?? ''}`).toContain(WORKSHOP_POLICY)
   })
 })

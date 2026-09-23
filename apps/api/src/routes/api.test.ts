@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import request from 'supertest'
-import { studioInstant } from '@mizuki/shared'
+import { studioInstant, WORKSHOP_POLICY } from '@mizuki/shared'
 import { createApp } from '../app.js'
 import { runSeed } from '../scripts/seed.js'
 import {
@@ -300,6 +300,9 @@ describe('scheduled jobs', () => {
 
     const firstCount = await OutboxModel.countDocuments({ type: 'reminder_2day' })
     expect(firstCount).toBeGreaterThan(0)
+
+    const reminder = await OutboxModel.findOne({ type: 'reminder_2day', to: 'aiko@example.com' }).lean()
+    expect(`${reminder?.bodyHtml ?? ''} ${reminder?.bodyText ?? ''}`).toContain(WORKSHOP_POLICY)
 
     // Cron fires every five minutes — the second pass must not queue another copy.
     await sendReminders(reminderTime)

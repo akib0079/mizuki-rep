@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { DateTime } from 'luxon'
 import {
   STUDIO_COUNTRY,
+  WORKSHOP_POLICY,
   countryList,
   formatDuration,
   formatInternational,
@@ -461,10 +462,7 @@ export function BookingDialog({
               </label>
 
               {session.bookingMode === 'paid' && (
-                <div className="mzk-note mzk-note-info">
-                  No refunds are available within 48 hours of the workshop. If you need to
-                  reschedule or have a question, please contact us on WhatsApp at +65 8821 9386.
-                </div>
+                <div className="mzk-note mzk-note-info">{WORKSHOP_POLICY}</div>
               )}
             </div>
 
