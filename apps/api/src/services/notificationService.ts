@@ -106,6 +106,12 @@ function workshopPolicyLine(courseType: CourseTypeDoc): string {
   return WORKSHOP_POLICY
 }
 
+function partySizeLine(booking: BookingDoc, courseType: CourseTypeDoc): string {
+  if (courseType.bookingMode !== 'paid') return ''
+  const count = booking.partySize ?? 1
+  return `Participants: ${count}`
+}
+
 /** "You have 6 of 8 sessions left" — omitted entirely for one-off paid workshops. */
 function packageLine(pkg: PackageDoc | null, courseName: string): string {
   if (!pkg) return ''
@@ -144,6 +150,7 @@ async function queueStudentEmail(
     ...sessionVars(ctx.session, ctx.courseType),
     packageLine: packageLine(ctx.pkg ?? null, ctx.courseType.name),
     workshopPolicyLine: workshopPolicyLine(ctx.courseType),
+    partySizeLine: partySizeLine(ctx.booking, ctx.courseType),
     ...extraVars,
   }
 

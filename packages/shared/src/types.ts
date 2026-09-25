@@ -85,6 +85,10 @@ export interface CourseType {
   defaultDurationMins: number
   defaultCapacity: number
   wooProductIds: number[]
+  /** Product page pasted in the studio console. The product id and price are resolved automatically. */
+  wooProductUrl: string
+  wooProductName: string
+  wooPriceText: string
   active: boolean
 }
 
@@ -181,6 +185,8 @@ export interface Booking {
   wooOrderId: number | null
   holdExpiresAt: Date | null
   rescheduledFrom: string | null
+  /** Number of seats covered by this one booking and WooCommerce order line. */
+  partySize: number
 }
 
 /** What the public calendar returns for one session — never exposes rosters or student data. */
@@ -199,6 +205,9 @@ export interface PublicSession {
   /** Three states rather than a count: what the student is actually told. */
   availability: SessionAvailability
   bookingMode: BookingMode
+  /** Live shop details copied from the assigned WooCommerce product. */
+  productUrl: string
+  priceText: string
 }
 
 export interface PublicCalendarDay {

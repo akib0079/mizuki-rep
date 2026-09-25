@@ -89,7 +89,7 @@ export async function expireHolds(now: Date = new Date()): Promise<number> {
     )
     if (!claimed) continue
 
-    await releaseSeat(booking.sessionId)
+    await releaseSeat(booking.sessionId, { count: booking.partySize ?? 1 })
     if (booking.packageId) {
       await restoreSession(booking.packageId, { bookingId: booking._id, by: 'system', note: 'Hold expired' })
     }

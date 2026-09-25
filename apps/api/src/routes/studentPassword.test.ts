@@ -150,7 +150,7 @@ describe('choosing a password', () => {
 
 describe('booking with a password', () => {
   it('sets one, and signs them in there and then', async () => {
-    const course = await makeCourseType({ bookingMode: 'paid', wooProductIds: [42] })
+    const course = await makeCourseType({ bookingMode: 'free', wooProductIds: [] })
     const session = await makeSession({ courseTypeId: course._id, date: '2027-04-10' })
 
     const res = await request(app)
@@ -162,7 +162,7 @@ describe('booking with a password', () => {
         phone: '+65 9123 4567',
         password: 'coral-lantern-97',
       })
-      .expect(200)
+      .expect(201)
 
     expect(res.body.outcome).not.toBe('sign_in_required')
     // Booked and signed in, rather than being sent to find an email to see their own booking.
@@ -215,8 +215,8 @@ describe('a password cannot be used to reach somebody else', () => {
 
     /*
      * The attack this rules out: booking under somebody else's address with a password of your
-     * choosing, and signing in as them. An exact email match is certain, so the route asks the
-     * visitor to sign in and creates nothing.
+     * choosing, and signing in as them. A paid workshop may reuse the contact so checkout stays
+     * simple, but it must never replace the password already on that account.
      */
     const res = await request(app)
       .post('/api/bookings/start')
@@ -229,7 +229,8 @@ describe('a password cannot be used to reach somebody else', () => {
       })
       .expect(200)
 
-    expect(res.body.outcome).toBe('sign_in_required')
+    expect(res.body.outcome).toBe('checkout_required')
+    expect(res.headers['set-cookie']).toBeUndefined()
     await login('aiko@example.com', 'chosen-by-a-stranger').expect(401)
     await login('aiko@example.com', 'coral-lantern-97').expect(200)
 
@@ -256,8 +257,9 @@ describe('a password cannot be used to reach somebody else', () => {
       })
       .expect(200)
 
-    expect(res.body.outcome).toBe('sign_in_required')
+    expect(res.body.outcome).toBe('checkout_required')
     await login('aiko@example.com', 'chosen-by-a-stranger').expect(401)
+    expect(await StudentModel.countDocuments()).toBe(2)
   })
 
   it('ignores a password sent by someone already signed in', async () => {

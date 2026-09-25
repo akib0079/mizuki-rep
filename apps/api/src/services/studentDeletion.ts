@@ -94,8 +94,9 @@ export async function deleteStudent(
   let seatsFreed = 0
   for (const booking of bookings) {
     if (!(ACTIVE_BOOKING_STATUSES as readonly string[]).includes(booking.status)) continue
-    await releaseSeat(booking.sessionId)
-    seatsFreed++
+    const partySize = booking.partySize ?? 1
+    await releaseSeat(booking.sessionId, { count: partySize })
+    seatsFreed += partySize
   }
 
   const [removedBookings, removedPackages] = await Promise.all([

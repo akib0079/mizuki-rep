@@ -133,8 +133,8 @@ The client has not yet supplied a few things, and the system uses placeholders u
 1. **Class sizes.** Every seeded class uses a placeholder of 8. Set the real numbers per course
    under Settings, and per class on the calendar.
 2. **Dates already closed** for the rest of the year.
-3. **WooCommerce product IDs.** Three kinds, all set in the console:
-   - Paid workshops → Settings → Courses.
+3. **WooCommerce product connections.** Three kinds, all set in the console:
+   - Paid workshops → Settings → Courses. Paste the public product page link. The system resolves the internal product ID and current price automatically.
    - Course packages → Settings → Courses, along with how many sessions a purchase grants.
    - The Autumn Ikebana Course → Settings → Set courses. **Until this one is set, buying that
      course in the shop books nothing** — the order arrives with no way to tell what it was for.

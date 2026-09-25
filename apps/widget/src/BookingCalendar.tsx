@@ -536,6 +536,7 @@ function SessionRow({
           <span className="mzk-session-meta">
             {formatTimeRange(start.toJSDate(), end.toJSDate())} · {formatDuration(session.durationMins)}
             {session.breaks.length > 0 && ` · includes a break`}
+            {session.bookingMode === 'paid' && session.priceText && ` · ${session.priceText} per person`}
           </span>
         </span>
       </button>

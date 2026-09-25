@@ -18,6 +18,8 @@ function session(bookingMode: BookingMode): PublicSession {
     isFull: false,
     availability: 'available',
     bookingMode,
+    productUrl: bookingMode === 'paid' ? 'https://mizuki.com.sg/product/workshop/' : '',
+    priceText: bookingMode === 'paid' ? 'S$120.00' : '',
   }
 }
 
@@ -29,10 +31,17 @@ function render(bookingMode: BookingMode): string {
 
 describe('workshop policy before payment', () => {
   it('shows the complete policy in the paid workshop booking form', () => {
-    expect(render('paid')).toContain(WORKSHOP_POLICY)
+    const page = render('paid')
+    expect(page).toContain(WORKSHOP_POLICY)
+    expect(page).toContain('S$120.00 per participant')
+    expect(page).toContain('Number of participants')
+    expect(page).toContain('Continue to payment')
+    expect(page).not.toContain('Choose a password')
   })
 
   it('does not show the workshop policy for course package bookings', () => {
-    expect(render('package')).not.toContain(WORKSHOP_POLICY)
+    const page = render('package')
+    expect(page).not.toContain(WORKSHOP_POLICY)
+    expect(page).toContain('Choose a password')
   })
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SessionModel } from '../models/index.js'
+import { BookingModel, SessionModel } from '../models/index.js'
 import { makeSession } from '../test/factories.js'
 import { findSeatDrift, releaseSeat, repairSeatDrift, reserveSeat, transferSeat } from './seatService.js'
 import { SessionFullError } from '../errors.js'
@@ -9,6 +9,13 @@ describe('reserveSeat', () => {
     const session = await makeSession({ capacity: 3 })
     const updated = await reserveSeat(session._id)
     expect(updated.seatsTaken).toBe(1)
+  })
+
+  it('claims a group atomically only when every requested place is available', async () => {
+    const session = await makeSession({ capacity: 4 })
+    await expect(reserveSeat(session._id, { count: 3 })).resolves.toMatchObject({ seatsTaken: 3 })
+    await expect(reserveSeat(session._id, { count: 2 })).rejects.toBeInstanceOf(SessionFullError)
+    expect((await SessionModel.findById(session._id))!.seatsTaken).toBe(3)
   })
 
   it('refuses once the class is full', async () => {
@@ -92,6 +99,13 @@ describe('releaseSeat', () => {
     expect(fresh!.seatsTaken).toBe(0)
   })
 
+  it('hands every place in a group back together', async () => {
+    const session = await makeSession({ capacity: 5 })
+    await reserveSeat(session._id, { count: 3 })
+    await releaseSeat(session._id, { count: 3 })
+    expect((await SessionModel.findById(session._id))!.seatsTaken).toBe(0)
+  })
+
   it('never drives the counter negative when released twice', async () => {
     // A student cancelling at the same moment the hold sweeper expires their booking.
     const session = await makeSession({ capacity: 2 })
@@ -140,6 +154,21 @@ describe('transferSeat', () => {
 })
 
 describe('drift detection', () => {
+  it('counts every participant in a group booking', async () => {
+    const session = await makeSession({ capacity: 8, date: '2027-01-10' })
+    await SessionModel.updateOne({ _id: session._id }, { $set: { seatsTaken: 1 } })
+    await BookingModel.create({
+      sessionId: session._id,
+      studentId: session._id,
+      status: 'confirmed',
+      source: 'student_web',
+      partySize: 3,
+    })
+
+    const drift = await findSeatDrift(new Date('2026-01-01'))
+    expect(drift.find((row) => row.sessionId === String(session._id))).toMatchObject({ actualSeatsTaken: 3 })
+  })
+
   it('spots a counter that disagrees with the bookings, and repairs on request', async () => {
     const session = await makeSession({ capacity: 8, date: '2027-01-10' })
     await SessionModel.updateOne({ _id: session._id }, { $set: { seatsTaken: 3 } })

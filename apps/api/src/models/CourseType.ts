@@ -27,6 +27,10 @@ const courseTypeSchema = new Schema(
 
     /** WooCommerce products that sell a seat (or a package) for this course. */
     wooProductIds: { type: [Number], default: [] },
+    /** The dashboard stores the human-friendly product page; WordPress resolves the id and price. */
+    wooProductUrl: { type: String, default: '', maxlength: 1000 },
+    wooProductName: { type: String, default: '', maxlength: 300 },
+    wooPriceText: { type: String, default: '', maxlength: 120 },
 
     /**
      * When true, a paid place is not confirmed by the payment alone — it waits in

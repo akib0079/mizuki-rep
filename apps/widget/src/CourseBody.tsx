@@ -88,12 +88,13 @@ export function CourseSections({ course }: { course: PublicCourse }) {
  * lessons" is the sentence they came to check, and it should not have to be found among bullets.
  */
 export function CoursePrice({ course, framed = false }: { course: PublicCourse; framed?: boolean }) {
-  if (!course.priceNote?.trim()) return null
+  const price = course.bookingMode === 'paid' && course.priceText?.trim() ? course.priceText : course.priceNote?.trim()
+  if (!price) return null
 
   return (
     <p className={framed ? 'mzk-course-price mzk-course-price-framed' : 'mzk-course-price'}>
       <span className="mzk-course-price-label">Price</span>
-      {course.priceNote}
+      {price}
     </p>
   )
 }

@@ -71,6 +71,7 @@ export function BookingDialog({
     [form.phoneCountry, form.phone],
   )
   const [bookingForSomeoneElse, setBookingForSomeoneElse] = useState(false)
+  const [partySize, setPartySize] = useState(1)
   /** Set when they have seen a possible duplicate and told us it is not them. */
   const [confirmedNewAccount, setConfirmedNewAccount] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -118,11 +119,15 @@ export function BookingDialog({
     setError(null)
 
     try {
-      const attendeeName = bookingForSomeoneElse ? form.attendeeName.trim() : ''
+      const attendeeName = session.bookingMode === 'paid'
+        ? form.attendeeName.trim()
+        : bookingForSomeoneElse
+          ? form.attendeeName.trim()
+          : ''
 
       const outcome = await widgetApi.startBooking(
         account
-          ? { sessionId: session.id, notes: form.notes.trim(), attendeeName }
+          ? { sessionId: session.id, notes: form.notes.trim(), attendeeName, partySize }
           : {
               sessionId: session.id,
               name: form.name.trim(),
@@ -137,10 +142,15 @@ export function BookingDialog({
               phoneCountry: abroad ? form.phoneCountry || STUDIO_COUNTRY : '',
               notes: form.notes.trim(),
               attendeeName,
+              partySize,
               confirmedNewAccount,
-              password,
+              ...(session.bookingMode === 'paid' ? {} : { password }),
             },
       )
+      if (outcome.outcome === 'checkout_required') {
+        window.location.assign(outcome.checkoutUrl)
+        return
+      }
       setResult(outcome)
       // Both of these take a real place, so the calendar's counts are now stale either way.
       // A held place is as unavailable to the next student as a confirmed one.
@@ -209,6 +219,12 @@ export function BookingDialog({
                     <dt>Length</dt>
                     <dd>{formatDuration(session.durationMins)}</dd>
                   </div>
+                  {session.bookingMode === 'paid' && session.priceText && (
+                    <div>
+                      <dt>Price</dt>
+                      <dd>{session.priceText} per participant</dd>
+                    </div>
+                  )}
                   {session.breaks.length > 0 && (
                     <div>
                       <dt>Break</dt>
@@ -264,7 +280,7 @@ export function BookingDialog({
               )}
 
               <div>
-              {account ? (
+                {account ? (
                 /*
                  * Signed in, so we already know who they are. Asking again would only invite the
                  * form and the account to disagree — and the server ignores these fields anyway.
@@ -296,31 +312,30 @@ export function BookingDialog({
                     <span className="mzk-muted mzk-small">Your confirmation and reminder go here.</span>
                   </label>
 
-                  <PasswordField
-                    label="Choose a password"
-                    value={password}
-                    onChange={setPassword}
-                    autoComplete="new-password"
-                    minLength={8}
-                    hint={
-                      password.length > 0 && password.length < 8
-                        ? 'A few more characters — eight at least.'
-                        : 'At least 8 characters. Use it with your email to see your bookings any time.'
-                    }
-                  />
+                  {session.bookingMode !== 'paid' && (
+                    <>
+                      <PasswordField
+                        label="Choose a password"
+                        value={password}
+                        onChange={setPassword}
+                        autoComplete="new-password"
+                        minLength={8}
+                        hint={
+                          password.length > 0 && password.length < 8
+                            ? 'A few more characters — eight at least.'
+                            : 'At least 8 characters. Use it with your email to see your bookings any time.'
+                        }
+                      />
 
-                  {/*
-                    Typed twice, because this one is chosen in passing while booking a class —
-                    not on a page about passwords — and a typo here locks somebody out of an
-                    account they made ten seconds ago, with a booking already in it.
-                  */}
-                  <PasswordField
-                    label="Confirm password"
-                    value={confirmPassword}
-                    onChange={setConfirmPassword}
-                    autoComplete="new-password"
-                    hint={passwordsDiffer ? 'Those two do not match.' : undefined}
-                  />
+                      <PasswordField
+                        label="Confirm password"
+                        value={confirmPassword}
+                        onChange={setConfirmPassword}
+                        autoComplete="new-password"
+                        hint={passwordsDiffer ? 'Those two do not match.' : undefined}
+                      />
+                    </>
+                  )}
 
                   {/*
                     Singapore by default, with a way out.
@@ -421,35 +436,64 @@ export function BookingDialog({
                     </span>
                   </label>
                 </>
-              )}
+                )}
 
               {/*
                 One account per email, so a parent booking for a child would otherwise put the
                 parent's name on the register. This keeps the account whole and still gets the
                 right name onto the day's list.
               */}
-              <label className="mzk-check">
-                <input
-                  type="checkbox"
-                  checked={bookingForSomeoneElse}
-                  onChange={(e) => setBookingForSomeoneElse(e.target.checked)}
-                />
-                <span>This place is for someone else</span>
-              </label>
+              {session.bookingMode === 'paid' ? (
+                <>
+                  <label className="mzk-field">
+                    <span>Number of participants</span>
+                    <select
+                      value={partySize}
+                      onChange={(e) => setPartySize(Number(e.target.value))}
+                    >
+                      {Array.from({ length: Math.min(10, session.seatsLeft) }, (_, i) => i + 1).map((count) => (
+                        <option key={count} value={count}>{count}</option>
+                      ))}
+                    </select>
+                    <span className="mzk-muted mzk-small">
+                      One person can reserve and pay for the whole group.
+                    </span>
+                  </label>
+                  <label className="mzk-field">
+                    <span>Participant names (optional)</span>
+                    <input
+                      value={form.attendeeName}
+                      placeholder={partySize > 1 ? 'For example: Jane, Amy, Mei' : 'Name if different from the booking contact'}
+                      onChange={(e) => setForm({ ...form, attendeeName: e.target.value })}
+                    />
+                  </label>
+                </>
+              ) : (
+                <>
+                  <label className="mzk-check">
+                    <input
+                      type="checkbox"
+                      checked={bookingForSomeoneElse}
+                      onChange={(e) => setBookingForSomeoneElse(e.target.checked)}
+                    />
+                    <span>This place is for someone else</span>
+                  </label>
 
-              {bookingForSomeoneElse && (
-                <label className="mzk-field">
-                  <span>Who is coming?</span>
-                  <input
-                    value={form.attendeeName}
-                    required
-                    placeholder="Their name"
-                    onChange={(e) => setForm({ ...form, attendeeName: e.target.value })}
-                  />
-                  <span className="mzk-muted mzk-small">
-                    We will put this name on the class list. The booking stays on your account.
-                  </span>
-                </label>
+                  {bookingForSomeoneElse && (
+                    <label className="mzk-field">
+                      <span>Who is coming?</span>
+                      <input
+                        value={form.attendeeName}
+                        required
+                        placeholder="Their name"
+                        onChange={(e) => setForm({ ...form, attendeeName: e.target.value })}
+                      />
+                      <span className="mzk-muted mzk-small">
+                        We will put this name on the class list. The booking stays on your account.
+                      </span>
+                    </label>
+                  )}
+                </>
               )}
 
               <label className="mzk-field">
@@ -475,10 +519,10 @@ export function BookingDialog({
                   className="mzk-btn mzk-btn-primary"
                   // A mismatch is caught here rather than by booking them in under a password
                   // neither they nor we could reproduce.
-                  disabled={busy || (!account && (passwordsDiffer || confirmPassword.length === 0))}
+                  disabled={busy || (!account && session.bookingMode !== 'paid' && (passwordsDiffer || confirmPassword.length === 0))}
                 >
                   {busy && <span className="mzk-spinner" />}
-                  {busy ? 'Just a moment…' : 'Book this class'}
+                  {busy ? 'Just a moment…' : session.bookingMode === 'paid' ? 'Continue to payment' : 'Book this class'}
                 </button>
               </div>
             </div>

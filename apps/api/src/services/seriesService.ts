@@ -249,7 +249,7 @@ export async function cancelSeriesBooking(input: {
     booking.cancelReason = input.reason ?? `${series.name} cancelled`
     booking.cancelledBy = input.by ?? 'system'
     await booking.save()
-    await releaseSeat(booking.sessionId)
+    await releaseSeat(booking.sessionId, { count: booking.partySize ?? 1 })
   }
 
   return bookings.length

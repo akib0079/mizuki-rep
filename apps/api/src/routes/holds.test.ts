@@ -58,12 +58,39 @@ describe('taking a place before checkout', () => {
     expect(res.body.outcome).toBe('checkout_required')
     expect(res.body.holdToken).toHaveLength(32)
     expect(res.body.checkoutUrl).toContain('add-to-cart=42')
+    expect(res.body.checkoutUrl).toContain('/product/test-workshop/')
+    expect(res.body.checkoutUrl).toContain('quantity=1')
     expect(res.body.checkoutUrl).toContain(`mizuki_session=${session._id}`)
     expect(res.body.checkoutUrl).toContain(`mizuki_hold=${res.body.holdToken}`)
 
     // The place is genuinely taken — this is the whole point.
     expect((await SessionModel.findById(session._id))!.seatsTaken).toBe(1)
     expect(new Date(res.body.holdExpiresAt).getTime()).toBeGreaterThan(Date.now())
+  })
+
+  it('holds several participant places in one booking and sends that quantity to checkout', async () => {
+    const session = await makeSession({ courseTypeId: ikebana._id, capacity: 6, date: '2026-10-17' })
+
+    const res = await request(app)
+      .post('/api/bookings/start')
+      .send({
+        sessionId: String(session._id),
+        email: 'group@example.com',
+        name: 'Group Booker',
+        phone: '+65 9888 7766',
+        partySize: 3,
+        attendeeName: 'Jane, Amy, Mei',
+      })
+      .expect(200)
+
+    expect(res.body.partySize).toBe(3)
+    expect(res.body.checkoutUrl).toContain('quantity=3')
+    expect(res.body.checkoutUrl).toContain('mizuki_party_size=3')
+    expect((await SessionModel.findById(session._id))!.seatsTaken).toBe(3)
+
+    const booking = await BookingModel.findById(res.body.bookingId)
+    expect(booking!.partySize).toBe(3)
+    expect(booking!.attendeeName).toBe('Jane, Amy, Mei')
   })
 
   it('stops the last place being sold twice while someone is paying', async () => {
@@ -101,6 +128,35 @@ describe('taking a place before checkout', () => {
 })
 
 describe('how a hold ends', () => {
+  it('confirms one group booking without changing its participant count', async () => {
+    const session = await makeSession({ courseTypeId: ikebana._id, capacity: 6, date: '2026-10-17' })
+    const started = await request(app)
+      .post('/api/bookings/start')
+      .send({
+        sessionId: String(session._id),
+        email: 'group@example.com',
+        name: 'Group Booker',
+        phone: '+65 9888 7766',
+        partySize: 3,
+      })
+      .expect(200)
+
+    await wooCallback({
+      event: 'paid',
+      orderId: 7000,
+      status: 'processing',
+      customer: { email: 'group@example.com', name: 'Group Booker', phone: '+65 9888 7766', wooId: 0 },
+      lines: [{ sessionId: String(session._id), holdToken: started.body.holdToken, productId: 42, quantity: 3 }],
+    }).expect(200)
+
+    const booking = await BookingModel.findById(started.body.bookingId)
+    expect(booking!.status).toBe('confirmed')
+    expect(booking!.partySize).toBe(3)
+    expect((await SessionModel.findById(session._id))!.seatsTaken).toBe(3)
+    const confirmation = await OutboxModel.findOne({ type: 'booking_confirmation', to: 'group@example.com' }).lean()
+    expect(`${confirmation?.bodyHtml ?? ''} ${confirmation?.bodyText ?? ''}`).toContain('Participants: 3')
+  })
+
   it('becomes a confirmed place when payment arrives', async () => {
     const session = await makeSession({ courseTypeId: ikebana._id, capacity: 6, date: '2026-10-17' })
     const started = await startBooking(String(session._id)).expect(200)

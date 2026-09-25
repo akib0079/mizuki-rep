@@ -25,6 +25,9 @@ export async function makeCourseType(overrides: Partial<Record<string, unknown>>
     defaultDurationMins: 150,
     defaultCapacity: 8,
     wooProductIds: [42],
+    wooProductUrl: 'https://mizuki.com.sg/product/test-workshop/',
+    wooProductName: 'Test workshop',
+    wooPriceText: 'S$120.00',
     ...overrides,
   })
 }

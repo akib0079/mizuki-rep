@@ -221,7 +221,7 @@ export function SessionDrawer({
               <div className="section">
                 <div className="row" style={{ justifyContent: 'space-between' }}>
                   <div className="section-title" style={{ marginBottom: 0 }}>
-                    Who is coming ({liveRoster.length})
+                    Who is coming ({liveRoster.reduce((total, entry) => total + (entry.partySize || 1), 0)})
                   </div>
                   <button type="button" className="btn btn-sm" onClick={() => setAdding(true)}>+ Add student</button>
                 </div>
@@ -247,6 +247,7 @@ export function SessionDrawer({
                               <div className="muted small">{entry.email}{entry.phone ? ` · ${entry.phone}` : ''}</div>
                               <div style={{ marginTop: 4, display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                                 {entry.status === 'hold' && <span className="pill pill-warn">Awaiting payment</span>}
+                                {entry.partySize > 1 && <span className="pill pill-muted">{entry.partySize} participants</span>}
                                 {entry.status === 'attended' && <span className="pill pill-ok">Attended</span>}
                                 {entry.status === 'no_show' && <span className="pill pill-danger">No show</span>}
                                 {entry.usedPackage && <span className="pill pill-muted">Course session</span>}

@@ -3,7 +3,7 @@
  * Plugin Name:       Mizuki Booking Bridge
  * Plugin URI:        https://mizuki.com.sg
  * Description:       Embeds the Mizuki Flora class calendar into WordPress and connects WooCommerce checkout to the booking system, so a paid workshop holds its place until payment lands.
- * Version:           1.17.0
+ * Version:           1.18.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Mizuki Flora
@@ -19,12 +19,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'MIZUKI_BRIDGE_VERSION', '1.17.0' );
+define( 'MIZUKI_BRIDGE_VERSION', '1.18.0' );
 define( 'MIZUKI_BRIDGE_FILE', __FILE__ );
 
 /** Query args carried from the booking widget into the shop. */
 const MIZUKI_SESSION_PARAM = 'mizuki_session';
 const MIZUKI_HOLD_PARAM    = 'mizuki_hold';
+const MIZUKI_PARTY_PARAM   = 'mizuki_party_size';
 
 /** Order item meta keys. Underscore-prefixed so they stay hidden from the customer-facing order. */
 const MIZUKI_META_SESSION = '_mizuki_session_id';
@@ -43,6 +44,67 @@ function mizuki_get_option( $key, $default = '' ) {
 
 function mizuki_api_base() {
 	return untrailingslashit( mizuki_get_option( 'api_base' ) );
+}
+
+/**
+ * Resolve a public WooCommerce product page for the booking API.
+ *
+ * The studio pastes a link, which is much harder to miscopy than an internal numeric id. The
+ * API still receives the id for reliable order matching, plus WooCommerce's current price for
+ * the calendar. Only this site's own product URLs are accepted.
+ */
+add_action( 'rest_api_init', 'mizuki_register_product_endpoint' );
+function mizuki_register_product_endpoint() {
+	register_rest_route(
+		'mizuki/v1',
+		'/product',
+		array(
+			'methods'             => 'GET',
+			'callback'            => 'mizuki_resolve_product',
+			'permission_callback' => '__return_true',
+			'args'                => array(
+				'url' => array( 'required' => false, 'type' => 'string' ),
+				'id'  => array( 'required' => false, 'type' => 'integer' ),
+			),
+		)
+	);
+}
+
+function mizuki_resolve_product( $request ) {
+	if ( ! function_exists( 'wc_get_product' ) ) {
+		return new WP_Error( 'woocommerce_unavailable', __( 'WooCommerce is not active.', 'mizuki-booking' ), array( 'status' => 503 ) );
+	}
+
+	$product_id = absint( $request->get_param( 'id' ) );
+	if ( ! $product_id ) {
+		$url       = esc_url_raw( $request->get_param( 'url' ) );
+		$site_host = wp_parse_url( home_url( '/' ), PHP_URL_HOST );
+		$url_host  = wp_parse_url( $url, PHP_URL_HOST );
+		if ( ! $url || ! $url_host || strtolower( $url_host ) !== strtolower( $site_host ) ) {
+			return new WP_Error( 'invalid_product_url', __( 'Use a product link from this website.', 'mizuki-booking' ), array( 'status' => 400 ) );
+		}
+		$product_id = url_to_postid( $url );
+	}
+	$product    = $product_id ? wc_get_product( $product_id ) : false;
+	if ( ! $product ) {
+		return new WP_Error( 'product_not_found', __( 'No WooCommerce product was found at that link.', 'mizuki-booking' ), array( 'status' => 404 ) );
+	}
+
+	$price_text = '';
+	if ( '' !== $product->get_price() ) {
+		$price_text = html_entity_decode( wp_strip_all_tags( wc_price( $product->get_price() ) ), ENT_QUOTES, get_bloginfo( 'charset' ) );
+	}
+
+	return rest_ensure_response(
+		array(
+			'id'          => (int) $product->get_id(),
+			'name'        => $product->get_name(),
+			'url'         => get_permalink( $product->get_id() ),
+			'priceText'   => $price_text,
+			'purchasable' => (bool) $product->is_purchasable(),
+			'inStock'     => (bool) $product->is_in_stock(),
+		)
+	);
 }
 
 add_action( 'admin_menu', 'mizuki_add_settings_page' );
@@ -499,6 +561,9 @@ function mizuki_capture_cart_item_data( $cart_item_data, $product_id ) {
 	if ( isset( $_GET[ MIZUKI_HOLD_PARAM ] ) ) {
 		$cart_item_data['mizuki_hold_token'] = sanitize_text_field( wp_unslash( $_GET[ MIZUKI_HOLD_PARAM ] ) );
 	}
+	if ( isset( $_GET[ MIZUKI_PARTY_PARAM ] ) ) {
+		$cart_item_data['mizuki_party_size'] = max( 1, min( 10, absint( $_GET[ MIZUKI_PARTY_PARAM ] ) ) );
+	}
 
 	// Without this, WooCommerce merges two workshop dates into one line of quantity 2 and
 	// the second student's class is lost.
@@ -507,6 +572,15 @@ function mizuki_capture_cart_item_data( $cart_item_data, $product_id ) {
 	}
 
 	return $cart_item_data;
+}
+
+/** A calendar workshop goes straight to payment after WooCommerce adds it to the cart. */
+add_filter( 'woocommerce_add_to_cart_redirect', 'mizuki_workshop_checkout_redirect' );
+function mizuki_workshop_checkout_redirect( $url ) {
+	if ( isset( $_GET[ MIZUKI_SESSION_PARAM ], $_GET[ MIZUKI_HOLD_PARAM ] ) && function_exists( 'wc_get_checkout_url' ) ) {
+		return wc_get_checkout_url();
+	}
+	return $url;
 }
 
 add_filter( 'woocommerce_get_item_data', 'mizuki_show_class_in_cart', 10, 2 );
@@ -522,8 +596,37 @@ function mizuki_show_class_in_cart( $item_data, $cart_item ) {
 			'value' => $label,
 		);
 	}
+	if ( ! empty( $cart_item['mizuki_party_size'] ) ) {
+		$item_data[] = array(
+			'key'   => __( 'Participants', 'mizuki-booking' ),
+			'value' => (string) absint( $cart_item['mizuki_party_size'] ),
+		);
+	}
 
 	return $item_data;
+}
+
+/** A workshop hold reserves an exact number of seats, so its cart quantity must stay fixed. */
+add_filter( 'woocommerce_update_cart_validation', 'mizuki_lock_workshop_quantity', 10, 4 );
+function mizuki_lock_workshop_quantity( $passed, $cart_item_key, $values, $quantity ) {
+	if ( empty( $values['mizuki_party_size'] ) ) {
+		return $passed;
+	}
+
+	$expected = absint( $values['mizuki_party_size'] );
+	if ( absint( $quantity ) !== $expected ) {
+		wc_add_notice(
+			sprintf(
+				/* translators: %d: number of workshop participants */
+				__( 'This workshop booking is holding %d participant place(s). Return to the calendar to change the number.', 'mizuki-booking' ),
+				$expected
+			),
+			'error'
+		);
+		return false;
+	}
+
+	return $passed;
 }
 
 add_action( 'woocommerce_checkout_create_order_line_item', 'mizuki_persist_line_item_meta', 10, 4 );
@@ -539,6 +642,9 @@ function mizuki_persist_line_item_meta( $item, $cart_item_key, $values, $order )
 	}
 	if ( ! empty( $values['mizuki_hold_token'] ) ) {
 		$item->add_meta_data( MIZUKI_META_HOLD, $values['mizuki_hold_token'], true );
+	}
+	if ( ! empty( $values['mizuki_party_size'] ) ) {
+		$item->add_meta_data( '_mizuki_party_size', absint( $values['mizuki_party_size'] ), true );
 	}
 }
 

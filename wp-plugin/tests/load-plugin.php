@@ -743,6 +743,20 @@ echo "\nThe product page, with WooCommerce\n";
 
 require __DIR__ . '/woocommerce-stubs.php';
 
+step( 'a product page link resolves to WooCommerce id and price', function () {
+	$GLOBALS['mzk_products'][42]    = new WC_Product( 42, 'Ikebana Workshop', 'S$128.00' );
+	$GLOBALS['mzk_url_to_postid']   = 42;
+	$request = new class {
+		public function get_param( $name ) { return 'https://example.test/product/42/'; }
+	};
+
+	$product = mizuki_resolve_product( $request );
+	if ( 42 !== $product['id'] || 'S$128.00' !== $product['priceText'] ) {
+		throw new RuntimeException( 'product link did not resolve to the WooCommerce price' );
+	}
+	return $product['name'] . ' at ' . $product['priceText'];
+} );
+
 $GLOBALS['mzk_products'] = array(
 	13 => new WC_Product( 13, 'Naturepresso Box Set', 'S$268.00' ),
 	14 => new WC_Product( 14, 'Pure Rose Water Mist', 'S$68.00' ),

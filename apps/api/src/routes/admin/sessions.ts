@@ -143,6 +143,7 @@ adminSessionsRouter.get(
           usedPackage: b.packageId !== null,
           capacityOverridden: b.capacityOverridden,
           notes: b.studentNotes,
+          partySize: b.partySize ?? 1,
           bookedAt: b.createdAt,
         }
       }),
@@ -334,7 +335,7 @@ adminSessionsRouter.post(
       booking.cancelledWithSession = true
       await booking.save()
 
-      await releaseSeat(session._id)
+      await releaseSeat(session._id, { count: booking.partySize ?? 1 })
       if (booking.packageId) {
         await restoreSession(booking.packageId, {
           bookingId: booking._id,

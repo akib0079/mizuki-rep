@@ -8,7 +8,7 @@ import {
   seatsLeft,
 } from '@mizuki/shared'
 import { BookingModel, CourseTypeModel, PackageModel, SessionModel, StudentModel } from '../models/index.js'
-import { confirmHold, createBooking, cancelBooking } from '../services/bookingService.js'
+import { confirmHold, createBooking, cancelBooking, resizeHold } from '../services/bookingService.js'
 import { grantSessions } from '../services/packageService.js'
 import { bookSeries, findSeriesByProduct } from '../services/seriesService.js'
 import { queueAdminBroadcast, queueMessage } from '../services/notificationService.js'
@@ -152,6 +152,7 @@ async function confirmPaidOrder(payload: OrderPayload) {
         : null
 
       if (held) {
+        await resizeHold(held._id, line.quantity)
         await confirmHold(held._id, payload.orderId)
         confirmed.push(String(held._id))
         continue
@@ -179,6 +180,7 @@ async function confirmPaidOrder(payload: OrderPayload) {
         usePackage: false,
         wooOrderId: payload.orderId,
         actor: `woo:order:${payload.orderId}`,
+        partySize: line.quantity,
       })
       confirmed.push(String(result.booking._id))
     } catch (err) {

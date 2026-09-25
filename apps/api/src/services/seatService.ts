@@ -20,11 +20,15 @@ export interface ReserveOptions {
   /** Let the studio seat someone in a full class anyway. Always recorded on the booking and in the audit log. */
   override?: boolean
   session?: ClientSession | null
+  /** Number of places claimed atomically. */
+  count?: number
 }
 
-/** Filter fragment: this session still has room for one more student. */
-const hasRoom = {
-  $expr: { $lt: [{ $add: ['$seatsTaken', '$heldBack'] }, '$capacity'] },
+/** Filter fragment: this session still has room for the requested group. */
+function hasRoom(count: number) {
+  return {
+    $expr: { $lte: [{ $add: ['$seatsTaken', '$heldBack', count] }, '$capacity'] },
+  }
 }
 
 /**
@@ -37,15 +41,16 @@ export async function reserveSeat(
   sessionId: Types.ObjectId | string,
   opts: ReserveOptions = {},
 ): Promise<SessionDoc> {
-  const { override = false, session = null } = opts
+  const { override = false, session = null, count = 1 } = opts
+  if (!Number.isInteger(count) || count < 1) throw new AppError(422, 'invalid_party_size', 'Choose at least one participant.')
 
   const filter = override
     ? { _id: sessionId, status: 'scheduled' as const }
-    : { _id: sessionId, status: 'scheduled' as const, ...hasRoom }
+    : { _id: sessionId, status: 'scheduled' as const, ...hasRoom(count) }
 
   const updated = await SessionModel.findOneAndUpdate(
     filter,
-    { $inc: { seatsTaken: 1 } },
+    { $inc: { seatsTaken: count } },
     { new: true, session },
   )
 
@@ -67,11 +72,13 @@ export async function reserveSeat(
  */
 export async function releaseSeat(
   sessionId: Types.ObjectId | string,
-  opts: { session?: ClientSession | null } = {},
+  opts: { session?: ClientSession | null; count?: number } = {},
 ): Promise<void> {
+  const count = opts.count ?? 1
+  if (!Number.isInteger(count) || count < 1) return
   const result = await SessionModel.findOneAndUpdate(
-    { _id: sessionId, seatsTaken: { $gt: 0 } },
-    { $inc: { seatsTaken: -1 } },
+    { _id: sessionId, seatsTaken: { $gte: count } },
+    { $inc: { seatsTaken: -count } },
     { new: true, session: opts.session ?? null },
   )
 
@@ -96,9 +103,9 @@ export async function transferSeat(
 ): Promise<SessionDoc> {
   const target = await reserveSeat(toSessionId, opts)
   try {
-    await releaseSeat(fromSessionId, { session: opts.session ?? null })
+    await releaseSeat(fromSessionId, { session: opts.session ?? null, count: opts.count })
   } catch (err) {
-    await releaseSeat(toSessionId, { session: opts.session ?? null })
+    await releaseSeat(toSessionId, { session: opts.session ?? null, count: opts.count })
     throw err
   }
   return target
@@ -134,7 +141,7 @@ export async function findSeatDrift(from: Date = new Date()): Promise<SeatDrift[
         status: { $in: SEAT_OCCUPYING_STATUSES },
       },
     },
-    { $group: { _id: '$sessionId', n: { $sum: 1 } } },
+    { $group: { _id: '$sessionId', n: { $sum: { $ifNull: ['$partySize', 1] } } } },
   ])
 
   const actual = new Map(counts.map((c) => [String(c._id), c.n]))

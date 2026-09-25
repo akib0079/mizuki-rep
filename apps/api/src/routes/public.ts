@@ -6,6 +6,7 @@ import { getSeriesAvailability } from '../services/seriesService.js'
 import { asyncRoute } from '../middleware/errorHandler.js'
 import { NotFoundError } from '../errors.js'
 import { config } from '../config.js'
+import { refreshWooProductSnapshots } from '../services/wooProductService.js'
 
 /**
  * Everything a visitor can see without signing in. No roster, no student details — just what
@@ -17,6 +18,7 @@ publicRouter.get(
   '/courses',
   asyncRoute(async (_req, res) => {
     const courses = await CourseTypeModel.find({ active: true }).sort({ sortOrder: 1 }).lean()
+    await refreshWooProductSnapshots(courses)
     res.json({
       /*
        * Returned alongside the courses rather than from an endpoint of its own: the booking page
@@ -46,6 +48,8 @@ publicRouter.get(
         whatToBring: c.whatToBring,
         whatIsProvided: c.whatIsProvided,
         priceNote: c.priceNote,
+        priceText: c.wooPriceText,
+        productUrl: c.wooProductUrl,
         imageUrl: c.imageUrl,
       })),
     })

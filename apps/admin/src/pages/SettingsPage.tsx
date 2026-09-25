@@ -97,7 +97,7 @@ export function SettingsPage({ totpEnabled }: { totpEnabled: boolean }) {
               <tr>
                 <th>Course</th>
                 <th>Booked with</th>
-                <th>Shop product</th>
+                <th>Shop product link</th>
                 <th>Confirm by hand</th>
                 <th>Notice to change</th>
                 <th>Default class size</th>
@@ -123,22 +123,21 @@ export function SettingsPage({ totpEnabled }: { totpEnabled: boolean }) {
                       an empty box that looks finished.
                     */}
                     <input
-                      type="number"
-                      min={1}
+                      type="url"
                       className="btn btn-sm"
-                      style={{ width: 92 }}
-                      placeholder={c.bookingMode === 'free' ? 'not needed' : 'e.g. 1234'}
-                      defaultValue={c.wooProductIds[0] ?? ''}
+                      style={{ width: 240 }}
+                      placeholder={c.bookingMode === 'free' ? 'Not needed' : 'https://mizuki.com.sg/product/…'}
+                      defaultValue={c.wooProductUrl ?? ''}
                       disabled={c.bookingMode === 'free'}
                       onBlur={(e) => {
                         const raw = e.target.value.trim()
-                        const next = raw ? [Number(raw)] : []
-                        if (next[0] !== c.wooProductIds[0]) {
-                          courseMutation.mutate({ id: c.id, patch: { wooProductIds: next } as Partial<Course> })
+                        if (raw !== (c.wooProductUrl ?? '')) {
+                          courseMutation.mutate({ id: c.id, patch: { wooProductUrl: raw } as Partial<Course> })
                         }
                       }}
                     />
-                    {c.bookingMode !== 'free' && c.wooProductIds.length === 0 && (
+                    {c.wooPriceText && <div className="small muted">{c.wooProductName || 'WooCommerce product'} · {c.wooPriceText}</div>}
+                    {c.bookingMode !== 'free' && !c.wooProductUrl && (
                       <div className="small" style={{ color: 'var(--danger, #b3382c)' }}>
                         Not on sale yet
                       </div>
@@ -1279,7 +1278,7 @@ function NewCourseForm({
     rescheduleCutoffHours: 72,
     defaultDurationMins: 150,
     defaultCapacity: 8,
-    wooProductId: '',
+    wooProductUrl: '',
     requiresManualConfirmation: true,
   })
 
@@ -1300,12 +1299,13 @@ function NewCourseForm({
         cancelCutoffHours: form.rescheduleCutoffHours,
         defaultDurationMins: form.defaultDurationMins,
         defaultCapacity: form.defaultCapacity,
-        wooProductIds: form.wooProductId.trim() ? [Number(form.wooProductId.trim())] : [],
+        wooProductIds: [],
+        wooProductUrl: form.wooProductUrl.trim(),
         requiresManualConfirmation: form.bookingMode === 'free' ? false : form.requiresManualConfirmation,
       }),
     onSuccess: () => {
       onMessage({ kind: 'ok', text: `${form.name} added. Add classes for it on the calendar.` })
-      setForm({ ...form, name: '', wooProductId: '' })
+      setForm({ ...form, name: '', wooProductUrl: '' })
       setOpen(false)
       void queryClient.invalidateQueries({ queryKey: ['courses'] })
     },
@@ -1355,16 +1355,16 @@ function NewCourseForm({
         </select>
       </label>
 
-      <label className="field" style={{ flex: '0 0 120px' }}>
-        <span>Shop product ID</span>
+      <label className="field" style={{ flex: '1 1 320px' }}>
+        <span>Shop product link</span>
         <input
-          type="number"
-          min={1}
-          value={form.wooProductId}
-          onChange={(e) => setForm({ ...form, wooProductId: e.target.value })}
-          placeholder="e.g. 1234"
+          type="url"
+          value={form.wooProductUrl}
+          onChange={(e) => setForm({ ...form, wooProductUrl: e.target.value })}
+          placeholder="https://mizuki.com.sg/product/…"
           disabled={form.bookingMode === 'free'}
         />
+        <span className="field-hint">Paste the public WooCommerce product page. Its product code and current price are added automatically.</span>
       </label>
 
       <label className="field" style={{ flex: '0 0 96px' }}>

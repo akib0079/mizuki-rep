@@ -63,6 +63,8 @@ export interface CreateBookingInput {
   studentNotes?: string
   /** Who is coming, when that is not the account holder — a child, a friend. */
   attendeeName?: string
+  /** Paid workshops may reserve several seats in one checkout. */
+  partySize?: number
   actor?: string
   notify?: boolean
   now?: Date
@@ -109,6 +111,7 @@ export async function createBooking(input: CreateBookingInput): Promise<BookingR
   } = input
 
   const { session, student, courseType } = await loadContext(input.sessionId, input.studentId)
+  const partySize = courseType.bookingMode === 'paid' ? (input.partySize ?? 1) : 1
 
   // Cheap pre-checks for a clear error message. The authoritative capacity check is the
   // atomic reservation below — this one can go stale between here and there, which is fine.
@@ -127,7 +130,7 @@ export async function createBooking(input: CreateBookingInput): Promise<BookingR
   }
 
   // 1. Claim the seat. Throws if the class filled up in the meantime.
-  const reservedSession = await reserveSeat(session._id, { override: overrideCapacity })
+  const reservedSession = await reserveSeat(session._id, { override: overrideCapacity, count: partySize })
 
   let pkg: PackageDoc | null = null
   let booking: BookingDoc | null = null
@@ -158,6 +161,7 @@ export async function createBooking(input: CreateBookingInput): Promise<BookingR
       wooOrderId: input.wooOrderId ?? null,
       studentNotes: input.studentNotes ?? '',
       attendeeName: input.attendeeName ?? '',
+      partySize,
       capacityOverridden: overrideCapacity,
       confirmedAt: status === 'confirmed' ? now : null,
     })
@@ -175,7 +179,7 @@ export async function createBooking(input: CreateBookingInput): Promise<BookingR
         logger.error({ err: e, packageId: String(pkg!._id) }, 'Failed to return course session after booking error'),
       )
     }
-    await releaseSeat(session._id).catch((e) =>
+    await releaseSeat(session._id, { count: partySize }).catch((e) =>
       logger.error({ err: e, sessionId: String(session._id) }, 'Failed to release seat after booking error'),
     )
     throw err
@@ -195,7 +199,7 @@ export async function createBooking(input: CreateBookingInput): Promise<BookingR
     action: overrideCapacity ? 'booking.create.override' : 'booking.create',
     entity: 'Booking',
     entityId: booking._id,
-    after: { sessionId: String(session._id), studentId: String(student._id), status, source },
+    after: { sessionId: String(session._id), studentId: String(student._id), status, source, partySize },
   })
 
   if (notify && status === 'confirmed') {
@@ -313,7 +317,7 @@ export async function cancelBooking(input: CancelBookingInput): Promise<BookingR
   booking.cancelledBy = by
   await booking.save()
 
-  await releaseSeat(session._id)
+  await releaseSeat(session._id, { count: booking.partySize ?? 1 })
 
   let pkg: PackageDoc | null = null
   if (booking.packageId) {
@@ -416,7 +420,8 @@ export async function rescheduleBooking(input: RescheduleInput): Promise<Booking
 
   // Claim the new place before giving up the old one. The other order would briefly free the
   // student's current place, and if the target turned out to be full they would have neither.
-  await reserveSeat(toSession._id, { override: overrideCapacity })
+  const partySize = booking.partySize ?? 1
+  await reserveSeat(toSession._id, { override: overrideCapacity, count: partySize })
 
   let newBooking: BookingDoc
   try {
@@ -429,12 +434,14 @@ export async function rescheduleBooking(input: RescheduleInput): Promise<Booking
       packageId: booking.packageId,
       wooOrderId: booking.wooOrderId,
       studentNotes: booking.studentNotes,
+      attendeeName: booking.attendeeName,
+      partySize,
       rescheduledFrom: booking._id,
       capacityOverridden: overrideCapacity,
       confirmedAt: now,
     })
   } catch (err) {
-    await releaseSeat(toSession._id).catch(() => undefined)
+    await releaseSeat(toSession._id, { count: partySize }).catch(() => undefined)
     throw err
   }
 
@@ -446,7 +453,7 @@ export async function rescheduleBooking(input: RescheduleInput): Promise<Booking
   booking.packageId = null
   await booking.save()
 
-  await releaseSeat(fromSession._id)
+  await releaseSeat(fromSession._id, { count: partySize })
 
   const [freshTarget, pkg] = await Promise.all([
     SessionModel.findById(toSession._id),
@@ -480,6 +487,37 @@ export async function rescheduleBooking(input: RescheduleInput): Promise<Booking
   }
 
   return result
+}
+
+/**
+ * Match a held booking to the quantity actually paid for in WooCommerce.
+ *
+ * The plugin locks the cart quantity, but this remains the server-side guard against a custom
+ * cart request or another plugin changing it. Extra places are claimed atomically and removed
+ * places are released before the payment is confirmed.
+ */
+export async function resizeHold(
+  bookingId: Types.ObjectId | string,
+  partySize: number,
+): Promise<BookingDoc> {
+  if (!Number.isInteger(partySize) || partySize < 1 || partySize > 10) {
+    throw new AppError(422, 'invalid_party_size', 'Choose between 1 and 10 participants.')
+  }
+
+  const booking = await BookingModel.findById(bookingId)
+  if (!booking) throw new NotFoundError('Booking')
+  if (booking.status !== 'hold') return booking
+
+  const current = booking.partySize ?? 1
+  if (partySize > current) {
+    await reserveSeat(booking.sessionId, { count: partySize - current })
+  } else if (partySize < current) {
+    await releaseSeat(booking.sessionId, { count: current - partySize })
+  }
+
+  booking.partySize = partySize
+  await booking.save()
+  return booking
 }
 
 /** Turn a paid hold into a confirmed place once WooCommerce reports the money arrived. */

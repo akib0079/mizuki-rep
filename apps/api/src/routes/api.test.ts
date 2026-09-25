@@ -101,7 +101,10 @@ describe('public calendar', () => {
 describe('booking endpoint', () => {
   it('routes a paid Ikebana workshop to the shop', async () => {
     const session = await SessionModel.findOne({ dateKey: '2026-08-22' }).sort({ startAt: 1 })
-    await CourseTypeModel.updateOne({ _id: session!.courseTypeId }, { $set: { wooProductIds: [42] } })
+    await CourseTypeModel.updateOne(
+      { _id: session!.courseTypeId },
+      { $set: { wooProductIds: [42], wooProductUrl: 'http://localhost:8080/product/ikebana/' } },
+    )
 
     const res = await atSeedTime(() =>
       request(app)

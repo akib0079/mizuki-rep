@@ -96,6 +96,7 @@ export interface RosterEntry {
   usedPackage: boolean
   capacityOverridden: boolean
   notes: string
+  partySize: number
   bookedAt: string
 }
 
@@ -110,6 +111,10 @@ export interface Course {
   defaultDurationMins: number
   /** Shop products that sell a place on this course. Empty means it cannot be bought yet. */
   wooProductIds: number[]
+  /** Product page pasted by the studio; id and price are resolved by WordPress. */
+  wooProductUrl: string
+  wooProductName: string
+  wooPriceText: string
   /** True when a paid place waits for the studio to check the payment before it is confirmed. */
   requiresManualConfirmation: boolean
   active: boolean

@@ -29,7 +29,7 @@ import { queueMagicLink } from '../services/notificationService.js'
 import { toPublicSession } from '../services/calendarService.js'
 import { optionalStudent, requireStudent } from '../middleware/auth.js'
 import { asyncRoute } from '../middleware/errorHandler.js'
-import { AppError, ForbiddenError, NotFoundError } from '../errors.js'
+import { AppError, ForbiddenError, NotFoundError, SessionFullError } from '../errors.js'
 import { LoginTokenModel } from '../models/index.js'
 import {
   COOKIE_NAMES,
@@ -108,6 +108,7 @@ bookingRouter.post(
     if (!courseType) throw new NotFoundError('Course')
 
     let student = signedIn
+    let mayStartStudentSession = false
 
     if (!student) {
       const visitor = input as z.infer<typeof startBookingSchema>
@@ -120,7 +121,7 @@ bookingRouter.post(
        * or a number — no proof of the inbox, their course credits spent by a stranger, and a name
        * on the register that may not be theirs. Proving the inbox is what the sign-in link is for.
        */
-      if (match?.certain) {
+      if (match?.certain && courseType.bookingMode !== 'paid') {
         res.json({
           outcome: 'sign_in_required',
           reason: match.kind,
@@ -146,7 +147,7 @@ bookingRouter.post(
        * Two people can genuinely share a name, though, so this asks rather than decides — and the
        * answer comes back as `confirmedNewAccount`, which only ever gets past a near miss.
        */
-      if (match && !visitor.confirmedNewAccount) {
+      if (match && courseType.bookingMode !== 'paid' && !visitor.confirmedNewAccount) {
         res.json({
           outcome: 'possible_duplicate',
           reason: match.kind,
@@ -164,21 +165,27 @@ bookingRouter.post(
         return
       }
 
-      student = await StudentModel.create({
-        name: visitor.name,
-        email: visitor.email,
-        phone: visitor.phone,
-        phoneCountry: visitor.phoneCountry,
-        marketingOptIn: visitor.marketingOptIn,
-        /*
-         * A password, if they chose one while booking, so they can sign back in without waiting
-         * on an email. Optional: skipping it costs them nothing, because the sign-in link still
-         * works and is how they would set one later.
-         */
-        ...(visitor.password
-          ? { passwordHash: await argon2.hash(visitor.password, { type: argon2.argon2id }) }
-          : {}),
-      })
+      if (match?.certain && match.kind === 'email_known' && courseType.bookingMode === 'paid') {
+        // Paying through WooCommerce proves the order at checkout. Reuse the existing contact
+        // without making a returning workshop visitor stop and sign in first.
+        student = match.student
+      } else {
+        student = await StudentModel.create({
+          name: visitor.name,
+          email: visitor.email,
+          phone: visitor.phone,
+          phoneCountry: visitor.phoneCountry,
+          marketingOptIn: visitor.marketingOptIn,
+          /*
+           * Course students may choose a password while booking. Workshop guests skip this
+           * entirely; their email is still retained for confirmation and reminder messages.
+           */
+          ...(courseType.bookingMode !== 'paid' && visitor.password
+            ? { passwordHash: await argon2.hash(visitor.password, { type: argon2.argon2id }) }
+            : {}),
+        })
+        mayStartStudentSession = true
+      }
 
       /*
        * Signed in from the moment they book.
@@ -188,11 +195,13 @@ bookingRouter.post(
        * own booking confirmation and then asking them to go and find an email to see it. Same
        * session either way, so a link or a password later lands them in the same place.
        */
-      res.cookie(
-        COOKIE_NAMES.student,
-        signStudentToken({ sub: String(student._id), email: student.email }),
-        cookieOptions(STUDENT_SESSION_DAYS * 24 * 3600_000),
-      )
+      if (mayStartStudentSession) {
+        res.cookie(
+          COOKIE_NAMES.student,
+          signStudentToken({ sub: String(student._id), email: student.email }),
+          cookieOptions(STUDENT_SESSION_DAYS * 24 * 3600_000),
+        )
+      }
     }
 
     const isSignedIn = Boolean(signedIn)
@@ -222,7 +231,7 @@ bookingRouter.post(
           usePackage: false,
           actor: `student:${student.email}`,
           studentNotes: input.notes,
-      attendeeName: input.attendeeName,
+          attendeeName: input.attendeeName,
         })
 
         res.status(201).json({
@@ -260,7 +269,7 @@ bookingRouter.post(
         source: 'student_web',
         actor: `student:${student.email}`,
         studentNotes: input.notes,
-      attendeeName: input.attendeeName,
+        attendeeName: input.attendeeName,
       })
 
       res.status(201).json({
@@ -279,7 +288,7 @@ bookingRouter.post(
         usePackage: false,
         actor: `student:${student.email}`,
         studentNotes: input.notes,
-      attendeeName: input.attendeeName,
+        attendeeName: input.attendeeName,
       })
       res.status(201).json({
         outcome: 'booked',
@@ -297,12 +306,17 @@ bookingRouter.post(
      * payment never lands, which is what makes it safe to hand out optimistically.
      */
     const productId = courseType.wooProductIds[0]
-    if (!productId) {
+    if (!productId || !courseType.wooProductUrl) {
       throw new AppError(
         422,
         'shop_product_not_configured',
-        `${courseType.name} is not available for online payment yet. Please contact Mizuki Flora for help.`,
+        `${courseType.name} is not available for online payment yet. Add its WooCommerce product link in Studio Settings.`,
       )
+    }
+
+    const partySize = input.partySize ?? 1
+    if (partySize > session.capacity - session.heldBack - session.seatsTaken) {
+      throw new SessionFullError(`Only ${session.capacity - session.heldBack - session.seatsTaken} place(s) are left for this workshop.`)
     }
 
     const holdToken = generateHoldToken()
@@ -319,12 +333,18 @@ bookingRouter.post(
       actor: `student:${student.email}`,
       studentNotes: input.notes,
       attendeeName: input.attendeeName,
+      partySize,
       // Nothing is confirmed yet — telling them now would be a lie, and telling the studio
       // now would mean an alert for every abandoned cart.
       notify: false,
     })
 
-    const checkoutUrl = `${config.PUBLIC_SITE_URL}/?add-to-cart=${productId}&mizuki_session=${session._id}&mizuki_hold=${holdToken}`
+    const checkoutUrl = new URL(courseType.wooProductUrl)
+    checkoutUrl.searchParams.set('add-to-cart', String(productId))
+    checkoutUrl.searchParams.set('quantity', String(partySize))
+    checkoutUrl.searchParams.set('mizuki_session', String(session._id))
+    checkoutUrl.searchParams.set('mizuki_hold', holdToken)
+    checkoutUrl.searchParams.set('mizuki_party_size', String(partySize))
 
     res.json({
       outcome: 'checkout_required',
@@ -335,8 +355,11 @@ bookingRouter.post(
       holdToken,
       holdExpiresAt: holdExpiresAt.toISOString(),
       holdMinutes: config.HOLD_TTL_MINUTES,
-      checkoutUrl,
+      checkoutUrl: checkoutUrl.toString(),
       wooProductIds: courseType.wooProductIds,
+      productUrl: courseType.wooProductUrl,
+      priceText: courseType.wooPriceText,
+      partySize,
       shopUrl: `${config.PUBLIC_SITE_URL}/shop`,
     })
   }),

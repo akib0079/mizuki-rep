@@ -93,6 +93,8 @@ export const startBookingSchema = z.object({
   marketingOptIn: z.boolean().default(false),
   /** Who is actually attending, when it is not the person booking. */
   attendeeName: z.string().trim().max(120).default(''),
+  /** One customer may reserve several workshop places in one payment. */
+  partySize: z.number().int().min(1).max(10).default(1),
   /*
    * Set only after the student has been shown a possible duplicate and said it is not them.
    * An exact match ignores this — that one is certain — so it can never be used to book against
@@ -122,6 +124,7 @@ export const startBookingSignedInSchema = z.object({
   notes: z.string().trim().max(500).default(''),
   /** A place for someone else — a child, a friend — on the account holder's booking. */
   attendeeName: z.string().trim().max(120).default(''),
+  partySize: z.number().int().min(1).max(10).default(1),
 })
 
 export const requestMagicLinkSchema = z.object({
@@ -151,6 +154,9 @@ export const courseTypeInputSchema = z.object({
   defaultDurationMins: z.number().int().min(15).max(600),
   defaultCapacity: z.number().int().min(1).max(200),
   wooProductIds: z.array(z.number().int().positive()).default([]),
+  wooProductUrl: z.string().trim().url('Expected a product link starting http:// or https://').max(1000).or(z.literal('')).default(''),
+  wooProductName: z.string().trim().max(300).default(''),
+  wooPriceText: z.string().trim().max(120).default(''),
   requiresManualConfirmation: z.boolean().default(false),
   packageGrantSessions: z.number().int().min(0).max(200).default(0),
   packageValidityDays: z.number().int().min(0).max(3650).default(365),

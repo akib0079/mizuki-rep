@@ -28,6 +28,23 @@ describe('createBooking', () => {
     expect((await SessionModel.findById(session._id))!.seatsTaken).toBe(1)
   })
 
+  it('returns every group place when a workshop booking is cancelled', async () => {
+    const session = await makeSession({ courseTypeId: ikebana._id, capacity: 6, date: '2026-09-13' })
+    const student = await makeStudent({ name: 'Group Booker' })
+
+    const { booking } = await createBooking({
+      sessionId: session._id,
+      studentId: student._id,
+      partySize: 3,
+      notify: false,
+      now: NOW,
+    })
+    expect((await SessionModel.findById(session._id))!.seatsTaken).toBe(3)
+
+    await cancelBooking({ bookingId: booking._id, notify: false, now: NOW })
+    expect((await SessionModel.findById(session._id))!.seatsTaken).toBe(0)
+  })
+
   it('refuses to seat the same student twice in one class', async () => {
     const session = await makeSession({ courseTypeId: ikebana._id, capacity: 6, date: '2026-09-13' })
     const student = await makeStudent()
@@ -186,6 +203,25 @@ describe('course packages', () => {
 })
 
 describe('rescheduling', () => {
+  it('moves every participant in a group together', async () => {
+    const from = await makeSession({ courseTypeId: ikebana._id, capacity: 6, date: '2026-09-13' })
+    const to = await makeSession({ courseTypeId: ikebana._id, capacity: 6, date: '2026-09-26' })
+    const student = await makeStudent()
+    const { booking } = await createBooking({
+      sessionId: from._id,
+      studentId: student._id,
+      partySize: 3,
+      notify: false,
+      now: NOW,
+    })
+
+    const moved = await rescheduleBooking({ bookingId: booking._id, toSessionId: to._id, notify: false, now: NOW })
+
+    expect(moved.booking.partySize).toBe(3)
+    expect((await SessionModel.findById(from._id))!.seatsTaken).toBe(0)
+    expect((await SessionModel.findById(to._id))!.seatsTaken).toBe(3)
+  })
+
   it('moves an Ikebana student who is outside the 3-day window', async () => {
     const from = await makeSession({ courseTypeId: ikebana._id, capacity: 6, date: '2026-09-13' })
     const to = await makeSession({ courseTypeId: ikebana._id, capacity: 6, date: '2026-09-26' })

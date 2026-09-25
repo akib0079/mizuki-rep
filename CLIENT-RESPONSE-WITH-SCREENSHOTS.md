@@ -18,17 +18,19 @@ The new name is shown to students in the booking calendar. Future classes that s
 
 ![Change the course name](docs/client-response/guide-01-change-course-name.jpg)
 
-## 2. Adding the WooCommerce shop product code
+## 2. Connecting the WooCommerce product
 
-First create the product in **WordPress**, then open **WooCommerce**, select **Products**, and copy the product ID.
+First create or open the workshop product in **WordPress**, then copy its public product page link.
 
-In the Mizuki Studio console, open **Settings**. Add or find the course, choose **Shop payment**, and enter that number in **Shop product**.
+In the Mizuki Studio console, open **Settings**. Add or find the workshop, choose **Shop payment**, and paste the link into **Shop product link**.
 
-For a complete course sold as one package, enter the product ID inside its **Set courses** card.
+The booking system checks the link with WooCommerce and automatically imports the internal product code, product name, and current price. The price is refreshed from WordPress and shown in the workshop calendar and booking form.
 
-The system will clearly show **Not on sale yet** until a product ID is connected. This prevents a paid workshop from accepting a booking without a working checkout.
+The system shows **Not on sale yet** until a valid product link is connected. This prevents a paid workshop from accepting a booking without a working checkout.
 
-![Connect a WooCommerce product](docs/client-response/guide-02-shop-product-code.jpg)
+Existing workshops that already have a product code are upgraded automatically when WordPress can resolve that product.
+
+![Connect a WooCommerce product link and import its price](docs/client-response/guide-02-shop-product-link.jpg)
 
 ## 3. Choosing who receives booking alerts
 
@@ -64,7 +66,7 @@ The email connection can be checked under **Settings** in **Connected services**
 
 ## 5. Creating regular and seasonal workshops
 
-Add the workshop once as a paid course in **Settings**, connect its WooCommerce product ID, and add its description and student information in **Courses**.
+Add the workshop once as a paid course in **Settings**, paste its WooCommerce product page link, and add its description and student information in **Courses**.
 
 For every available workshop time, open **Calendar** and select **Add class**. Choose the workshop, then set the date, start time, duration, participant limit, and title.
 
@@ -90,15 +92,21 @@ The workshop customer can:
 
 2. Choose one session
 
-3. See whether places are still available
+3. See the current WooCommerce price and whether places are still available
 
-4. Continue to WooCommerce and pay
+4. Choose how many people are attending
 
-5. Receive an automatic confirmation after payment
+5. Enter their contact details without creating a password
 
-6. Receive an automatic reminder two days before the workshop
+6. Continue directly to WooCommerce checkout and pay
 
-The system tracks capacity for each session independently, so one session cannot use the remaining places from another session.
+7. Receive an automatic confirmation after payment
+
+8. Receive an automatic reminder two days before the workshop
+
+The system tracks capacity for each session independently. A booking for three people reserves three places together, so one session cannot use the remaining places from another session or become overbooked.
+
+![Workshop booking with live price and participant selection](docs/client-response/guide-06-workshop-booking.jpg)
 
 The customer is also shown this policy before checkout and in the email messages:
 

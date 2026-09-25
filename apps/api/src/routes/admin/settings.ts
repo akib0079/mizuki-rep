@@ -59,6 +59,7 @@ import { actorOf } from '../../middleware/auth.js'
 import { asyncRoute } from '../../middleware/errorHandler.js'
 import { AppError, NotFoundError } from '../../errors.js'
 import { config, bookingPageUrl, myBookingsUrl } from '../../config.js'
+import { productPatchFromUrl, refreshWooProductSnapshots } from '../../services/wooProductService.js'
 
 /** Courses, recurring timetable rules, message wording, and the maintenance levers. */
 export const adminSettingsRouter: Router = Router()
@@ -79,6 +80,7 @@ adminSettingsRouter.get(
   '/courses',
   asyncRoute(async (_req, res) => {
     const courses = await CourseTypeModel.find().sort({ sortOrder: 1 }).lean()
+    await refreshWooProductSnapshots(courses)
     res.json({ courses: courses.map((c) => ({ ...c, id: String(c._id) })) })
   }),
 )
@@ -87,7 +89,8 @@ adminSettingsRouter.post(
   '/courses',
   asyncRoute(async (req, res) => {
     const input = courseTypeInputSchema.parse(req.body)
-    const course = await CourseTypeModel.create(input)
+    const product = await productPatchFromUrl(input.wooProductUrl)
+    const course = await CourseTypeModel.create({ ...input, ...product })
     res.status(201).json({ course: { id: String(course._id), name: course.name } })
   }),
 )
@@ -104,7 +107,8 @@ adminSettingsRouter.patch(
     const before = await CourseTypeModel.findById(req.params.id).lean()
     if (!before) throw new NotFoundError('Course')
 
-    const course = await CourseTypeModel.findByIdAndUpdate(req.params.id, { $set: input }, { new: true })
+    const product = input.wooProductUrl !== undefined ? await productPatchFromUrl(input.wooProductUrl) : {}
+    const course = await CourseTypeModel.findByIdAndUpdate(req.params.id, { $set: { ...input, ...product } }, { new: true })
 
     /*
      * A calendar class stores its own title so special sessions can be named differently. That
@@ -440,6 +444,8 @@ const SAMPLE_VARS: Record<string, string | number> = {
   previousSessionDate: 'Sun 16 Aug 2026',
   previousSessionTimeRange: '2:30 PM – 5:00 PM',
   packageLine: 'You have 6 of 8 IFDA sessions remaining in your course package.',
+  partySizeLine: 'Participants: 3',
+  workshopPolicyLine: 'No refunds are available within 48 hours of the workshop. If you need to reschedule or have a question, please contact us on WhatsApp at +65 8821 9386.',
   cancelReasonLine: 'Reason: the studio is closed for outside work.',
   sessionsRemaining: 1,
   packageExpiryDate: 'Sat 14 Nov 2026',

@@ -29,6 +29,7 @@ class WC_Product {
 	public function get_id() { return $this->id; }
 	public function get_name() { return $this->name; }
 	public function get_price_html() { return $this->price_html; }
+	public function get_price() { return preg_replace( '/[^0-9.]/', '', $this->price_html ); }
 	public function is_purchasable() { return $this->purchasable; }
 	public function is_in_stock() { return $this->in_stock; }
 	public function get_short_description() { return $this->short_description; }
@@ -43,6 +44,10 @@ function wc_get_product( $id ) {
 	$id = (int) $id;
 	return isset( $GLOBALS['mzk_products'][ $id ] ) ? $GLOBALS['mzk_products'][ $id ] : false;
 }
+
+function wc_price( $price ) { return 'S$' . number_format( (float) $price, 2 ); }
+function wc_get_checkout_url() { return 'https://example.test/checkout/'; }
+function wc_add_notice( $message, $type = 'success' ) { $GLOBALS['mzk_notices'][] = array( $type, $message ); }
 
 /**
  * Enough of the product query to mean something.

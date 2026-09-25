@@ -25,6 +25,8 @@ export interface PublicCourse {
   whatToBring: string
   whatIsProvided: string
   priceNote: string
+  priceText: string
+  productUrl: string
   imageUrl: string
 }
 
@@ -142,6 +144,8 @@ export const widgetApi = {
     notes?: string
     marketingOptIn?: boolean
     attendeeName?: string
+    /** Number of workshop participants covered by this booking. */
+    partySize?: number
     /** Sent only after they have been shown a possible duplicate and said it is not them. */
     confirmedNewAccount?: boolean
     /** Optional: sets a password on the new account so they need not wait on an email to sign in. */
@@ -251,6 +255,9 @@ export type StartBookingResult =
       holdMinutes: number
       checkoutUrl: string
       wooProductIds: number[]
+      productUrl: string
+      priceText: string
+      partySize: number
       shopUrl: string
     }
 

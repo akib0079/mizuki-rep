@@ -32,7 +32,7 @@ function delete_transient( $k ) {}
 function wp_remote_get( $u, $a = array() ) { if ( ! empty( $GLOBALS['api_down'] ) ) { return new \WP_Error(); } return array( 'response' => array( 'code' => 200 ), 'body' => '{"courses":[{"slug":"ifda","name":"IFDA"}]}' ); }
 function wp_remote_retrieve_response_code( $r ) { return $r['response']['code']; }
 function wp_remote_retrieve_body( $r ) { return $r['body']; }
-class WP_Error {}
+class WP_Error { public function __construct( ...$args ) {} }
 function is_wp_error( $t ) { return $t instanceof WP_Error; }
 function wp_register_script( ...$a ) {}
 function wp_enqueue_script( ...$a ) {}
@@ -65,6 +65,10 @@ function selected( $a, $b, $e = true ) {}
 function checked( $a, $b, $e = true ) {}
 function get_bloginfo( $s ) { return 'Test'; }
 function home_url( $p = '' ) { return 'https://example.test' . $p; }
+function register_rest_route( $namespace, $route, $args ) { $GLOBALS['mzk_rest_routes'][ $namespace . $route ] = $args; }
+function rest_ensure_response( $value ) { return $value; }
+function url_to_postid( $url ) { return (int) ( $GLOBALS['mzk_url_to_postid'] ?? 0 ); }
+function get_permalink( $id ) { return 'https://example.test/product/' . (int) $id . '/'; }
 function wc_get_order( $id ) { return null; }
 function is_admin() { return true; }
 function wp_kses_post( $v ) { return $v; }

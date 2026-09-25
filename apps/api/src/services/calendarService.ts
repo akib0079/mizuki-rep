@@ -14,6 +14,7 @@ import {
 import { CourseTypeModel, SessionModel, type CourseTypeDoc } from '../models/index.js'
 import { loadClosedDateKeys } from './closedDateService.js'
 import { config } from '../config.js'
+import { refreshWooProductSnapshots } from './wooProductService.js'
 
 /**
  * The student-facing calendar: "Students see the next 3 months of classes on your site.
@@ -63,6 +64,8 @@ export async function buildPublicCalendar(opts: CalendarOptions = {}): Promise<{
     CourseTypeModel.find({ active: true }).lean(),
   ])
 
+  await refreshWooProductSnapshots(courses)
+
   const courseById = new Map(courses.map((c) => [String(c._id), c]))
 
   const byDate = new Map<DateKey, PublicSession[]>()
@@ -102,7 +105,7 @@ export function toPublicSession(
     breaks: { start: string; end: string; label: string }[]
     title: string
   },
-  course: Pick<CourseTypeDoc, 'name' | 'colour' | 'bookingMode'>,
+  course: Pick<CourseTypeDoc, 'name' | 'colour' | 'bookingMode' | 'wooProductUrl' | 'wooPriceText'>,
 ): PublicSession {
   const durationMins = Math.round((session.endAt.getTime() - session.startAt.getTime()) / 60_000)
   return {
@@ -119,6 +122,8 @@ export function toPublicSession(
     isFull: isSessionFull(session),
     availability: sessionAvailability(session),
     bookingMode: course.bookingMode,
+    productUrl: course.wooProductUrl ?? '',
+    priceText: course.wooPriceText ?? '',
   }
 }
 
