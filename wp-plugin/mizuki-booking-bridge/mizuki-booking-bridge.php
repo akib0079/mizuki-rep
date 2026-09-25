@@ -3,7 +3,7 @@
  * Plugin Name:       Mizuki Booking Bridge
  * Plugin URI:        https://mizuki.com.sg
  * Description:       Embeds the Mizuki Flora class calendar into WordPress and connects WooCommerce checkout to the booking system, so a paid workshop holds its place until payment lands.
- * Version:           1.18.0
+ * Version:           1.18.1
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Mizuki Flora
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'MIZUKI_BRIDGE_VERSION', '1.18.0' );
+define( 'MIZUKI_BRIDGE_VERSION', '1.18.1' );
 define( 'MIZUKI_BRIDGE_FILE', __FILE__ );
 
 /** Query args carried from the booking widget into the shop. */
@@ -71,13 +71,33 @@ function mizuki_register_product_endpoint() {
 }
 
 function mizuki_resolve_product( $request ) {
+	$result = mizuki_get_product_details( $request->get_param( 'id' ), $request->get_param( 'url' ) );
+	return is_wp_error( $result ) ? $result : rest_ensure_response( $result );
+}
+
+/* Some security plugins block the public REST API. The booking server can use this public,
+ * read-only WordPress AJAX action without relaxing the site's other REST restrictions. */
+add_action( 'wp_ajax_mizuki_product', 'mizuki_ajax_resolve_product' );
+add_action( 'wp_ajax_nopriv_mizuki_product', 'mizuki_ajax_resolve_product' );
+function mizuki_ajax_resolve_product() {
+	$product_id = isset( $_GET['id'] ) ? absint( wp_unslash( $_GET['id'] ) ) : 0;
+	$url        = isset( $_GET['url'] ) ? esc_url_raw( wp_unslash( $_GET['url'] ) ) : '';
+	$result     = mizuki_get_product_details( $product_id, $url );
+	if ( is_wp_error( $result ) ) {
+		$status = $result->get_error_data();
+		wp_send_json( array( 'code' => $result->get_error_code(), 'message' => $result->get_error_message() ), is_array( $status ) && isset( $status['status'] ) ? (int) $status['status'] : 400 );
+	}
+	wp_send_json( $result );
+}
+
+function mizuki_get_product_details( $requested_id, $requested_url ) {
 	if ( ! function_exists( 'wc_get_product' ) ) {
 		return new WP_Error( 'woocommerce_unavailable', __( 'WooCommerce is not active.', 'mizuki-booking' ), array( 'status' => 503 ) );
 	}
 
-	$product_id = absint( $request->get_param( 'id' ) );
+	$product_id = absint( $requested_id );
 	if ( ! $product_id ) {
-		$url       = esc_url_raw( $request->get_param( 'url' ) );
+		$url       = esc_url_raw( $requested_url );
 		$site_host = wp_parse_url( home_url( '/' ), PHP_URL_HOST );
 		$url_host  = wp_parse_url( $url, PHP_URL_HOST );
 		if ( ! $url || ! $url_host || strtolower( $url_host ) !== strtolower( $site_host ) ) {
@@ -86,7 +106,7 @@ function mizuki_resolve_product( $request ) {
 		$product_id = url_to_postid( $url );
 	}
 	$product    = $product_id ? wc_get_product( $product_id ) : false;
-	if ( ! $product ) {
+	if ( ! $product || 'publish' !== get_post_status( $product_id ) ) {
 		return new WP_Error( 'product_not_found', __( 'No WooCommerce product was found at that link.', 'mizuki-booking' ), array( 'status' => 404 ) );
 	}
 
@@ -95,16 +115,15 @@ function mizuki_resolve_product( $request ) {
 		$price_text = html_entity_decode( wp_strip_all_tags( wc_price( $product->get_price() ) ), ENT_QUOTES, get_bloginfo( 'charset' ) );
 	}
 
-	return rest_ensure_response(
-		array(
+	return array(
 			'id'          => (int) $product->get_id(),
 			'name'        => $product->get_name(),
 			'url'         => get_permalink( $product->get_id() ),
 			'priceText'   => $price_text,
+			'productType' => $product->get_type(),
 			'purchasable' => (bool) $product->is_purchasable(),
 			'inStock'     => (bool) $product->is_in_stock(),
-		)
-	);
+		);
 }
 
 add_action( 'admin_menu', 'mizuki_add_settings_page' );

@@ -27,6 +27,7 @@ class WC_Product {
 	}
 
 	public function get_id() { return $this->id; }
+	public function get_type() { return 'simple'; }
 	public function get_name() { return $this->name; }
 	public function get_price_html() { return $this->price_html; }
 	public function get_price() { return preg_replace( '/[^0-9.]/', '', $this->price_html ); }

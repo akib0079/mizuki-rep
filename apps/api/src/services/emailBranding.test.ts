@@ -53,6 +53,18 @@ describe('the studio look', () => {
 })
 
 describe('bringing an already-seeded install up to date', () => {
+  it('keeps workshop terms in an edited reminder that predates the policy placeholder', async () => {
+    await EmailTemplateModel.create({
+      key: 'reminder_2day', subject: 'See you soon', bodyHtml: '<p>Studio custom wording</p>',
+      bodyText: 'Studio custom wording', updatedBy: 'studio',
+    })
+    const policy = 'No refunds within 48 hours. Contact us on WhatsApp.'
+    const rendered = await renderTemplate('reminder_2day', { workshopPolicyLine: policy })
+    expect(rendered.html).toContain('Studio custom wording')
+    expect(rendered.html).toContain(policy)
+    expect(rendered.text).toContain(policy)
+  })
+
   it('replaces wording nobody has edited', async () => {
     await EmailTemplateModel.create({
       key: 'booking_confirmation',

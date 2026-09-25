@@ -34,7 +34,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
      * why the console has stopped working when the answer is simply "sign in again". One event,
      * announced once, and the shell takes them back to sign-in.
      */
-    if (response.status === 401 && !path.includes('/auth/admin/login')) {
+    // The session probe itself must settle on 401. Refetching it from its own response
+    // otherwise leaves a signed-out browser stuck on "Opening your studio" forever.
+    if (response.status === 401 && !path.includes('/auth/admin/login') && !path.includes('/auth/admin/me')) {
       window.dispatchEvent(new CustomEvent('mizuki:session-ended'))
     }
 

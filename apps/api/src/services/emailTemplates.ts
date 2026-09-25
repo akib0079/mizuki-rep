@@ -368,11 +368,21 @@ export async function renderTemplate(
   const bodyHtml = draft?.bodyHtml ?? override?.bodyHtml ?? fallback.bodyHtml
   const bodyText = draft?.bodyText || override?.bodyText || fallback.bodyText
 
-  return {
+  const rendered = {
     subject: renderString(subject, vars),
     html: renderString(bodyHtml, vars),
     text: renderString(bodyText, vars),
   }
+
+  // Existing edited templates may predate workshop bookings. Keep the studio's copy while
+  // ensuring the required workshop terms survive an omitted placeholder in either format.
+  const policy = String(vars.workshopPolicyLine ?? '')
+  if (policy && (key === 'booking_confirmation' || key === 'reminder_2day')) {
+    if (!rendered.text.includes(policy)) rendered.text += `\n\n${policy}`
+    const escaped = renderString('{{policy}}', { policy })
+    if (!rendered.html.includes(escaped)) rendered.html += `<p style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;">${escaped}</p>`
+  }
+  return rendered
 }
 
 /** Write the defaults into the database so the admin editor opens on real, editable copy. */

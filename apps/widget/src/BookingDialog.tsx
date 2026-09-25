@@ -112,6 +112,7 @@ export function BookingDialog({
 
   const start = toStudio(session.startAt)
   const end = toStudio(session.endAt)
+  const paymentUnavailable = session.bookingMode === 'paid' && (!session.productUrl || !session.priceText)
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -261,6 +262,7 @@ export function BookingDialog({
 
             <div className="mzk-bk-form">
               {error && <div className="mzk-note mzk-note-error">{error}</div>}
+              {paymentUnavailable && <div className="mzk-note mzk-note-info">Online booking for this workshop opens soon. Please contact the studio for details.</div>}
 
               {alternatives && alternatives.length > 0 && (
                 <div className="mzk-note mzk-note-info">
@@ -519,7 +521,7 @@ export function BookingDialog({
                   className="mzk-btn mzk-btn-primary"
                   // A mismatch is caught here rather than by booking them in under a password
                   // neither they nor we could reproduce.
-                  disabled={busy || (!account && session.bookingMode !== 'paid' && (passwordsDiffer || confirmPassword.length === 0))}
+                  disabled={busy || paymentUnavailable || (!account && session.bookingMode !== 'paid' && (passwordsDiffer || confirmPassword.length === 0))}
                 >
                   {busy && <span className="mzk-spinner" />}
                   {busy ? 'Just a moment…' : session.bookingMode === 'paid' ? 'Continue to payment' : 'Book this class'}

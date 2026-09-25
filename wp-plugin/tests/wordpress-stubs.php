@@ -67,6 +67,7 @@ function get_bloginfo( $s ) { return 'Test'; }
 function home_url( $p = '' ) { return 'https://example.test' . $p; }
 function register_rest_route( $namespace, $route, $args ) { $GLOBALS['mzk_rest_routes'][ $namespace . $route ] = $args; }
 function rest_ensure_response( $value ) { return $value; }
+function wp_send_json( $value, $status = 200 ) { throw new RuntimeException( 'json:' . $status . ':' . json_encode( $value ) ); }
 function url_to_postid( $url ) { return (int) ( $GLOBALS['mzk_url_to_postid'] ?? 0 ); }
 function get_permalink( $id ) { return 'https://example.test/product/' . (int) $id . '/'; }
 function wc_get_order( $id ) { return null; }

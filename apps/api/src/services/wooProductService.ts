@@ -8,8 +8,53 @@ export interface WooProductDetails {
   name: string
   url: string
   priceText: string
+  productType: string
   purchasable: boolean
   inStock: boolean
+}
+
+async function fetchProductDetails(site: URL, key: 'url' | 'id', value: string): Promise<WooProductDetails> {
+  const rest = new URL('/wp-json/mizuki/v1/product', site)
+  rest.searchParams.set(key, value)
+  const ajax = new URL('/wp-admin/admin-ajax.php', site)
+  ajax.searchParams.set('action', 'mizuki_product')
+  ajax.searchParams.set(key, value)
+
+  let response: Response | undefined
+  for (const endpoint of [rest, ajax]) {
+    try {
+      response = await fetch(endpoint, {
+        headers: { Accept: 'application/json' },
+        redirect: 'error',
+        signal: AbortSignal.timeout(8000),
+      })
+    } catch {
+      response = undefined
+    }
+    // A site security rule may block every public REST request before the plugin sees it.
+    if (endpoint === rest && (!response || [401, 403, 404].includes(response.status))) continue
+    break
+  }
+
+  if (!response) {
+    throw new AppError(502, 'shop_unreachable', 'The shop could not be reached. Check that the latest Mizuki Booking plugin is active, then try again.')
+  }
+  const body = (await response.json().catch(() => null)) as Partial<WooProductDetails> | null
+  if (!response.ok || !body || !Number.isInteger(body.id) || !body.url) {
+    throw new AppError(422, 'product_not_found', 'That link did not resolve to a WooCommerce product. Open the product in WordPress and copy its public page link.')
+  }
+  if (!body.purchasable || !body.inStock) {
+    throw new AppError(422, 'product_not_purchasable', 'That WooCommerce product is not currently available for purchase.')
+  }
+  return {
+    id: Number(body.id),
+    name: body.name ?? '',
+    url: body.url,
+    priceText: body.priceText ?? '',
+    productType: body.productType ?? '',
+    purchasable: Boolean(body.purchasable),
+    inStock: Boolean(body.inStock),
+  }
 }
 
 /**
@@ -33,79 +78,24 @@ export async function resolveWooProduct(productUrl: string): Promise<WooProductD
     throw new AppError(422, 'invalid_product_link', `Use a product link from ${site.hostname}.`)
   }
 
-  const endpoint = new URL('/wp-json/mizuki/v1/product', site)
-  endpoint.searchParams.set('url', supplied.toString())
-
-  let response: Response
-  try {
-    response = await fetch(endpoint, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(8000) })
-  } catch {
-    throw new AppError(
-      502,
-      'shop_unreachable',
-      'The shop could not be reached. Check that the latest Mizuki Booking plugin is active, then try again.',
-    )
-  }
-
-  const body = (await response.json().catch(() => null)) as Partial<WooProductDetails> | null
-  if (!response.ok || !body || !Number.isInteger(body.id) || !body.url) {
-    throw new AppError(
-      422,
-      'product_not_found',
-      'That link did not resolve to a WooCommerce product. Open the product in WordPress and copy its public page link.',
-    )
-  }
-
-  if (!body.purchasable) {
-    throw new AppError(422, 'product_not_purchasable', 'That WooCommerce product is not currently purchasable.')
-  }
-
-  return {
-    id: Number(body.id),
-    name: body.name ?? '',
-    url: body.url,
-    priceText: body.priceText ?? '',
-    purchasable: Boolean(body.purchasable),
-    inStock: Boolean(body.inStock),
-  }
+  return fetchProductDetails(site, 'url', supplied.toString())
 }
 
 async function resolveWooProductId(productId: number): Promise<WooProductDetails> {
   const site = new URL(config.PUBLIC_SITE_URL)
-  const endpoint = new URL('/wp-json/mizuki/v1/product', site)
-  endpoint.searchParams.set('id', String(productId))
-
-  let response: Response
-  try {
-    response = await fetch(endpoint, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(8000) })
-  } catch {
-    throw new AppError(502, 'shop_unreachable', 'The shop could not be reached.')
-  }
-
-  const body = (await response.json().catch(() => null)) as Partial<WooProductDetails> | null
-  if (!response.ok || !body || !Number.isInteger(body.id) || !body.url) {
-    throw new AppError(422, 'product_not_found', `WooCommerce product ${productId} was not found.`)
-  }
-  if (!body.purchasable) {
-    throw new AppError(422, 'product_not_purchasable', 'That WooCommerce product is not currently purchasable.')
-  }
-  return {
-    id: Number(body.id),
-    name: body.name ?? '',
-    url: body.url,
-    priceText: body.priceText ?? '',
-    purchasable: Boolean(body.purchasable),
-    inStock: Boolean(body.inStock),
-  }
+  return fetchProductDetails(site, 'id', String(productId))
 }
 
-export async function productPatchFromUrl(productUrl: string) {
+export async function productPatchFromUrl(productUrl: string, requireSimple = false) {
   const trimmed = productUrl.trim()
   if (!trimmed) {
     return { wooProductUrl: '', wooProductIds: [], wooProductName: '', wooPriceText: '' }
   }
 
   const product = await resolveWooProduct(trimmed)
+  if (requireSimple && product.productType !== 'simple') {
+    throw new AppError(422, 'simple_product_required', 'Use a simple WooCommerce product for calendar workshops. The date, time and number of places are selected in the booking calendar.')
+  }
   return {
     wooProductUrl: product.url,
     wooProductIds: [product.id],

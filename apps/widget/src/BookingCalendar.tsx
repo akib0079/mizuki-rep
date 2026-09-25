@@ -514,10 +514,11 @@ function SessionRow({
    * a phone call would have got them in.
    */
   const availability = session.availability ?? (session.isFull ? 'full' : 'available')
+  const paymentUnavailable = session.bookingMode === 'paid' && (!session.productUrl || !session.priceText)
   const label =
-    availability === 'available' ? 'Available' : availability === 'full' ? 'Full' : 'Not available'
+    paymentUnavailable ? 'Booking opens soon' : availability === 'available' ? 'Available' : availability === 'full' ? 'Full' : 'Not available'
   const tone =
-    availability === 'available' ? 'mzk-tag-ok' : availability === 'full' ? 'mzk-tag-full' : 'mzk-tag-off'
+    paymentUnavailable ? 'mzk-tag-off' : availability === 'available' ? 'mzk-tag-ok' : availability === 'full' ? 'mzk-tag-full' : 'mzk-tag-off'
 
   /*
    * The row is the card; the things inside it are separate controls.
@@ -529,7 +530,7 @@ function SessionRow({
    */
   return (
     <div className={availability === 'available' ? 'mzk-session-row' : 'mzk-session-row is-full'}>
-      <button className="mzk-session" onClick={onBook} disabled={availability !== 'available'}>
+      <button className="mzk-session" onClick={onBook} disabled={paymentUnavailable || availability !== 'available'}>
         <span className="mzk-stripe" style={{ background: session.colour }} />
         <span className="mzk-session-main">
           <span className="mzk-session-title">{session.title}</span>
