@@ -757,6 +757,15 @@ step( 'a product page link resolves to WooCommerce id and price', function () {
 	return $product['name'] . ' at ' . $product['priceText'];
 } );
 
+step( 'a variable price range excludes screen reader copy', function () {
+	$GLOBALS['mzk_products'][43] = new WC_Product( 43, 'Seasonal Workshop', '<span>S$249.00 – S$469.00</span><span class="screen-reader-text">Price range: S$249.00 through S$469.00</span>' );
+	$product = mizuki_get_product_details( 43, '' );
+	if ( 'S$249.00 – S$469.00' !== $product['priceText'] ) {
+		throw new RuntimeException( 'Unexpected price label: ' . $product['priceText'] );
+	}
+	return $product['priceText'];
+} );
+
 $GLOBALS['mzk_products'] = array(
 	13 => new WC_Product( 13, 'Naturepresso Box Set', 'S$268.00' ),
 	14 => new WC_Product( 14, 'Pure Rose Water Mist', 'S$68.00' ),

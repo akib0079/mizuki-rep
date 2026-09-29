@@ -47,7 +47,7 @@ describe('WooCommerce product links', () => {
   })
 
   it('rejects a variable product for direct calendar checkout', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async () => new Response(JSON.stringify({
       id: 3060,
       name: 'Autumn Ikebana Workshop',
       url: 'http://localhost:8080/product/ikebana/',
@@ -59,6 +59,26 @@ describe('WooCommerce product links', () => {
 
     await expect(productPatchFromUrl('http://localhost:8080/product/ikebana/', true)).rejects.toMatchObject({
       code: 'simple_product_required',
+    })
+  })
+
+  it('keeps an unavailable variable product link and price visible without enabling calendar checkout', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async () => new Response(JSON.stringify({
+      id: 3082,
+      name: 'Seasonal workshop',
+      url: 'http://localhost:8080/product/seasonal/',
+      priceText: 'S$249.00 – S$469.00',
+      productType: 'variable',
+      purchasable: true,
+      inStock: false,
+    }), { status: 200 })))
+
+    await expect(productPatchFromUrl('http://localhost:8080/product/seasonal/')).resolves.toMatchObject({
+      wooProductIds: [3082],
+      wooPriceText: 'S$249.00 – S$469.00',
+    })
+    await expect(productPatchFromUrl('http://localhost:8080/product/seasonal/', true)).rejects.toMatchObject({
+      code: 'product_not_purchasable',
     })
   })
 

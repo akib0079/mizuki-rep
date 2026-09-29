@@ -43,9 +43,6 @@ async function fetchProductDetails(site: URL, key: 'url' | 'id', value: string):
   if (!response.ok || !body || !Number.isInteger(body.id) || !body.url) {
     throw new AppError(422, 'product_not_found', 'That link did not resolve to a WooCommerce product. Open the product in WordPress and copy its public page link.')
   }
-  if (!body.purchasable || !body.inStock) {
-    throw new AppError(422, 'product_not_purchasable', 'That WooCommerce product is not currently available for purchase.')
-  }
   return {
     id: Number(body.id),
     name: body.name ?? '',
@@ -93,6 +90,9 @@ export async function productPatchFromUrl(productUrl: string, requireSimple = fa
   }
 
   const product = await resolveWooProduct(trimmed)
+  if (requireSimple && (!product.purchasable || !product.inStock)) {
+    throw new AppError(422, 'product_not_purchasable', 'That WooCommerce product is not currently available for purchase.')
+  }
   if (requireSimple && product.productType !== 'simple') {
     throw new AppError(422, 'simple_product_required', 'Use a simple WooCommerce product for calendar workshops. The date, time and number of places are selected in the booking calendar.')
   }
