@@ -425,6 +425,25 @@
   text-align: center;
 }
 
+.mzk-product-workshops {
+  margin-top: 24px;
+  padding: 20px;
+  border: 1px solid var(--mzk-line);
+  border-radius: 18px;
+  background: #fff;
+}
+.mzk-product-workshops h3 { margin: 0 0 14px; font-size: 17px; }
+.mzk-product-workshop { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.mzk-product-workshop + .mzk-product-workshop { border-top: 1px solid var(--mzk-line); margin-top: 14px; padding-top: 14px; }
+.mzk-product-workshop strong, .mzk-product-workshop span { display: block; }
+.mzk-product-workshop strong { font-size: 15px; }
+.mzk-product-workshop span { margin-top: 3px; color: var(--mzk-soft); font-size: 14px; }
+.mzk-product-workshop .mzk-btn { flex: none; }
+@media (max-width: 560px) {
+  .mzk-product-workshop { align-items: stretch; flex-direction: column; }
+  .mzk-product-workshop .mzk-btn { text-align: center; }
+}
+
 /* On a phone the header has no room for a month, a filter and two arrows on one line. The
    filter takes its own row and the full width, which also makes it a comfortable tap target. */
 @media (max-width: 420px) {

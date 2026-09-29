@@ -17,6 +17,8 @@ const courseTypeSchema = new Schema(
       required: true,
       default: 'paid',
     },
+    /** Variable products let customers choose their options on the WooCommerce page. */
+    checkoutFlow: { type: String, enum: ['calendar_checkout', 'product_page'], default: 'calendar_checkout' },
 
     /** IFDA and Preserved Flower: 24. Ikebana and Fresh Flower: 72 (the "3 days" rule). */
     rescheduleCutoffHours: { type: Number, required: true, default: 24, min: 0 },

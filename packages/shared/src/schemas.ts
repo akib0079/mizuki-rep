@@ -149,6 +149,7 @@ export const courseTypeInputSchema = z.object({
   slug: z.string().trim().regex(/^[a-z0-9-]+$/, 'Lowercase letters, numbers and dashes only').max(80),
   colour: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Expected a hex colour'),
   bookingMode: bookingModeSchema,
+  checkoutFlow: z.enum(['calendar_checkout', 'product_page']).default('calendar_checkout'),
   rescheduleCutoffHours: z.number().int().min(0).max(720),
   cancelCutoffHours: z.number().int().min(0).max(720),
   defaultDurationMins: z.number().int().min(15).max(600),

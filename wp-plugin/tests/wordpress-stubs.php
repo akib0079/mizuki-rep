@@ -29,7 +29,7 @@ function update_option( $k, $v ) {}
 function get_transient( $k ) { return false; }
 function set_transient( $k, $v, $t ) {}
 function delete_transient( $k ) {}
-function wp_remote_get( $u, $a = array() ) { if ( ! empty( $GLOBALS['api_down'] ) ) { return new \WP_Error(); } return array( 'response' => array( 'code' => 200 ), 'body' => '{"courses":[{"slug":"ifda","name":"IFDA"}]}' ); }
+function wp_remote_get( $u, $a = array() ) { if ( ! empty( $GLOBALS['api_down'] ) ) { return new \WP_Error(); } return array( 'response' => array( 'code' => 200 ), 'body' => $GLOBALS['mzk_remote_body'] ?? '{"courses":[{"slug":"ifda","name":"IFDA"}]}' ); }
 function wp_remote_retrieve_response_code( $r ) { return $r['response']['code']; }
 function wp_remote_retrieve_body( $r ) { return $r['body']; }
 class WP_Error { public function __construct( ...$args ) {} }
@@ -96,7 +96,7 @@ function maybe_unserialize( $v ) { return $v; }
  * calls, and there is a test below that keeps it that way.
  */
 function esc_attr__( $t, $d = null ) { return htmlspecialchars( (string) $t, ENT_QUOTES ); }
-function get_post_meta( $id, $key = '', $single = false ) { return $single ? '' : array(); }
+function get_post_meta( $id, $key = '', $single = false ) { return $GLOBALS['mzk_post_meta'][ (int) $id ][ $key ] ?? ( $single ? '' : array() ); }
 function wp_date( $format, $timestamp = null, $tz = null ) { return gmdate( $format, $timestamp ?: time() ); }
 function wp_register_style( $h, $s = '', $d = array(), $v = false, $m = 'all' ) { return true; }
 function wp_remote_post( $url, $args = array() ) { return array( 'response' => array( 'code' => 200 ), 'body' => '{}' ); }

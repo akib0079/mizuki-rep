@@ -137,6 +137,18 @@ export function SettingsPage({ totpEnabled }: { totpEnabled: boolean }) {
                       }}
                     />
                     {c.wooPriceText && <div className="small muted">{c.wooProductName || 'WooCommerce product'} · {c.wooPriceText}</div>}
+                    {c.bookingMode === 'paid' && (
+                      <label className="small muted" style={{ display: 'block', marginTop: 6 }}>
+                        Checkout route{' '}
+                        <select
+                          value={c.checkoutFlow ?? 'calendar_checkout'}
+                          onChange={(e) => courseMutation.mutate({ id: c.id, patch: { checkoutFlow: e.target.value } as Partial<Course> })}
+                        >
+                          <option value="calendar_checkout">Calendar then payment</option>
+                          <option value="product_page">Product page options</option>
+                        </select>
+                      </label>
+                    )}
                     {c.bookingMode !== 'free' && !c.wooProductUrl && (
                       <div className="small" style={{ color: 'var(--danger, #b3382c)' }}>
                         Not on sale yet
@@ -1275,6 +1287,7 @@ function NewCourseForm({
     name: '',
     colour: '#7c6a9c',
     bookingMode: 'paid' as 'paid' | 'package' | 'free',
+    checkoutFlow: 'calendar_checkout' as 'calendar_checkout' | 'product_page',
     rescheduleCutoffHours: 72,
     defaultDurationMins: 150,
     defaultCapacity: 8,
@@ -1295,6 +1308,7 @@ function NewCourseForm({
           .replace(/^-|-$/g, ''),
         colour: form.colour,
         bookingMode: form.bookingMode,
+        checkoutFlow: form.checkoutFlow,
         rescheduleCutoffHours: form.rescheduleCutoffHours,
         cancelCutoffHours: form.rescheduleCutoffHours,
         defaultDurationMins: form.defaultDurationMins,
@@ -1366,6 +1380,19 @@ function NewCourseForm({
         />
         <span className="field-hint">Paste the public WooCommerce product page. Its product code and current price are added automatically.</span>
       </label>
+
+      {form.bookingMode === 'paid' && (
+        <label className="field" style={{ flex: '0 0 220px' }}>
+          <span>Checkout route</span>
+          <select
+            value={form.checkoutFlow}
+            onChange={(e) => setForm({ ...form, checkoutFlow: e.target.value as typeof form.checkoutFlow })}
+          >
+            <option value="calendar_checkout">Calendar then payment</option>
+            <option value="product_page">Product page options</option>
+          </select>
+        </label>
+      )}
 
       <label className="field" style={{ flex: '0 0 96px' }}>
         <span>Class size</span>

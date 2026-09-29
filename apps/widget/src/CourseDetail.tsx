@@ -90,7 +90,7 @@ export function CourseDetail({
             </button>
             {onBook && canBook && (
               <button type="button" className="mzk-btn mzk-btn-primary" onClick={onBook}>
-                Book this class
+                {course.checkoutFlow === 'product_page' ? 'View product options' : 'Book this class'}
               </button>
             )}
           </div>

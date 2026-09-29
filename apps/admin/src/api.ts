@@ -117,6 +117,7 @@ export interface Course {
   wooProductUrl: string
   wooProductName: string
   wooPriceText: string
+  checkoutFlow: 'calendar_checkout' | 'product_page'
   /** True when a paid place waits for the studio to check the payment before it is confirmed. */
   requiresManualConfirmation: boolean
   active: boolean

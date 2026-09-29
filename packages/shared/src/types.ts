@@ -79,6 +79,7 @@ export interface CourseType {
   slug: string
   colour: string
   bookingMode: BookingMode
+  checkoutFlow: 'calendar_checkout' | 'product_page'
   /** Hours before class start after which a student can no longer move their booking. 24 for IFDA/Preserved, 72 for Ikebana/Fresh. */
   rescheduleCutoffHours: number
   cancelCutoffHours: number
@@ -205,6 +206,7 @@ export interface PublicSession {
   /** Three states rather than a count: what the student is actually told. */
   availability: SessionAvailability
   bookingMode: BookingMode
+  checkoutFlow: 'calendar_checkout' | 'product_page'
   /** Live shop details copied from the assigned WooCommerce product. */
   productUrl: string
   priceText: string

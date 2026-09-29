@@ -3,7 +3,7 @@
  * Plugin Name:       Mizuki Booking Bridge
  * Plugin URI:        https://mizuki.com.sg
  * Description:       Embeds the Mizuki Flora class calendar into WordPress and connects WooCommerce checkout to the booking system, so a paid workshop holds its place until payment lands.
- * Version:           1.18.1
+ * Version:           1.18.2
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Mizuki Flora
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'MIZUKI_BRIDGE_VERSION', '1.18.1' );
+define( 'MIZUKI_BRIDGE_VERSION', '1.18.2' );
 define( 'MIZUKI_BRIDGE_FILE', __FILE__ );
 
 /** Query args carried from the booking widget into the shop. */
@@ -30,6 +30,7 @@ const MIZUKI_PARTY_PARAM   = 'mizuki_party_size';
 /** Order item meta keys. Underscore-prefixed so they stay hidden from the customer-facing order. */
 const MIZUKI_META_SESSION = '_mizuki_session_id';
 const MIZUKI_META_HOLD    = '_mizuki_hold_token';
+const MIZUKI_CALENDAR_PRODUCT_META = '_mizuki_calendar_product';
 
 /**
  * -----------------------------------------------------------------------------
@@ -112,7 +113,7 @@ function mizuki_get_product_details( $requested_id, $requested_url ) {
 
 	$price_text = '';
 	if ( '' !== $product->get_price() ) {
-		$price_text = html_entity_decode( wp_strip_all_tags( wc_price( $product->get_price() ) ), ENT_QUOTES, get_bloginfo( 'charset' ) );
+		$price_text = html_entity_decode( wp_strip_all_tags( $product->get_price_html() ), ENT_QUOTES, get_bloginfo( 'charset' ) );
 	}
 
 	return array(
@@ -571,6 +572,79 @@ function mizuki_my_bookings_shortcode( $atts ) {
  * with the class and hold token on the URL. Those two values have to survive cart → checkout →
  * order, otherwise the payment arrives with no way to tell which class it was for.
  */
+
+/** Calendar products use the booking system's per-session capacity, not WooCommerce stock. */
+function mizuki_is_calendar_product( $product_id ) {
+	return 'yes' === get_post_meta( absint( $product_id ), MIZUKI_CALENDAR_PRODUCT_META, true );
+}
+
+add_action( 'woocommerce_product_options_general_product_data', 'mizuki_calendar_product_option' );
+function mizuki_calendar_product_option() {
+	if ( ! function_exists( 'woocommerce_wp_checkbox' ) ) {
+		return;
+	}
+	woocommerce_wp_checkbox( array(
+		'id'          => MIZUKI_CALENDAR_PRODUCT_META,
+		'label'       => __( 'Calendar booking product', 'mizuki-booking' ),
+		'description' => __( 'Customers choose a session in the booking calendar before checkout. Set this product as Simple and Virtual, with no WooCommerce stock limit.', 'mizuki-booking' ),
+	) );
+}
+
+add_action( 'woocommerce_admin_process_product_object', 'mizuki_save_calendar_product_option' );
+function mizuki_save_calendar_product_option( $product ) {
+	if ( ! is_object( $product ) || ! method_exists( $product, 'update_meta_data' ) ) {
+		return;
+	}
+	$product->update_meta_data(
+		MIZUKI_CALENDAR_PRODUCT_META,
+		isset( $_POST[ MIZUKI_CALENDAR_PRODUCT_META ] ) ? 'yes' : 'no'
+	);
+}
+
+/** A product page must not sell a place without a calendar session and its held seats. */
+add_filter( 'woocommerce_add_to_cart_validation', 'mizuki_require_calendar_booking', 10, 5 );
+function mizuki_require_calendar_booking( $passed, $product_id, $quantity, $variation_id = 0, $variations = array() ) {
+	if ( ! $passed || ! mizuki_is_calendar_product( $product_id ) ) {
+		return $passed;
+	}
+	$session = isset( $_GET[ MIZUKI_SESSION_PARAM ] ) ? sanitize_text_field( wp_unslash( $_GET[ MIZUKI_SESSION_PARAM ] ) ) : '';
+	$hold    = isset( $_GET[ MIZUKI_HOLD_PARAM ] ) ? sanitize_text_field( wp_unslash( $_GET[ MIZUKI_HOLD_PARAM ] ) ) : '';
+	$party   = isset( $_GET[ MIZUKI_PARTY_PARAM ] ) ? absint( $_GET[ MIZUKI_PARTY_PARAM ] ) : 0;
+	if ( preg_match( '/^[a-f0-9]{24}$/i', $session ) && preg_match( '/^[A-Za-z0-9_-]{32}$/', $hold ) && $party > 0 && $party <= 10 && $party === absint( $quantity ) && mizuki_api_base() ) {
+		$verify_url = mizuki_api_base() . '/api/public/holds/' . rawurlencode( $hold ) . '/checkout?sessionId=' . rawurlencode( $session ) . '&productId=' . absint( $product_id ) . '&quantity=' . $party;
+		$response = wp_remote_get( $verify_url, array( 'timeout' => 8 ) );
+		if ( ! is_wp_error( $response ) && 200 === wp_remote_retrieve_response_code( $response ) ) {
+			$body = json_decode( wp_remote_retrieve_body( $response ), true );
+			if ( ! empty( $body['valid'] ) ) {
+				return true;
+			}
+		}
+	}
+	wc_add_notice(
+		__( 'Choose your workshop date and participants in the booking calendar before checkout.', 'mizuki-booking' ),
+		'error'
+	);
+	return false;
+}
+
+add_filter( 'woocommerce_is_purchasable', 'mizuki_calendar_product_page_purchasable', 10, 2 );
+function mizuki_calendar_product_page_purchasable( $purchasable, $product ) {
+	if ( ! $purchasable || ! is_object( $product ) || ! method_exists( $product, 'get_id' ) || ! mizuki_is_calendar_product( $product->get_id() ) ) {
+		return $purchasable;
+	}
+	if ( function_exists( 'is_product' ) && is_product() && ! isset( $_GET[ MIZUKI_SESSION_PARAM ], $_GET[ MIZUKI_HOLD_PARAM ] ) ) {
+		return false;
+	}
+	return $purchasable;
+}
+
+add_action( 'woocommerce_single_product_summary', 'mizuki_calendar_product_link', 29 );
+function mizuki_calendar_product_link() {
+	if ( ! function_exists( 'get_the_ID' ) || ! mizuki_is_calendar_product( get_the_ID() ) ) {
+		return;
+	}
+	echo '<p class="mizuki-calendar-product-link"><a class="button" href="' . esc_url( home_url( '/book-a-class/' ) ) . '">' . esc_html__( 'Choose a date and book', 'mizuki-booking' ) . '</a></p>';
+}
 
 add_filter( 'woocommerce_add_cart_item_data', 'mizuki_capture_cart_item_data', 10, 2 );
 function mizuki_capture_cart_item_data( $cart_item_data, $product_id ) {

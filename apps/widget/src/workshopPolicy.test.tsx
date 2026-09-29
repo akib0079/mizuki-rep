@@ -18,6 +18,7 @@ function session(bookingMode: BookingMode): PublicSession {
     isFull: false,
     availability: 'available',
     bookingMode,
+    checkoutFlow: 'calendar_checkout',
     productUrl: bookingMode === 'paid' ? 'https://mizuki.com.sg/product/workshop/' : '',
     priceText: bookingMode === 'paid' ? 'S$120.00' : '',
   }

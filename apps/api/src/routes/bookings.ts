@@ -106,6 +106,9 @@ bookingRouter.post(
 
     const courseType = await CourseTypeModel.findById(session.courseTypeId)
     if (!courseType) throw new NotFoundError('Course')
+    if (courseType.bookingMode === 'paid' && courseType.checkoutFlow === 'product_page') {
+      throw new AppError(409, 'product_page_checkout', `Choose the available options and pay on the product page for ${courseType.name}.`)
+    }
 
     let student = signedIn
     let mayStartStudentSession = false

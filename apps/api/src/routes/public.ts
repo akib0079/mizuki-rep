@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { calendarQuerySchema } from '@mizuki/shared'
 import { buildPublicCalendar, findAlternatives, getPublicSession } from '../services/calendarService.js'
-import { CourseSeriesModel, CourseTypeModel } from '../models/index.js'
+import { BookingModel, CourseSeriesModel, CourseTypeModel, SessionModel } from '../models/index.js'
 import { getSeriesAvailability } from '../services/seriesService.js'
 import { asyncRoute } from '../middleware/errorHandler.js'
 import { NotFoundError } from '../errors.js'
@@ -39,6 +39,7 @@ publicRouter.get(
         slug: c.slug,
         colour: c.colour,
         bookingMode: c.bookingMode,
+        checkoutFlow: c.checkoutFlow,
         description: c.description,
         rescheduleCutoffHours: c.rescheduleCutoffHours,
 
@@ -49,6 +50,7 @@ publicRouter.get(
         whatIsProvided: c.whatIsProvided,
         priceNote: c.priceNote,
         priceText: c.wooPriceText,
+        productName: c.wooProductName,
         productUrl: c.wooProductUrl,
         imageUrl: c.imageUrl,
       })),
@@ -72,6 +74,40 @@ publicRouter.get(
     const session = await getPublicSession(req.params.id!)
     if (!session) throw new NotFoundError('Class')
     res.json({ session })
+  }),
+)
+
+/**
+ * WooCommerce checks this immediately before placing a calendar product in the cart.
+ * The random hold token is a short lived capability; no student details are returned.
+ */
+publicRouter.get(
+  '/holds/:token/checkout',
+  asyncRoute(async (req, res) => {
+    const { token } = req.params
+    const sessionId = String(req.query.sessionId ?? '')
+    const productId = Number(req.query.productId)
+    const quantity = Number(req.query.quantity)
+    if (!/^[A-Za-z0-9_-]{32}$/.test(token ?? '') || !/^[a-f0-9]{24}$/i.test(sessionId) ||
+        !Number.isSafeInteger(productId) || productId <= 0 ||
+        !Number.isSafeInteger(quantity) || quantity < 1 || quantity > 10) {
+      res.json({ valid: false })
+      return
+    }
+    const hold = await BookingModel.findOne({
+      holdToken: token,
+      sessionId,
+      status: 'hold',
+      holdExpiresAt: { $gt: new Date() },
+      partySize: quantity,
+    }).select('sessionId').lean()
+    if (!hold) {
+      res.json({ valid: false })
+      return
+    }
+    const session = await SessionModel.findById(sessionId).select('courseTypeId').lean()
+    const course = session ? await CourseTypeModel.findById(session.courseTypeId).select('bookingMode wooProductIds').lean() : null
+    res.json({ valid: course?.bookingMode === 'paid' && course.wooProductIds.includes(productId) })
   }),
 )
 

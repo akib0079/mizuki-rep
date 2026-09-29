@@ -146,9 +146,17 @@ async function confirmPaidOrder(payload: OrderPayload) {
       // Not a class and not a package — a vase, a bouquet, anything else in the shop.
       if (!line.sessionId) continue
 
+      // A paid order must name the same product that the booked class uses. Otherwise a
+      // different shop item carrying copied calendar metadata could confirm the wrong place.
+      const session = await SessionModel.findById(line.sessionId)
+      const course = session ? await CourseTypeModel.findById(session.courseTypeId) : null
+      if (!course || course.bookingMode !== 'paid' || !line.productId || !course.wooProductIds.includes(line.productId)) {
+        throw new Error('The order product does not match the booked workshop.')
+      }
+
       // The happy path: the hold this student was given is still alive, so just confirm it.
       const held = line.holdToken
-        ? await BookingModel.findOne({ holdToken: line.holdToken, status: 'hold' })
+        ? await BookingModel.findOne({ holdToken: line.holdToken, sessionId: line.sessionId, status: 'hold' })
         : null
 
       if (held) {
@@ -160,7 +168,7 @@ async function confirmPaidOrder(payload: OrderPayload) {
 
       // Already confirmed — a repeated callback, which WooCommerce does send. Not an error.
       const existing = line.holdToken
-        ? await BookingModel.findOne({ holdToken: line.holdToken, status: 'confirmed' })
+        ? await BookingModel.findOne({ holdToken: line.holdToken, sessionId: line.sessionId, status: 'confirmed' })
         : null
       if (existing) {
         confirmed.push(String(existing._id))

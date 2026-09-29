@@ -170,6 +170,13 @@ async function assertPluginLoads() {
     process.exit(1)
   }
 
+  try {
+    await run('php', [path.join(root, 'wp-plugin/tests/calendar-checkout.php')])
+  } catch (error) {
+    console.error('Calendar checkout protection failed:\n' + (error.stdout || error.message))
+    process.exit(1)
+  }
+
   /* The stylesheets have to beat the theme, and not beat themselves. Both have gone wrong. */
   try {
     await run('php', [path.join(root, 'wp-plugin/tests/page-css.php')])

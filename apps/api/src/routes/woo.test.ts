@@ -67,6 +67,26 @@ describe('signature checking', () => {
 })
 
 describe('payment confirms a held place', () => {
+  it('refuses to confirm a workshop when the paid product belongs to another course', async () => {
+    const session = await makeSession({ courseTypeId: ikebana._id, capacity: 6, date: '2026-08-22' })
+    const student = await makeStudent({ email: 'aiko@example.com' })
+    const { booking } = await createBooking({
+      sessionId: session._id,
+      studentId: student._id,
+      status: 'hold',
+      usePackage: false,
+      holdToken: 'hold-abc',
+      holdExpiresAt: new Date(Date.now() + 20 * 60_000),
+      notify: false,
+      now: NOW,
+    })
+    const response = await send(orderFor(String(session._id), 'hold-abc', {
+      lines: [{ sessionId: String(session._id), holdToken: 'hold-abc', productId: 99, quantity: 1 }],
+    })).expect(200)
+    expect(response.body.ok).toBe(false)
+    expect((await BookingModel.findById(booking._id))!.status).toBe('hold')
+  })
+
   it('turns the hold into a confirmed booking', async () => {
     const session = await makeSession({ courseTypeId: ikebana._id, capacity: 6, date: '2026-08-22' })
     const student = await makeStudent({ email: 'aiko@example.com' })

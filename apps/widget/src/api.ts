@@ -18,6 +18,7 @@ export interface PublicCourse {
   slug: string
   colour: string
   bookingMode: string
+  checkoutFlow: 'calendar_checkout' | 'product_page'
   rescheduleCutoffHours: number
   description: string
   suitableFor: string
@@ -26,6 +27,7 @@ export interface PublicCourse {
   whatIsProvided: string
   priceNote: string
   priceText: string
+  productName: string
   productUrl: string
   imageUrl: string
 }

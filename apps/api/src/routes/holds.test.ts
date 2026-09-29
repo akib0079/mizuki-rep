@@ -93,6 +93,18 @@ describe('taking a place before checkout', () => {
     expect(booking!.attendeeName).toBe('Jane, Amy, Mei')
   })
 
+  it('lets the shop add only the exact held session, product and participant count', async () => {
+    const session = await makeSession({ courseTypeId: ikebana._id, capacity: 6, date: '2026-10-17' })
+    const started = await startBooking(String(session._id)).expect(200)
+    const path = `/api/public/holds/${started.body.holdToken}/checkout`
+    const details = { sessionId: String(session._id), productId: 42, quantity: 1 }
+    expect((await request(app).get(path).query(details).expect(200)).body.valid).toBe(true)
+    expect((await request(app).get(path).query({ ...details, productId: 99 }).expect(200)).body.valid).toBe(false)
+    expect((await request(app).get(path).query({ ...details, quantity: 2 }).expect(200)).body.valid).toBe(false)
+    await BookingModel.updateOne({ _id: started.body.bookingId }, { $set: { holdExpiresAt: new Date(Date.now() - 1000) } })
+    expect((await request(app).get(path).query(details).expect(200)).body.valid).toBe(false)
+  })
+
   it('stops the last place being sold twice while someone is paying', async () => {
     const session = await makeSession({ courseTypeId: ikebana._id, capacity: 1, date: '2026-10-17' })
 

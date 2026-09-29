@@ -105,7 +105,7 @@ export function toPublicSession(
     breaks: { start: string; end: string; label: string }[]
     title: string
   },
-  course: Pick<CourseTypeDoc, 'name' | 'colour' | 'bookingMode' | 'wooProductUrl' | 'wooPriceText'>,
+  course: Pick<CourseTypeDoc, 'name' | 'colour' | 'bookingMode' | 'checkoutFlow' | 'wooProductUrl' | 'wooPriceText'>,
 ): PublicSession {
   const durationMins = Math.round((session.endAt.getTime() - session.startAt.getTime()) / 60_000)
   return {
@@ -122,6 +122,7 @@ export function toPublicSession(
     isFull: isSessionFull(session),
     availability: sessionAvailability(session),
     bookingMode: course.bookingMode,
+    checkoutFlow: course.checkoutFlow,
     productUrl: course.wooProductUrl ?? '',
     priceText: course.wooPriceText ?? '',
   }

@@ -42,6 +42,13 @@ export function BookingCalendar({
   const [monthOffset, setMonthOffset] = useState(0)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [booking, setBooking] = useState<PublicSession | null>(null)
+  const openSession = (session: PublicSession) => {
+    if (session.bookingMode === 'paid' && session.checkoutFlow === 'product_page' && session.productUrl) {
+      window.location.assign(session.productUrl)
+      return
+    }
+    setBooking(session)
+  }
   /**
    * Courses the student has chosen to see. Empty means all of them.
    *
@@ -114,6 +121,9 @@ export function BookingCalendar({
     const withClasses = new Set((days ?? []).flatMap((d) => d.sessions.map((s) => s.courseTypeId)))
     return courses.filter((c) => withClasses.has(c.id))
   }, [courses, days])
+  const productPageWorkshops = courses.filter((course) =>
+    course.bookingMode === 'paid' && course.checkoutFlow === 'product_page' && course.productUrl,
+  )
 
   /** The calendar as the student has asked to see it. Everything below reads this, not `days`. */
   const visibleDays = useMemo(() => {
@@ -278,7 +288,7 @@ export function BookingCalendar({
                 <SessionRow
                   key={session.id}
                   session={session}
-                  onBook={() => setBooking(session)}
+                  onBook={() => openSession(session)}
                   onLearnMore={
                     hasCourseDetail(course) ? () => setLearning({ course: course!, session }) : undefined
                   }
@@ -295,14 +305,29 @@ export function BookingCalendar({
         </p>
       )}
 
+      {productPageWorkshops.length > 0 && (
+        <section className="mzk-product-workshops" aria-label="Shop workshop options">
+          <h3>More workshop options</h3>
+          {productPageWorkshops.map((course) => (
+            <div className="mzk-product-workshop" key={course.id}>
+              <div>
+                <strong>{course.productName || course.name}</strong>
+                {course.priceText && <span>{course.priceText}</span>}
+              </div>
+              <a className="mzk-btn mzk-btn-primary" href={course.productUrl}>View product options</a>
+            </div>
+          ))}
+        </section>
+      )}
+
       {learning && (
         <CourseDetail
           course={learning.course}
           studio={studio}
-          canBook={!learning.session.isFull}
+          canBook={learning.session.checkoutFlow === 'product_page' || !learning.session.isFull}
           // Straight from reading about it to booking it, without hunting for the row again.
           onBook={() => {
-            setBooking(learning.session)
+            openSession(learning.session)
             setLearning(null)
           }}
           onClose={() => setLearning(null)}
@@ -515,10 +540,11 @@ function SessionRow({
    */
   const availability = session.availability ?? (session.isFull ? 'full' : 'available')
   const paymentUnavailable = session.bookingMode === 'paid' && (!session.productUrl || !session.priceText)
+  const productPage = session.bookingMode === 'paid' && session.checkoutFlow === 'product_page'
   const label =
-    paymentUnavailable ? 'Booking opens soon' : availability === 'available' ? 'Available' : availability === 'full' ? 'Full' : 'Not available'
+    paymentUnavailable ? 'Booking opens soon' : productPage ? 'View options' : availability === 'available' ? 'Available' : availability === 'full' ? 'Full' : 'Not available'
   const tone =
-    paymentUnavailable ? 'mzk-tag-off' : availability === 'available' ? 'mzk-tag-ok' : availability === 'full' ? 'mzk-tag-full' : 'mzk-tag-off'
+    paymentUnavailable ? 'mzk-tag-off' : productPage ? 'mzk-tag-ok' : availability === 'available' ? 'mzk-tag-ok' : availability === 'full' ? 'mzk-tag-full' : 'mzk-tag-off'
 
   /*
    * The row is the card; the things inside it are separate controls.
@@ -529,15 +555,15 @@ function SessionRow({
    * and the booking button becomes the transparent area that fills most of it.
    */
   return (
-    <div className={availability === 'available' ? 'mzk-session-row' : 'mzk-session-row is-full'}>
-      <button className="mzk-session" onClick={onBook} disabled={paymentUnavailable || availability !== 'available'}>
+    <div className={availability === 'available' || productPage ? 'mzk-session-row' : 'mzk-session-row is-full'}>
+      <button className="mzk-session" onClick={onBook} disabled={paymentUnavailable || (!productPage && availability !== 'available')}>
         <span className="mzk-stripe" style={{ background: session.colour }} />
         <span className="mzk-session-main">
           <span className="mzk-session-title">{session.title}</span>
           <span className="mzk-session-meta">
             {formatTimeRange(start.toJSDate(), end.toJSDate())} · {formatDuration(session.durationMins)}
             {session.breaks.length > 0 && ` · includes a break`}
-            {session.bookingMode === 'paid' && session.priceText && ` · ${session.priceText} per person`}
+            {session.bookingMode === 'paid' && session.priceText && ` · ${session.priceText}${productPage ? '' : ' per person'}`}
           </span>
         </span>
       </button>

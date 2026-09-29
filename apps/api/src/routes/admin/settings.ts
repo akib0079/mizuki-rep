@@ -89,7 +89,7 @@ adminSettingsRouter.post(
   '/courses',
   asyncRoute(async (req, res) => {
     const input = courseTypeInputSchema.parse(req.body)
-    const product = await productPatchFromUrl(input.wooProductUrl, input.bookingMode === 'paid')
+    const product = await productPatchFromUrl(input.wooProductUrl, input.bookingMode === 'paid' && input.checkoutFlow !== 'product_page')
     const course = await CourseTypeModel.create({ ...input, ...product })
     res.status(201).json({ course: { id: String(course._id), name: course.name } })
   }),
@@ -107,8 +107,8 @@ adminSettingsRouter.patch(
     const before = await CourseTypeModel.findById(req.params.id).lean()
     if (!before) throw new NotFoundError('Course')
 
-    const product = input.wooProductUrl !== undefined
-      ? await productPatchFromUrl(input.wooProductUrl, (input.bookingMode ?? before.bookingMode) === 'paid')
+    const product = input.wooProductUrl !== undefined || input.checkoutFlow !== undefined
+      ? await productPatchFromUrl(input.wooProductUrl ?? before.wooProductUrl, (input.bookingMode ?? before.bookingMode) === 'paid' && (input.checkoutFlow ?? before.checkoutFlow) !== 'product_page')
       : {}
     const course = await CourseTypeModel.findByIdAndUpdate(req.params.id, { $set: { ...input, ...product } }, { new: true })
 
