@@ -136,6 +136,7 @@ export interface Session {
   status: SessionStatus
   title: string
   notes: string
+  venueAddress?: string
   /** Fields edited by hand on this occurrence, which rule regeneration must never overwrite. */
   overriddenFields: string[]
 }
@@ -197,6 +198,7 @@ export interface PublicSession {
   courseName: string
   colour: string
   title: string
+  venueAddress?: string
   startAt: string
   endAt: string
   durationMins: number

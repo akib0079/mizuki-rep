@@ -51,6 +51,8 @@ const sessionSchema = new Schema(
     status: { type: String, enum: ['scheduled', 'cancelled'], default: 'scheduled', index: true },
     title: { type: String, default: '' },
     notes: { type: String, default: '', maxlength: 2000 },
+    /** Optional venue for this date. Empty means the current studio default. */
+    venueAddress: { type: String, default: '', maxlength: 300 },
 
     /** Fields edited by hand on this occurrence. The generator must never overwrite these. */
     overriddenFields: { type: [String], default: [] },

@@ -34,4 +34,16 @@ Students receive an automatic reminder two calendar days before the workshop. Wo
 
 The same policy is shown before the customer continues to payment. Refund and rescheduling requests remain manual through WhatsApp, as requested.
 
+## Studio contact details and seasonal venues
+
+Open **Settings → Studio details** to edit the studio name, default address, phone and WhatsApp number, and contact email in one place. The booking form, confirmation and reminder emails, and calendar invitations use these details. The contact email is also where replies to student emails go. The email address that sends messages remains under **Settings → Connected services**, because it must be verified with the email provider. Booking alert recipients remain under **Team**.
+
+For a workshop at a different location, open that class in **Calendar** and fill **Venue for this class → Address override**. Leave it blank to use the studio default. If participants are already booked, keep **Email booked participants if the venue changes** selected when saving to notify them. The booking page and future messages then show the class venue.
+
+## Returning workshop customers
+
+If a customer returns to the same workshop while payment is still outstanding, the booking screen offers **Continue to payment** for the existing reservation. It does not ask them to fill in the booking form again. A customer can choose **Are you booking for someone else?** to enter another participant under the same contact, subject to the remaining capacity. The **Sign out** control in the booking screen lets them use a different email address.
+
+The workshop policy uses the current WhatsApp number from **Studio details**, so changing that number also updates the wording shown before payment and in confirmation and reminder emails.
+
 Thank you again for the detailed feedback. These controls are designed so regular and seasonal workshops can be maintained from the studio console without changing the website code.

@@ -24,7 +24,7 @@ import {
 import { createAdHocSession } from '../../services/scheduleService.js'
 import { deleteSession, previewSessionDeletion } from '../../services/sessionDeletion.js'
 import { createBooking } from '../../services/bookingService.js'
-import { queueSessionCancelled, queueSessionMoved } from '../../services/notificationService.js'
+import { queueSessionCancelled, queueSessionMoved, queueSessionVenueChanged } from '../../services/notificationService.js'
 import { releaseSeat } from '../../services/seatService.js'
 import { restoreSession } from '../../services/packageService.js'
 import { recordAudit } from '../../services/auditService.js'
@@ -81,6 +81,7 @@ adminSessionsRouter.get(
           isRecurring: s.scheduleRuleId !== null,
           breaks: s.breaks,
           notes: s.notes,
+          venueAddress: s.venueAddress,
         }
       }),
     })
@@ -121,6 +122,7 @@ adminSessionsRouter.get(
         overCapacity: isOverCapacity(session),
         status: session.status,
         notes: session.notes,
+        venueAddress: session.venueAddress,
         breaks: session.breaks,
         isRecurring: session.scheduleRuleId !== null,
       },
@@ -168,6 +170,7 @@ adminSessionsRouter.post(
       capacity: input.capacity,
       title: input.title || course.name,
       notes: input.notes,
+      venueAddress: input.venueAddress,
       breaks: input.breaks,
     })
 
@@ -196,7 +199,7 @@ adminSessionsRouter.patch(
     const session = await SessionModel.findById(req.params.id)
     if (!session) throw new NotFoundError('Class')
 
-    const previous = { startAt: session.startAt, endAt: session.endAt, capacity: session.capacity }
+    const previous = { startAt: session.startAt, endAt: session.endAt, capacity: session.capacity, venueAddress: session.venueAddress }
     const overridden = new Set(session.overriddenFields)
 
     const durationMins =
@@ -233,16 +236,20 @@ adminSessionsRouter.patch(
     }
     if (input.title !== undefined) session.title = input.title
     if (input.notes !== undefined) session.notes = input.notes
+    const venueChanged = input.venueAddress !== undefined && input.venueAddress !== session.venueAddress
+    if (input.venueAddress !== undefined) session.venueAddress = input.venueAddress
     if (input.breaks !== undefined) session.set('breaks', input.breaks)
 
     // Remember which fields were touched by hand so rule regeneration leaves them alone.
     session.overriddenFields = [...overridden]
     await session.save()
 
-    const notify = input.notifyStudents ?? timeChanged
+    const notify = input.notifyStudents ?? (timeChanged || venueChanged)
     let notified = 0
     if (timeChanged && notify) {
       notified = await notifyRoster(session, async (ctx) => queueSessionMoved(ctx, previous))
+    } else if (venueChanged && notify) {
+      notified = await notifyRoster(session, queueSessionVenueChanged)
     }
 
     await recordAudit({
@@ -251,7 +258,7 @@ adminSessionsRouter.patch(
       entity: 'Session',
       entityId: session._id,
       before: previous,
-      after: { startAt: session.startAt, endAt: session.endAt, capacity: session.capacity },
+      after: { startAt: session.startAt, endAt: session.endAt, capacity: session.capacity, venueAddress: session.venueAddress },
     })
 
     res.json({

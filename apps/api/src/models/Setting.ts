@@ -17,6 +17,7 @@ export const SETTING_KEYS = {
   studioName: 'studio.name',
   studioAddress: 'studio.address',
   studioPhone: 'studio.phone',
+  studioEmail: 'studio.email',
   notifyAdminOnBooking: 'notifications.adminOnBooking',
   reminderLeadDays: 'notifications.reminderLeadDays',
 } as const

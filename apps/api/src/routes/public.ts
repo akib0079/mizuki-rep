@@ -5,8 +5,8 @@ import { BookingModel, CourseSeriesModel, CourseTypeModel, SessionModel } from '
 import { getSeriesAvailability } from '../services/seriesService.js'
 import { asyncRoute } from '../middleware/errorHandler.js'
 import { NotFoundError } from '../errors.js'
-import { config } from '../config.js'
 import { refreshWooProductSnapshots } from '../services/wooProductService.js'
+import { getStudioContact } from '../services/studioContactService.js'
 
 /**
  * Everything a visitor can see without signing in. No roster, no student details — just what
@@ -19,15 +19,13 @@ publicRouter.get(
   asyncRoute(async (_req, res) => {
     const courses = await CourseTypeModel.find({ active: true }).sort({ sortOrder: 1 }).lean()
     await refreshWooProductSnapshots(courses)
+    const studio = await getStudioContact()
     res.json({
       /*
        * Returned alongside the courses rather than from an endpoint of its own: the booking page
        * needs both together, and one request is one fewer thing to fail on a slow phone.
        */
-      studio: {
-        phone: config.STUDIO_PHONE,
-        email: config.MAIL_REPLY_TO || config.STUDIO_EMAIL,
-      },
+      studio,
       /*
        * Named one by one rather than spread, because this is the one endpoint anybody on the
        * internet can read. A course row also carries the shop product ids and the studio's

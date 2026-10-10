@@ -99,6 +99,37 @@ describe('public calendar', () => {
 })
 
 describe('booking endpoint', () => {
+  it('resumes an unpaid workshop place and lets the same contact book another attendee', async () => {
+    const session = await SessionModel.findOne({ dateKey: '2026-08-22' }).sort({ startAt: 1 })
+    await CourseTypeModel.updateOne(
+      { _id: session!.courseTypeId },
+      { $set: { wooProductIds: [42], wooProductUrl: 'http://localhost:8080/product/ikebana/' } },
+    )
+    const visitor = request.agent(app)
+
+    await atSeedTime(async () => {
+      const first = await visitor.post('/api/bookings/start')
+        .send({ sessionId: String(session!._id), email: 'repeat@example.com', name: 'Repeat Visitor', phone: '+65 9123 4567' })
+        .expect(200)
+      expect(first.body.outcome).toBe('checkout_required')
+
+      const status = await visitor.get(`/api/bookings/session/${session!._id}/status`).expect(200)
+      expect(status.body.bookings).toHaveLength(1)
+      expect(status.body.bookings[0].checkoutUrl).toBe(first.body.checkoutUrl)
+
+      const retry = await visitor.post('/api/bookings/start').send({ sessionId: String(session!._id) }).expect(200)
+      expect(retry.body.checkoutUrl).toBe(first.body.checkoutUrl)
+      expect(await BookingModel.countDocuments({ sessionId: session!._id, status: 'hold' })).toBe(1)
+
+      const friend = await visitor.post('/api/bookings/start')
+        .send({ sessionId: String(session!._id), attendeeName: 'Jane' })
+        .expect(200)
+      expect(friend.body.outcome).toBe('checkout_required')
+      expect(friend.body.checkoutUrl).not.toBe(first.body.checkoutUrl)
+      expect(await BookingModel.countDocuments({ sessionId: session!._id, status: 'hold' })).toBe(2)
+    })
+  })
+
   it('routes a paid Ikebana workshop to the shop', async () => {
     const session = await SessionModel.findOne({ dateKey: '2026-08-22' }).sort({ startAt: 1 })
     await CourseTypeModel.updateOne(

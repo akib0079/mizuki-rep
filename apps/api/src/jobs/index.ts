@@ -19,6 +19,7 @@ import { drainOutbox } from '../services/mailer.js'
 import { hoursSinceLastBackup, pruneOutbox, runBackup } from '../services/backupService.js'
 import { config } from '../config.js'
 import { logger } from '../logger.js'
+import { getStudioContact } from '../services/studioContactService.js'
 
 /**
  * Scheduled work, driven by a single hPanel cron entry hitting `POST /jobs/tick`.
@@ -192,7 +193,7 @@ export async function sweepPackages(now: Date = new Date()): Promise<{ expired: 
       packageExpiryDate: DateTime.fromJSDate(pkg.expiresAt!).setZone(STUDIO_TZ).toFormat('ccc d LLL yyyy'),
       siteUrl: config.PUBLIC_SITE_URL,
       bookingUrl: `${config.PUBLIC_SITE_URL}/book`,
-      studioPhone: '+65 8821 9386',
+      studioPhone: (await getStudioContact()).phone,
     })
 
     await queueMessage('package_expiring', {
@@ -304,7 +305,7 @@ export async function detectDrift(now: Date = new Date()): Promise<number> {
     dedupeSuffix: studioNow.toFormat('yyyy-MM-dd'),
     subject: `Booking system: ${drift.length} class(es) have mismatched place counts`,
     text,
-    html: wrapEmailHtml(
+    html: await wrapEmailHtml(
       `<p>These classes have place counts that do not match their bookings:</p><ul>${drift
         .map((d) => `<li>${d.dateKey} ${d.title}: counter ${d.storedSeatsTaken}, bookings ${d.actualSeatsTaken}</li>`)
         .join('')}</ul>`,
@@ -344,7 +345,7 @@ export async function backupNightly(now: Date = new Date()): Promise<boolean> {
       dedupeSuffix: studioNow.toFormat('yyyy-MM-dd'),
       subject: 'Mizuki booking: last night\'s backup did not run',
       text: `The nightly backup failed:\n\n${why}\n\nBookings are unaffected, but there is no fresh copy of the data until this is fixed.`,
-      html: wrapEmailHtml(
+      html: await wrapEmailHtml(
         `<p>The nightly backup failed:</p><pre>${why}</pre><p>Bookings are unaffected, but there is no fresh copy of the data until this is fixed.</p>`,
         config.PUBLIC_SITE_URL,
       ),

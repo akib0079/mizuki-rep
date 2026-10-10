@@ -82,6 +82,7 @@ export interface AdminSession {
   isRecurring: boolean
   breaks: { start: string; end: string; label: string }[]
   notes: string
+  venueAddress: string
 }
 
 export interface RosterEntry {

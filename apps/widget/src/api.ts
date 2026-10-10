@@ -3,6 +3,8 @@ import type { PublicCalendarDay, PublicSession } from '@mizuki/shared'
 
 /** How a student reaches the studio, shown wherever they might need to ask something. */
 export interface StudioContact {
+  name: string
+  address: string
   phone: string
   email: string
 }
@@ -155,6 +157,14 @@ export const widgetApi = {
   }) => request<StartBookingResult>('/api/bookings/start', { method: 'POST', body: JSON.stringify(body) }),
 
   myBookings: () => request<MyBookings>('/api/bookings/mine'),
+
+  sessionBookings: (sessionId: string) => request<{ bookings: {
+    id: string
+    status: string
+    attendeeName: string
+    partySize: number
+    checkoutUrl: string | null
+  }[] }>(`/api/bookings/session/${sessionId}/status`),
 
   reschedule: (bookingId: string, toSessionId: string) =>
     request<unknown>('/api/bookings/reschedule', {

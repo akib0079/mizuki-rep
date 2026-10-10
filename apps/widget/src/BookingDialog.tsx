@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { DateTime } from 'luxon'
 import {
   STUDIO_COUNTRY,
-  WORKSHOP_POLICY,
+  workshopPolicy,
   countryList,
   formatDuration,
   formatInternational,
@@ -86,6 +86,7 @@ export function BookingDialog({
    * person ended up on the register under three names.
    */
   const [account, setAccount] = useState<StudentProfile | null | undefined>(undefined)
+  const [existingBookings, setExistingBookings] = useState<Awaited<ReturnType<typeof widgetApi.sessionBookings>>['bookings'] | undefined>(undefined)
 
   useEffect(() => {
     let cancelled = false
@@ -97,6 +98,18 @@ export function BookingDialog({
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    if (!account) {
+      setExistingBookings(account === null ? [] : undefined)
+      return
+    }
+    let cancelled = false
+    widgetApi.sessionBookings(session.id)
+      .then((result) => { if (!cancelled) setExistingBookings(result.bookings) })
+      .catch(() => { if (!cancelled) setExistingBookings([]) })
+    return () => { cancelled = true }
+  }, [account, session.id])
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<StartBookingResult | null>(null)
   const [alternatives, setAlternatives] = useState<PublicSession[] | null>(null)
@@ -113,6 +126,25 @@ export function BookingDialog({
   const start = toStudio(session.startAt)
   const end = toStudio(session.endAt)
   const paymentUnavailable = session.bookingMode === 'paid' && (!session.productUrl || !session.priceText)
+  const existingBooking = existingBookings?.find((booking) => !booking.attendeeName) ?? existingBookings?.[0]
+  const repeatBooking = Boolean(account && session.bookingMode === 'paid' && existingBooking && !bookingForSomeoneElse)
+  const checkingExisting = Boolean(account && existingBookings === undefined)
+
+  async function useAnotherEmail() {
+    setBusy(true)
+    setError(null)
+    try {
+      await widgetApi.signOut()
+      setAccount(null)
+      setExistingBookings([])
+      setBookingForSomeoneElse(false)
+      setForm({ name: '', email: '', phone: '', phoneCountry: '', notes: '', attendeeName: '' })
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not sign out. Please try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -121,7 +153,7 @@ export function BookingDialog({
 
     try {
       const attendeeName = session.bookingMode === 'paid'
-        ? form.attendeeName.trim()
+        ? bookingForSomeoneElse || partySize > 1 ? form.attendeeName.trim() : ''
         : bookingForSomeoneElse
           ? form.attendeeName.trim()
           : ''
@@ -242,9 +274,9 @@ export function BookingDialog({
                 <div className="mzk-bk-studio">
                   {logo && <img className="mzk-bk-logo" src={logo} alt="" width={34} height={34} />}
                   <p className="mzk-bk-where">
-                    Mizuki Flora
+                    {studio?.name || 'Mizuki Flora'}
                     <br />
-                    #2/F, 148 Jalan Besar, Singapore 208866
+                    {session.venueAddress || studio?.address || '#2/F, 148 Jalan Besar, Singapore 208866'}
                   </p>
                   {studio?.phone && (
                     <a className="mzk-bk-contact" href={`tel:${studio.phone.replace(/\s+/g, '')}`}>
@@ -262,6 +294,7 @@ export function BookingDialog({
 
             <div className="mzk-bk-form">
               {error && <div className="mzk-note mzk-note-error">{error}</div>}
+              {checkingExisting && <div className="mzk-note mzk-note-info">Checking your existing bookings…</div>}
               {paymentUnavailable && <div className="mzk-note mzk-note-info">Online booking for this workshop opens soon. Please contact the studio for details.</div>}
 
               {alternatives && alternatives.length > 0 && (
@@ -281,14 +314,15 @@ export function BookingDialog({
                 </div>
               )}
 
-              <div>
+              <div style={{ display: checkingExisting ? 'none' : undefined }}>
                 {account ? (
                 /*
                  * Signed in, so we already know who they are. Asking again would only invite the
                  * form and the account to disagree — and the server ignores these fields anyway.
                  */
-                <div className="mzk-note mzk-note-info" style={{ marginBottom: 12 }}>
-                  Booking as <strong>{account.name}</strong> ({account.email})
+                <div className="mzk-whoami">
+                  <span className="mzk-whoami-text">Booking as <strong>{account.name}</strong> ({account.email})</span>
+                  <button type="button" className="mzk-link-btn" disabled={busy} onClick={() => void useAnotherEmail()}>Sign out</button>
                 </div>
               ) : (
                 <>
@@ -445,7 +479,25 @@ export function BookingDialog({
                 parent's name on the register. This keeps the account whole and still gets the
                 right name onto the day's list.
               */}
-              {session.bookingMode === 'paid' ? (
+              {session.bookingMode === 'paid' && (
+                <label className="mzk-check">
+                  <input type="checkbox" checked={bookingForSomeoneElse} onChange={(e) => setBookingForSomeoneElse(e.target.checked)} />
+                  <span>Are you booking for someone else?</span>
+                </label>
+              )}
+
+              {repeatBooking && (
+                <div className="mzk-note mzk-note-info">
+                  {existingBooking?.checkoutUrl
+                    ? 'Your place is awaiting payment. Continue to the shop to complete it.'
+                    : 'You already have a place in this class. If you are booking for another person, tick the box above.'}
+                  {existingBooking?.checkoutUrl && (
+                    <button type="button" className="mzk-btn mzk-btn-primary mzk-btn-block" style={{ marginTop: 10 }} onClick={() => window.location.assign(existingBooking.checkoutUrl!)}>Continue to payment</button>
+                  )}
+                </div>
+              )}
+
+              {!repeatBooking && (session.bookingMode === 'paid' ? (
                 <>
                   <label className="mzk-field">
                     <span>Number of participants</span>
@@ -461,14 +513,15 @@ export function BookingDialog({
                       One person can reserve and pay for the whole group.
                     </span>
                   </label>
-                  <label className="mzk-field">
-                    <span>Participant names (optional)</span>
+                  {(bookingForSomeoneElse || partySize > 1) && <label className="mzk-field">
+                    <span>{bookingForSomeoneElse ? 'Who is coming?' : 'Other participant names (optional)'}</span>
                     <input
                       value={form.attendeeName}
+                      required={bookingForSomeoneElse}
                       placeholder={partySize > 1 ? 'For example: Jane, Amy, Mei' : 'Name if different from the booking contact'}
                       onChange={(e) => setForm({ ...form, attendeeName: e.target.value })}
                     />
-                  </label>
+                  </label>}
                 </>
               ) : (
                 <>
@@ -496,19 +549,19 @@ export function BookingDialog({
                     </label>
                   )}
                 </>
-              )}
+              ))}
 
-              <label className="mzk-field">
+              {!repeatBooking && <label className="mzk-field">
                 <span>Anything we should know? (optional)</span>
                 <textarea
                   rows={2}
                   value={form.notes}
                   onChange={(e) => setForm({ ...form, notes: e.target.value })}
                 />
-              </label>
+              </label>}
 
-              {session.bookingMode === 'paid' && (
-                <div className="mzk-note mzk-note-info">{WORKSHOP_POLICY}</div>
+              {session.bookingMode === 'paid' && !repeatBooking && (
+                <div className="mzk-note mzk-note-info">{workshopPolicy(studio?.phone || '+65 8821 9386')}</div>
               )}
             </div>
 
@@ -516,16 +569,16 @@ export function BookingDialog({
                 <button type="button" className="mzk-btn" onClick={onClose} disabled={busy}>
                   Cancel
                 </button>
-                <button
+                {!repeatBooking && <button
                   type="submit"
                   className="mzk-btn mzk-btn-primary"
                   // A mismatch is caught here rather than by booking them in under a password
                   // neither they nor we could reproduce.
-                  disabled={busy || paymentUnavailable || (!account && session.bookingMode !== 'paid' && (passwordsDiffer || confirmPassword.length === 0))}
+                  disabled={busy || checkingExisting || paymentUnavailable || (!account && session.bookingMode !== 'paid' && (passwordsDiffer || confirmPassword.length === 0))}
                 >
                   {busy && <span className="mzk-spinner" />}
                   {busy ? 'Just a moment…' : session.bookingMode === 'paid' ? 'Continue to payment' : 'Book this class'}
-                </button>
+                </button>}
               </div>
             </div>
           </form>

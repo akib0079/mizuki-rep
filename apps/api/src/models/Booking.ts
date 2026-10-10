@@ -45,6 +45,8 @@ const bookingSchema = new Schema(
      * the history, the packages and the sign-in; this is only what to write on the day's list.
      */
     attendeeName: { type: String, default: '', maxlength: 120 },
+    /** Self, or a normalized attendee name for a separate paid workshop place. */
+    attendeeKey: { type: String, default: 'self', maxlength: 160 },
 
     /** Several workshop places bought by one customer in one checkout. */
     partySize: { type: Number, required: true, default: 1, min: 1, max: 10 },
@@ -78,8 +80,9 @@ const bookingSchema = new Schema(
 )
 
 /**
- * A student cannot hold two live places in the same class. Partial, so the same student
- * may rebook a class they previously cancelled — the cancelled row stays for history.
+ * A student cannot hold two live places for the same attendee in one class. A paid workshop
+ * may have separate attendees under the same buyer. Partial, so a cancelled place can be
+ * booked again while the cancelled row remains for history.
  *
  * The filter is built from the shared constant rather than written out, so a new live status is
  * covered here the moment it is added. Getting this wrong is silent: the index would simply stop
@@ -87,11 +90,11 @@ const bookingSchema = new Schema(
  * drops and rebuilds the index when this expression changes, so a deploy is enough.
  */
 bookingSchema.index(
-  { sessionId: 1, studentId: 1 },
+  { sessionId: 1, studentId: 1, attendeeKey: 1 },
   {
     unique: true,
     partialFilterExpression: { status: { $in: [...ACTIVE_BOOKING_STATUSES] } },
-    name: 'one_live_booking_per_student_per_session',
+    name: 'one_live_booking_per_attendee_per_session',
   },
 )
 

@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import { DateTime } from 'luxon'
-import { STUDIO_TZ } from '@mizuki/shared'
+import { STUDIO_TZ, workshopPolicy } from '@mizuki/shared'
 import {
   courseTypeInputSchema,
   emailTemplateInputSchema,
@@ -60,9 +60,30 @@ import { asyncRoute } from '../../middleware/errorHandler.js'
 import { AppError, NotFoundError } from '../../errors.js'
 import { config, bookingPageUrl, myBookingsUrl } from '../../config.js'
 import { productPatchFromUrl, refreshWooProductSnapshots } from '../../services/wooProductService.js'
+import { getStudioContact, saveStudioContact } from '../../services/studioContactService.js'
 
 /** Courses, recurring timetable rules, message wording, and the maintenance levers. */
 export const adminSettingsRouter: Router = Router()
+
+const studioContactSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  address: z.string().trim().min(1).max(300),
+  phone: z.string().trim().min(3).max(50),
+  email: z.string().trim().email().max(200),
+})
+
+adminSettingsRouter.get('/studio-contact', asyncRoute(async (_req, res) => {
+  res.json({ contact: await getStudioContact() })
+}))
+
+adminSettingsRouter.put('/studio-contact', asyncRoute(async (req, res) => {
+  const contact = studioContactSchema.parse(req.body)
+  const actor = actorOf(req)
+  const before = await getStudioContact()
+  await saveStudioContact(contact, actor)
+  await recordAudit({ actor, action: 'studio.contact.update', entity: 'Setting', before, after: contact })
+  res.json({ contact })
+}))
 
 // --- Dashboard --------------------------------------------------------------
 
@@ -415,7 +436,7 @@ adminSettingsRouter.post(
       })
       .parse(req.body ?? {})
 
-    const rendered = await renderTemplate(key, sampleVars(key), draft)
+    const rendered = await renderTemplate(key, await sampleVars(key), draft)
     res.json(rendered)
   }),
 )
@@ -426,7 +447,7 @@ adminSettingsRouter.post(
     const key = emailTemplateKeySchema.parse(req.params.key)
     const { to } = sendTestEmailSchema.parse(req.body)
 
-    const rendered = await renderTemplate(key, sampleVars(key))
+    const rendered = await renderTemplate(key, await sampleVars(key))
     await sendDirectEmail(to, `[Test] ${rendered.subject}`, rendered.html, rendered.text)
 
     res.json({ ok: true, sentTo: to })
@@ -447,7 +468,6 @@ const SAMPLE_VARS: Record<string, string | number> = {
   previousSessionTimeRange: '2:30 PM – 5:00 PM',
   packageLine: 'You have 6 of 8 IFDA sessions remaining in your course package.',
   partySizeLine: 'Participants: 3',
-  workshopPolicyLine: 'No refunds are available within 48 hours of the workshop. If you need to reschedule or have a question, please contact us on WhatsApp at +65 8821 9386.',
   cancelReasonLine: 'Reason: the studio is closed for outside work.',
   sessionsRemaining: 1,
   packageExpiryDate: 'Sat 14 Nov 2026',
@@ -468,7 +488,6 @@ const SAMPLE_VARS: Record<string, string | number> = {
   adminSessionUrl: `${config.PUBLIC_API_URL}/admin/calendar`,
   adminCalendarUrl: `${config.PUBLIC_API_URL}/admin/calendar`,
   siteUrl: config.PUBLIC_SITE_URL,
-  studioPhone: '+65 8821 9386',
 }
 
 /**
@@ -478,10 +497,12 @@ const SAMPLE_VARS: Record<string, string | number> = {
  * them with the student's wording showed the studio "You have 6 of 8 sessions remaining" about
  * somebody else's balance, which is exactly the mistake the live templates used to make.
  */
-function sampleVars(key: string): Record<string, string | number> {
-  if (!key.startsWith('admin_')) return SAMPLE_VARS
+async function sampleVars(key: string): Promise<Record<string, string | number>> {
+  const contact = await getStudioContact()
+  const values = { ...SAMPLE_VARS, studioPhone: contact.phone, venueAddress: contact.address, workshopPolicyLine: workshopPolicy(contact.phone) }
+  if (!key.startsWith('admin_')) return values
   return {
-    ...SAMPLE_VARS,
+    ...values,
     packageLine: 'They have 6 of 8 IFDA sessions left in their course package.',
   }
 }
@@ -602,7 +623,12 @@ adminSettingsRouter.put(
       if (problem) throw new AppError(400, 'unusable_sender', problem)
     }
 
-    await setPlain(key, value, actorOf(req))
+    if (key === PLAIN_KEYS.mailReplyTo) {
+      const email = z.string().email().parse(value)
+      await saveStudioContact({ ...(await getStudioContact()), email }, actorOf(req))
+    } else {
+      await setPlain(key, value, actorOf(req))
+    }
 
     await recordAudit({ actor: actorOf(req), action: 'mail.update', entity: 'Setting', reason: `${req.params.name} = ${value}` })
     res.json({ ok: true, value })

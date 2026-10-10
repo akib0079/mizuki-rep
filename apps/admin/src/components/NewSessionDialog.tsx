@@ -24,6 +24,7 @@ export function NewSessionDialog({
     capacity: courses[0]?.defaultCapacity ?? 8,
     title: '',
     notes: '',
+    venueAddress: '',
   })
   const [error, setError] = useState<string | null>(null)
 
@@ -127,6 +128,17 @@ export function NewSessionDialog({
             placeholder="Ikebana Workshop — Morning"
             onChange={(e) => setForm({ ...form, title: e.target.value })}
           />
+        </label>
+
+        <label className="field">
+          <span>Venue for this class (optional)</span>
+          <input
+            value={form.venueAddress}
+            maxLength={300}
+            placeholder="Uses the default studio address when blank"
+            onChange={(e) => setForm({ ...form, venueAddress: e.target.value })}
+          />
+          <div className="field-hint">Use this for a seasonal workshop at another location.</div>
         </label>
 
         <label className="field">

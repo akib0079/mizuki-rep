@@ -209,6 +209,7 @@ export const sessionCreateSchema = z.object({
   capacity: z.number().int().min(1).max(200),
   title: z.string().trim().max(120).default(''),
   notes: z.string().trim().max(1000).default(''),
+  venueAddress: z.string().trim().max(300).default(''),
   breaks: z.array(sessionBreakSchema).default([]),
 })
 
@@ -220,6 +221,7 @@ export const sessionUpdateSchema = z.object({
   heldBack: z.number().int().min(0).max(200).optional(),
   title: z.string().trim().max(120).optional(),
   notes: z.string().trim().max(1000).optional(),
+  venueAddress: z.string().trim().max(300).optional(),
   breaks: z.array(sessionBreakSchema).optional(),
   /** Email the students already booked about the change. Defaults to true when the time moves. */
   notifyStudents: z.boolean().optional(),
@@ -321,6 +323,7 @@ export const emailTemplateKeySchema = z.enum([
   'reschedule_confirmed',
   'booking_cancelled',
   'session_moved',
+  'session_venue_changed',
   'session_cancelled',
   'package_low',
   'package_expiring',

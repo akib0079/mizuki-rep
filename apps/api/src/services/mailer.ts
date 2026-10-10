@@ -7,6 +7,7 @@ import { OutboxModel, PushSubscriptionModel, SessionModel, type OutboxDoc } from
 import { config, myBookingsUrl } from '../config.js'
 import { PLAIN_KEYS, SECRET_KEYS, getPlain, getSecret } from './secretStore.js'
 import { logger } from '../logger.js'
+import { getStudioContact, sessionVenueAddress } from './studioContactService.js'
 
 /**
  * Drains the Outbox.
@@ -326,6 +327,7 @@ export async function buildIcs(sessionId: string): Promise<string | null> {
     .populate<{ courseTypeId: { name: string } }>('courseTypeId', 'name')
     .lean()
   if (!session) return null
+  const contact = await getStudioContact()
 
   /*
    * Written as UTC, which is the only zone that means the same thing on every machine.
@@ -351,10 +353,10 @@ export async function buildIcs(sessionId: string): Promise<string | null> {
     endInputType: 'utc',
     startOutputType: 'utc',
     endOutputType: 'utc',
-    location: 'Mizuki Flora, #2/F, 148 Jalan Besar, Singapore 208866',
+    location: `${contact.name}, ${sessionVenueAddress(session, contact)}`,
     // The booking page that exists, rather than the one this predates.
     url: myBookingsUrl(),
-    organizer: { name: 'Mizuki Flora', email: config.STUDIO_EMAIL },
+    organizer: { name: contact.name, email: contact.email },
     productId: 'mizuki-booking',
   }
 

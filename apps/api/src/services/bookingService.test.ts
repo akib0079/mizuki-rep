@@ -58,6 +58,19 @@ describe('createBooking', () => {
     expect((await SessionModel.findById(session._id))!.seatsTaken).toBe(1)
   })
 
+  it('allows a paid workshop contact to book a different named attendee without duplicating either place', async () => {
+    const session = await makeSession({ courseTypeId: ikebana._id, capacity: 3, date: '2026-09-13' })
+    const student = await makeStudent()
+
+    await createBooking({ sessionId: session._id, studentId: student._id, notify: false, now: NOW })
+    await createBooking({ sessionId: session._id, studentId: student._id, attendeeName: 'Jane', notify: false, now: NOW })
+
+    expect((await SessionModel.findById(session._id))!.seatsTaken).toBe(2)
+    await expect(createBooking({ sessionId: session._id, studentId: student._id, attendeeName: ' jane ', notify: false, now: NOW }))
+      .rejects.toMatchObject({ code: 'already_booked' })
+    expect((await SessionModel.findById(session._id))!.seatsTaken).toBe(2)
+  })
+
   it('never exceeds the class size, even when everyone books at once', async () => {
     const session = await makeSession({ courseTypeId: ikebana._id, capacity: 4, date: '2026-09-13' })
     const students = await makeStudents(12)

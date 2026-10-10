@@ -1,6 +1,7 @@
 import type { EmailTemplateKey } from '@mizuki/shared'
 import { EmailTemplateModel } from '../models/index.js'
 import { logger } from '../logger.js'
+import { getStudioContact } from './studioContactService.js'
 
 /**
  * Default wording for every message the system sends.
@@ -59,7 +60,7 @@ function layout(inner: string): string {
 ${inner}
     </div>
     <div style="padding:16px 28px;background:${BRAND.page};border-top:1px solid ${BRAND.line};color:${BRAND.muted};font-size:12px;line-height:1.6;">
-      Mizuki Flora · #2/F, 148 Jalan Besar, Singapore 208866<br />
+      {{studioName}} · {{studioAddress}}<br />
       <a href="{{siteUrl}}" style="color:${BRAND.primary};">mizuki.com.sg</a>
     </div>
   </div>
@@ -75,8 +76,9 @@ ${inner}
  * written in code because their content is a list built at send time, not because they deserved
  * to look different.
  */
-export function wrapEmailHtml(inner: string, siteUrl: string): string {
-  return renderString(layout(inner), { siteUrl })
+export async function wrapEmailHtml(inner: string, siteUrl: string): Promise<string> {
+  const contact = await getStudioContact()
+  return renderString(layout(inner), { siteUrl, studioName: escapeHtml(contact.name), studioAddress: escapeHtml(contact.address) })
 }
 
 const button = (label: string, url: string) =>
@@ -88,8 +90,8 @@ const sessionCard = `<div style="margin:20px 0;padding:16px 18px;background:${BR
       <div style="margin-top:6px;color:${BRAND.muted};">{{sessionDate}}<br />{{sessionTimeRange}} ({{sessionDuration}})</div>
     </div>`
 
-const COMMON_VARS = ['studentName', 'siteUrl', 'studioPhone']
-const SESSION_VARS = ['sessionTitle', 'courseName', 'sessionDate', 'sessionTimeRange', 'sessionDuration']
+const COMMON_VARS = ['studentName', 'siteUrl', 'studioPhone', 'studioEmail', 'studioAddress', 'studioName']
+const SESSION_VARS = ['sessionTitle', 'courseName', 'sessionDate', 'sessionTimeRange', 'sessionDuration', 'venueAddress']
 
 export const DEFAULT_TEMPLATES: Record<EmailTemplateKey, TemplateDefinition> = {
   magic_link: {
@@ -111,13 +113,14 @@ export const DEFAULT_TEMPLATES: Record<EmailTemplateKey, TemplateDefinition> = {
     bodyHtml: layout(`<p>Hello {{studentName}},</p>
       <p>Your place is confirmed. We look forward to seeing you.</p>
       ${sessionCard}
+      <p>Venue: <strong>{{venueAddress}}</strong></p>
       <p><strong>{{partySizeLine}}</strong></p>
       <p>{{packageLine}}</p>
       <p style="color:${BRAND.muted};">{{workshopPolicyLine}}</p>
       <p style="color:${BRAND.muted};">You can change this booking until <strong>{{rescheduleDeadline}}</strong>.</p>
       ${button('View my bookings', '{{myBookingsUrl}}')}
       <p style="color:${BRAND.muted};font-size:13px;">A calendar invitation is attached to this email.</p>`),
-    bodyText: `Hello {{studentName}},\n\nYour place is confirmed.\n\n{{sessionTitle}}\n{{sessionDate}}\n{{sessionTimeRange}} ({{sessionDuration}})\n{{partySizeLine}}\n\n{{packageLine}}\n\n{{workshopPolicyLine}}\n\nYou can change this booking until {{rescheduleDeadline}}.\n{{myBookingsUrl}}\n\nMizuki Flora`,
+    bodyText: `Hello {{studentName}},\n\nYour place is confirmed.\n\n{{sessionTitle}}\n{{sessionDate}}\n{{sessionTimeRange}} ({{sessionDuration}})\nVenue: {{venueAddress}}\n{{partySizeLine}}\n\n{{packageLine}}\n\n{{workshopPolicyLine}}\n\nYou can change this booking until {{rescheduleDeadline}}.\n{{myBookingsUrl}}\n\nMizuki Flora`,
     variables: [...COMMON_VARS, ...SESSION_VARS, 'rescheduleDeadline', 'packageLine', 'workshopPolicyLine', 'partySizeLine', 'myBookingsUrl'],
   },
 
@@ -130,9 +133,9 @@ export const DEFAULT_TEMPLATES: Record<EmailTemplateKey, TemplateDefinition> = {
       ${sessionCard}
       <p><strong>{{partySizeLine}}</strong></p>
       <p style="color:${BRAND.muted};">{{workshopPolicyLine}}</p>
-      <p>We are at <strong>#2/F, 148 Jalan Besar, Singapore 208866</strong>. Everything you need is provided — just bring yourself.</p>
+      <p>We are at <strong>{{venueAddress}}</strong>. Everything you need is provided — just bring yourself.</p>
       <p style="color:${BRAND.muted};">Need to change something? Reply to this email or WhatsApp us on {{studioPhone}}.</p>`),
-    bodyText: `Hello {{studentName}},\n\nA reminder that your class is in two days.\n\n{{sessionTitle}}\n{{sessionDate}}\n{{sessionTimeRange}} ({{sessionDuration}})\n{{partySizeLine}}\n\n{{workshopPolicyLine}}\n\nWe are at #2/F, 148 Jalan Besar, Singapore 208866.\n\nNeed to change something? Reply to this email or WhatsApp {{studioPhone}}.\n\nMizuki Flora`,
+    bodyText: `Hello {{studentName}},\n\nA reminder that your class is in two days.\n\n{{sessionTitle}}\n{{sessionDate}}\n{{sessionTimeRange}} ({{sessionDuration}})\n{{partySizeLine}}\n\n{{workshopPolicyLine}}\n\nWe are at {{venueAddress}}.\n\nNeed to change something? Reply to this email or WhatsApp {{studioPhone}}.\n\nMizuki Flora`,
     variables: [...COMMON_VARS, ...SESSION_VARS, 'workshopPolicyLine', 'partySizeLine', 'myBookingsUrl'],
   },
 
@@ -175,6 +178,19 @@ export const DEFAULT_TEMPLATES: Record<EmailTemplateKey, TemplateDefinition> = {
       <p style="color:${BRAND.muted};">If the new time does not suit you, reply to this email or call {{studioPhone}} and we will find you another date.</p>`),
     bodyText: `Hello {{studentName}},\n\nWe have had to move a class you are booked into.\n\nWas: {{previousSessionDate}}, {{previousSessionTimeRange}}\nNow: {{sessionDate}}, {{sessionTimeRange}}\n\nYour place has moved across automatically.\n\nIf the new time does not suit, reply to this email or call {{studioPhone}}.\n\nMizuki Flora`,
     variables: [...COMMON_VARS, ...SESSION_VARS, 'previousSessionDate', 'previousSessionTimeRange'],
+  },
+
+  session_venue_changed: {
+    label: 'Class venue changed',
+    description: 'Sent to everyone booked when the studio changes the venue for one class.',
+    subject: 'New venue for {{sessionTitle}} on {{sessionDate}}',
+    bodyHtml: layout(`<p>Hello {{studentName}},</p>
+      <p>The venue for your class has changed. Your date and time are the same.</p>
+      ${sessionCard}
+      <p>New venue: <strong>{{venueAddress}}</strong></p>
+      <p style="color:${BRAND.muted};">Questions? Reply to this email or WhatsApp {{studioPhone}}.</p>`),
+    bodyText: `Hello {{studentName}},\n\nThe venue for your class has changed. Your date and time are the same.\n\n{{sessionTitle}}\n{{sessionDate}} · {{sessionTimeRange}}\nNew venue: {{venueAddress}}\n\nQuestions? Reply to this email or WhatsApp {{studioPhone}}.`,
+    variables: [...COMMON_VARS, ...SESSION_VARS],
   },
 
   session_cancelled: {
@@ -342,6 +358,12 @@ export function renderString(template: string, vars: Record<string, string | num
   })
 }
 
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[character]!)
+}
+
 export interface RenderedTemplate {
   subject: string
   html: string
@@ -361,6 +383,15 @@ export async function renderTemplate(
    */
   draft?: { subject?: string; bodyHtml?: string; bodyText?: string },
 ): Promise<RenderedTemplate> {
+  const contact = await getStudioContact()
+  const resolvedVars: Record<string, string | number> = {
+    studioName: contact.name,
+    studioAddress: contact.address,
+    studioPhone: contact.phone,
+    studioEmail: contact.email,
+    venueAddress: contact.address,
+    ...vars,
+  }
   const override = await EmailTemplateModel.findOne({ key }).lean()
   const fallback = DEFAULT_TEMPLATES[key]
 
@@ -369,18 +400,32 @@ export async function renderTemplate(
   const bodyText = draft?.bodyText || override?.bodyText || fallback.bodyText
 
   const rendered = {
-    subject: renderString(subject, vars),
-    html: renderString(bodyHtml, vars),
-    text: renderString(bodyText, vars),
+    subject: renderString(subject, resolvedVars),
+    html: renderString(bodyHtml, {
+      ...resolvedVars,
+      studioName: escapeHtml(String(resolvedVars.studioName)),
+      studioAddress: escapeHtml(String(resolvedVars.studioAddress)),
+      studioPhone: escapeHtml(String(resolvedVars.studioPhone)),
+      studioEmail: escapeHtml(String(resolvedVars.studioEmail)),
+      venueAddress: escapeHtml(String(resolvedVars.venueAddress)),
+      workshopPolicyLine: escapeHtml(String(resolvedVars.workshopPolicyLine ?? '')),
+    }),
+    text: renderString(bodyText, resolvedVars),
   }
 
   // Existing edited templates may predate workshop bookings. Keep the studio's copy while
   // ensuring the required workshop terms survive an omitted placeholder in either format.
-  const policy = String(vars.workshopPolicyLine ?? '')
+  const policy = String(resolvedVars.workshopPolicyLine ?? '')
   if (policy && (key === 'booking_confirmation' || key === 'reminder_2day')) {
     if (!rendered.text.includes(policy)) rendered.text += `\n\n${policy}`
-    const escaped = renderString('{{policy}}', { policy })
+    const escaped = escapeHtml(policy)
     if (!rendered.html.includes(escaped)) rendered.html += `<p style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;">${escaped}</p>`
+  }
+  if (['booking_confirmation', 'reminder_2day', 'reschedule_confirmed', 'session_venue_changed'].includes(key)) {
+    const address = String(resolvedVars.venueAddress)
+    if (!rendered.text.includes(address)) rendered.text += `\n\nVenue: ${address}`
+    const escapedAddress = escapeHtml(address)
+    if (!rendered.html.includes(escapedAddress)) rendered.html += `<p style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;">Venue: ${escapedAddress}</p>`
   }
   return rendered
 }

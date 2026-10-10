@@ -104,6 +104,7 @@ export function toPublicSession(
     seatsTaken: number
     breaks: { start: string; end: string; label: string }[]
     title: string
+    venueAddress?: string
   },
   course: Pick<CourseTypeDoc, 'name' | 'colour' | 'bookingMode' | 'checkoutFlow' | 'wooProductUrl' | 'wooPriceText'>,
 ): PublicSession {
@@ -114,6 +115,7 @@ export function toPublicSession(
     courseName: course.name,
     colour: course.colour,
     title: session.title || course.name,
+    venueAddress: session.venueAddress ?? '',
     startAt: session.startAt.toISOString(),
     endAt: session.endAt.toISOString(),
     durationMins,

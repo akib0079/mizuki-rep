@@ -175,6 +175,11 @@ async function confirmPaidOrder(payload: OrderPayload) {
         continue
       }
 
+      // A checkout completed after its hold expired still belongs to the same attendee.
+      const formerHold = line.holdToken
+        ? await BookingModel.findOne({ holdToken: line.holdToken, sessionId: line.sessionId, status: 'cancelled' })
+        : null
+
       /*
        * No live hold. Either it expired while the student was paying, or the order was placed
        * without going through the calendar. Try to seat them anyway — but through the normal
@@ -189,6 +194,7 @@ async function confirmPaidOrder(payload: OrderPayload) {
         wooOrderId: payload.orderId,
         actor: `woo:order:${payload.orderId}`,
         partySize: line.quantity,
+        attendeeName: formerHold?.attendeeName ?? '',
       })
       confirmed.push(String(result.booking._id))
     } catch (err) {
@@ -278,7 +284,7 @@ async function notifyPackageGranted(
     to: student.email,
     subject: `Your ${course.name} course is ready to book`,
     bodyText: `Hello ${student.name},\n\nThank you — your ${course.name} course package is ready. You have ${pkg.totalSessions} sessions to use.${expiryLine}\n\nBook your dates: ${bookingPageUrl()}\n\nMizuki Flora`,
-    bodyHtml: wrapEmailHtml(
+    bodyHtml: await wrapEmailHtml(
       `<p>Hello ${student.name},</p><p>Thank you — your <strong>${course.name}</strong> course package is ready. You have <strong>${pkg.totalSessions}</strong> sessions to use.${expiryLine}</p>` +
         `<p style="margin:24px 0;"><a href="${bookingPageUrl()}" style="display:inline-block;background:${BRAND.primary};color:${BRAND.onPrimary};text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:600;">Book your dates</a></p>`,
       config.PUBLIC_SITE_URL,
@@ -289,7 +295,7 @@ async function notifyPackageGranted(
     dedupeSuffix: String(pkg._id),
     subject: `Course package sold: ${student.name} — ${course.name}`,
     text: `${student.name} (${student.email}) bought a ${course.name} package of ${pkg.totalSessions} sessions.`,
-    html: wrapEmailHtml(
+    html: await wrapEmailHtml(
       `<p><strong>${student.name}</strong> (${student.email}) bought a ${course.name} package of ${pkg.totalSessions} sessions.</p>`,
       config.PUBLIC_SITE_URL,
     ),
@@ -361,7 +367,7 @@ async function alertPaidButFull(payload: OrderPayload, sessionId: string): Promi
     dedupeSuffix: `${payload.orderId}:${sessionId}`,
     subject: `Action needed: order #${payload.orderId} paid for a full class`,
     text: line,
-    html: wrapEmailHtml(
+    html: await wrapEmailHtml(
       `<p style="font-weight:600;color:#b3382c">Payment received for a class with no places left.</p><p>${line.replace(/\n/g, '<br />')}</p>`,
       config.PUBLIC_SITE_URL,
     ),

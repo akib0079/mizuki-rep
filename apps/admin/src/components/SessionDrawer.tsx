@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { DateTime } from 'luxon'
 import { STUDIO_TZ } from '@mizuki/shared'
@@ -22,6 +22,7 @@ interface SessionDetail {
     overCapacity: boolean
     status: 'scheduled' | 'cancelled'
     notes: string
+    venueAddress: string
     isRecurring: boolean
   }
   roster: RosterEntry[]
@@ -46,10 +47,34 @@ export function SessionDrawer({
   const [cancelling, setCancelling] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [venueAddress, setVenueAddress] = useState('')
+  const [notifyVenue, setNotifyVenue] = useState(true)
 
   const { data, isLoading } = useQuery({
     queryKey: ['session', sessionId],
     queryFn: () => api.get<SessionDetail>(`/api/admin/sessions/${sessionId}`),
+  })
+
+  useEffect(() => {
+    setVenueAddress(data?.session.venueAddress ?? '')
+  }, [data?.session.venueAddress])
+
+  const contactQuery = useQuery({
+    queryKey: ['studio-contact'],
+    queryFn: () => api.get<{ contact: { address: string } }>('/api/admin/settings/studio-contact'),
+  })
+
+  const venueMutation = useMutation({
+    mutationFn: () => api.patch<{ studentsNotified: number }>(`/api/admin/sessions/${sessionId}`, { venueAddress: venueAddress.trim(), notifyStudents: notifyVenue }),
+    onSuccess: (result) => {
+      setError(null)
+      setNotice(result.studentsNotified > 0
+        ? `Venue saved. ${result.studentsNotified} booked participant${result.studentsNotified === 1 ? '' : 's'} emailed.`
+        : 'Venue saved.')
+      refresh()
+    },
+    onError: (err) => { setNotice(null); setError(err instanceof ApiError ? err.message : 'Could not save the venue.') },
   })
 
   function refresh() {
@@ -133,6 +158,7 @@ export function SessionDrawer({
         <div className="drawer-body">
           {isLoading && <p className="muted">Loading…</p>}
           {error && <div className="banner banner-danger">{error}</div>}
+          {notice && <div className="banner banner-ok">{notice}</div>}
 
           {session?.status === 'cancelled' && (
             <div className="banner banner-danger">
@@ -216,6 +242,33 @@ export function SessionDrawer({
                 <div className="field-hint">
                   Held-back places stay yours to fill by hand. Students cannot book them online.
                 </div>
+              </div>
+
+              <div className="section">
+                <div className="section-title">Venue for this class</div>
+                <label className="field">
+                  <span>Address override</span>
+                  <input
+                    value={venueAddress}
+                    maxLength={300}
+                    placeholder={contactQuery.data?.contact.address || 'Default studio address'}
+                    onChange={(event) => setVenueAddress(event.target.value)}
+                  />
+                </label>
+                <div className="field-hint">Leave blank to use the default address in Studio Settings. A different address here appears in the booking form, emails and calendar invitation.</div>
+                {session.seatsTaken > 0 && (
+                  <label className="switch-label" style={{ marginTop: 10 }}>
+                    <input type="checkbox" checked={notifyVenue} onChange={(event) => setNotifyVenue(event.target.checked)} />
+                    <span className="small muted">Email booked participants if the venue changes</span>
+                  </label>
+                )}
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  style={{ marginTop: 10 }}
+                  disabled={venueMutation.isPending || venueAddress.trim() === (session.venueAddress || '')}
+                  onClick={() => venueMutation.mutate()}
+                >{venueMutation.isPending ? 'Saving…' : 'Save venue'}</button>
               </div>
 
               <div className="section">

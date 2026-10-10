@@ -169,6 +169,7 @@ export async function createAdHocSession(input: {
   capacity: number
   title?: string
   notes?: string
+  venueAddress?: string
   breaks?: { start: string; end: string; label: string }[]
 }) {
   const startAt = studioInstant(input.dateKey, input.startTime)
@@ -185,5 +186,6 @@ export async function createAdHocSession(input: {
     status: 'scheduled',
     title: input.title ?? '',
     notes: input.notes ?? '',
+    venueAddress: input.venueAddress ?? '',
   })
 }

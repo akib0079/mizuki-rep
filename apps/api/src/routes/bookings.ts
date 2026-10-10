@@ -2,6 +2,7 @@ import { Router } from 'express'
 import argon2 from 'argon2'
 import rateLimit from 'express-rate-limit'
 import {
+  ACTIVE_BOOKING_STATUSES,
   cancelBookingSchema,
   evaluateReschedule,
   rescheduleBookingSchema,
@@ -21,6 +22,7 @@ import {
   HOLD_TTL_MS,
   cancelBooking,
   createBooking,
+  attendeeKey,
   listStudentBookings,
   rescheduleBooking,
 } from '../services/bookingService.js'
@@ -42,6 +44,7 @@ import {
 import { z } from 'zod'
 import { findExistingStudent } from '../services/studentMatch.js'
 import { config } from '../config.js'
+import { releaseSeat } from '../services/seatService.js'
 
 /**
  * What a student can do with their own bookings.
@@ -52,6 +55,59 @@ import { config } from '../config.js'
  * through the sessions they paid for.
  */
 export const bookingRouter: Router = Router()
+
+function checkoutUrlForHold(
+  course: CourseTypeDoc,
+  sessionId: string,
+  token: string,
+  partySize: number,
+): string | null {
+  const productId = course.wooProductIds[0]
+  if (!productId || !course.wooProductUrl) return null
+  const checkoutUrl = new URL(course.wooProductUrl)
+  checkoutUrl.searchParams.set('add-to-cart', String(productId))
+  checkoutUrl.searchParams.set('quantity', String(partySize))
+  checkoutUrl.searchParams.set('mizuki_session', sessionId)
+  checkoutUrl.searchParams.set('mizuki_hold', token)
+  checkoutUrl.searchParams.set('mizuki_party_size', String(partySize))
+  return checkoutUrl.toString()
+}
+
+/** A return visit need not wait for the five minute sweep to release an expired checkout. */
+async function expireStudentHolds(sessionId: string, studentId: string): Promise<void> {
+  const now = new Date()
+  const expired = await BookingModel.find({ sessionId, studentId, status: 'hold', holdExpiresAt: { $lte: now } })
+  for (const booking of expired) {
+    const claimed = await BookingModel.findOneAndUpdate(
+      { _id: booking._id, status: 'hold' },
+      { $set: { status: 'cancelled', cancelledAt: now, cancelReason: 'Payment not completed', cancelledBy: 'system' } },
+    )
+    if (claimed) await releaseSeat(booking.sessionId, { count: booking.partySize ?? 1 })
+  }
+}
+
+/** Existing places are private to the signed-in student. A live hold can be resumed. */
+bookingRouter.get('/session/:id/status', requireStudent, asyncRoute(async (req, res) => {
+  const session = await SessionModel.findById(req.params.id)
+  if (!session) throw new NotFoundError('Class')
+  const course = await CourseTypeModel.findById(session.courseTypeId)
+  if (!course) throw new NotFoundError('Course')
+  await expireStudentHolds(String(session._id), String(req.student!._id))
+  const bookings = await BookingModel.find({
+    sessionId: session._id,
+    studentId: req.student!._id,
+    status: { $in: ACTIVE_BOOKING_STATUSES },
+  }).sort({ createdAt: -1 })
+  res.json({ bookings: bookings.map((booking) => ({
+    id: String(booking._id),
+    status: booking.status,
+    attendeeName: booking.attendeeName,
+    partySize: booking.partySize,
+    checkoutUrl: booking.status === 'hold' && booking.holdExpiresAt && booking.holdExpiresAt > new Date() && booking.holdToken
+      ? checkoutUrlForHold(course, String(session._id), booking.holdToken, booking.partySize)
+      : null,
+  })) })
+}))
 
 /**
  * Find an account by phone, comparing digits only.
@@ -208,6 +264,37 @@ bookingRouter.post(
     }
 
     const isSignedIn = Boolean(signedIn)
+    if (courseType.bookingMode === 'paid') await expireStudentHolds(String(session._id), String(student._id))
+
+    const existingPaid = courseType.bookingMode === 'paid' && isSignedIn
+      ? (await BookingModel.find({
+          sessionId: session._id,
+          studentId: student._id,
+          status: { $in: ACTIVE_BOOKING_STATUSES },
+        })).find((booking) => attendeeKey(booking.attendeeName) === attendeeKey(input.attendeeName))
+      : null
+    if (existingPaid?.status === 'hold' && existingPaid.holdExpiresAt && existingPaid.holdExpiresAt > new Date() && existingPaid.holdToken) {
+      const checkoutUrl = checkoutUrlForHold(courseType, String(session._id), existingPaid.holdToken, existingPaid.partySize)
+      if (checkoutUrl) {
+        res.json({
+          outcome: 'checkout_required',
+          message: 'Your workshop place is still held for payment.',
+          bookingId: String(existingPaid._id),
+          studentId: String(student._id),
+          sessionId: String(session._id),
+          checkoutUrl,
+          holdToken: existingPaid.holdToken,
+          holdExpiresAt: existingPaid.holdExpiresAt.toISOString(),
+          holdMinutes: config.HOLD_TTL_MINUTES,
+          wooProductIds: courseType.wooProductIds,
+          productUrl: courseType.wooProductUrl,
+          priceText: courseType.wooPriceText,
+          partySize: existingPaid.partySize,
+          shopUrl: `${config.PUBLIC_SITE_URL}/shop`,
+        })
+        return
+      }
+    }
 
     if (courseType.bookingMode === 'package') {
       const pkg = await findUsablePackage(student._id, courseType._id)
@@ -342,12 +429,7 @@ bookingRouter.post(
       notify: false,
     })
 
-    const checkoutUrl = new URL(courseType.wooProductUrl)
-    checkoutUrl.searchParams.set('add-to-cart', String(productId))
-    checkoutUrl.searchParams.set('quantity', String(partySize))
-    checkoutUrl.searchParams.set('mizuki_session', String(session._id))
-    checkoutUrl.searchParams.set('mizuki_hold', holdToken)
-    checkoutUrl.searchParams.set('mizuki_party_size', String(partySize))
+    const checkoutUrl = checkoutUrlForHold(courseType, String(session._id), holdToken, partySize)!
 
     res.json({
       outcome: 'checkout_required',
@@ -358,7 +440,7 @@ bookingRouter.post(
       holdToken,
       holdExpiresAt: holdExpiresAt.toISOString(),
       holdMinutes: config.HOLD_TTL_MINUTES,
-      checkoutUrl: checkoutUrl.toString(),
+      checkoutUrl,
       wooProductIds: courseType.wooProductIds,
       productUrl: courseType.wooProductUrl,
       priceText: courseType.wooPriceText,

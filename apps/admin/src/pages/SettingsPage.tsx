@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { DateTime } from 'luxon'
 import { STUDIO_TZ } from '@mizuki/shared'
@@ -31,6 +31,58 @@ interface SeatDrift {
   title: string
   storedSeatsTaken: number
   actualSeatsTaken: number
+}
+
+interface StudioContact {
+  name: string
+  address: string
+  phone: string
+  email: string
+}
+
+function StudioContactCard({ onMessage }: { onMessage: (m: { kind: 'ok' | 'danger'; text: string }) => void }) {
+  const queryClient = useQueryClient()
+  const [draft, setDraft] = useState<StudioContact | null>(null)
+  const contactQuery = useQuery({
+    queryKey: ['studio-contact'],
+    queryFn: () => api.get<{ contact: StudioContact }>('/api/admin/settings/studio-contact'),
+  })
+
+  useEffect(() => {
+    if (contactQuery.data?.contact) setDraft(contactQuery.data.contact)
+  }, [contactQuery.data])
+
+  const save = useMutation({
+    mutationFn: (contact: StudioContact) => api.put<{ contact: StudioContact }>('/api/admin/settings/studio-contact', contact),
+    onSuccess: (result) => {
+      setDraft(result.contact)
+      void queryClient.invalidateQueries({ queryKey: ['integrations'] })
+      onMessage({ kind: 'ok', text: 'Studio details saved.' })
+    },
+    onError: (err) => onMessage({ kind: 'danger', text: err instanceof ApiError ? err.message : 'Could not save studio details.' }),
+  })
+
+  return (
+    <div className="card">
+      <h2 className="card-title">Studio details</h2>
+      <p className="card-sub">Your default details appear on the booking page, in student emails and in calendar invitations. Changing the default address updates classes without their own venue. Set a different venue on an individual class when needed.</p>
+      {contactQuery.isError && <div className="banner banner-danger">Could not load studio details. Please refresh.</div>}
+      {draft && (
+        <form onSubmit={(event) => { event.preventDefault(); save.mutate(draft) }}>
+          <div className="field-row">
+            <label className="field"><span>Studio name</span><input required maxLength={120} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
+            <label className="field"><span>Contact email</span><input required type="email" maxLength={200} value={draft.email} onChange={(event) => setDraft({ ...draft, email: event.target.value })} /></label>
+          </div>
+          <div className="field-row">
+            <label className="field"><span>Default address</span><input required maxLength={300} value={draft.address} onChange={(event) => setDraft({ ...draft, address: event.target.value })} /></label>
+            <label className="field"><span>Phone and WhatsApp</span><input required type="tel" maxLength={50} value={draft.phone} onChange={(event) => setDraft({ ...draft, phone: event.target.value })} /></label>
+          </div>
+          <p className="field-hint">The contact email is shown to students and receives replies. Booking alert recipients are managed in Team. The sending address is in Connected services below.</p>
+          <button className="btn btn-primary" type="submit" disabled={save.isPending}>{save.isPending ? 'Saving…' : 'Save studio details'}</button>
+        </form>
+      )}
+    </div>
+  )
 }
 
 /** Course policy, phone alerts, and the maintenance levers. */
@@ -79,11 +131,13 @@ export function SettingsPage({ totpEnabled }: { totpEnabled: boolean }) {
       <div className="page-head">
         <div>
           <h1>Settings</h1>
-          <p>Course rules, phone alerts and maintenance.</p>
+          <p>Studio contact details, course rules, alerts and maintenance.</p>
         </div>
       </div>
 
       {message && <div className={`banner banner-${message.kind}`}>{message.text}</div>}
+
+      <StudioContactCard onMessage={setMessage} />
 
       <div className="card">
         <h2 className="card-title">Courses</h2>
@@ -902,15 +956,8 @@ function IntegrationsCard({ onMessage }: { onMessage: (m: { kind: 'ok' | 'danger
           }}
           onMessage={onMessage}
         />
-        <MailField
-          label="Replies go to"
-          name="mail-reply-to"
-          value={data?.replyTo ?? ''}
-          hint="Where a student's reply lands."
-          onSaved={() => void queryClient.invalidateQueries({ queryKey: ['integrations'] })}
-          onMessage={onMessage}
-        />
       </div>
+      <p className="field-hint">Replies go to {data?.replyTo || 'the studio contact email'}. Change this in Studio details above.</p>
 
       <div className="table-wrap">
         <table className="table" style={{ marginTop: 14 }}>

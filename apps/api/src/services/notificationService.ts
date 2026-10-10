@@ -1,6 +1,6 @@
 import { Types } from 'mongoose'
 import {
-  WORKSHOP_POLICY,
+  workshopPolicy,
   formatDuration,
   formatSessionDateTime,
   formatTimeRange,
@@ -20,6 +20,7 @@ import {
 import { config, bookingPageUrl, myBookingsUrl } from '../config.js'
 import { logger } from '../logger.js'
 import { isDuplicateKeyError } from './transaction.js'
+import { getStudioContact } from './studioContactService.js'
 
 /**
  * Everything the system sends goes through here, and everything here goes into the Outbox first.
@@ -95,15 +96,14 @@ function studentVars(student: StudentDoc) {
     studentEmail: student.email,
     studentPhone: student.phone || '—',
     siteUrl: config.PUBLIC_SITE_URL,
-    studioPhone: '+65 8821 9386',
     bookingUrl: bookingPageUrl(),
     myBookingsUrl: myBookingsUrl(),
   }
 }
 
-function workshopPolicyLine(courseType: CourseTypeDoc): string {
+function workshopPolicyLine(courseType: CourseTypeDoc, phone: string): string {
   if (courseType.bookingMode !== 'paid') return ''
-  return WORKSHOP_POLICY
+  return workshopPolicy(phone)
 }
 
 function partySizeLine(booking: BookingDoc, courseType: CourseTypeDoc): string {
@@ -145,11 +145,13 @@ async function queueStudentEmail(
   extraVars: Record<string, string | number> = {},
   dedupeSuffix = '',
 ): Promise<void> {
+  const contact = await getStudioContact()
   const vars = {
     ...studentVars(ctx.student),
     ...sessionVars(ctx.session, ctx.courseType),
     packageLine: packageLine(ctx.pkg ?? null, ctx.courseType.name),
-    workshopPolicyLine: workshopPolicyLine(ctx.courseType),
+    workshopPolicyLine: workshopPolicyLine(ctx.courseType, contact.phone),
+    ...(ctx.session.venueAddress ? { venueAddress: ctx.session.venueAddress } : {}),
     partySizeLine: partySizeLine(ctx.booking, ctx.courseType),
     ...extraVars,
   }
@@ -346,6 +348,10 @@ export async function queueSessionMoved(
   )
 }
 
+export async function queueSessionVenueChanged(ctx: BookingContext): Promise<void> {
+  await queueStudentEmail('session_venue_changed', ctx, {}, `:${ctx.session.updatedAt.getTime()}`)
+}
+
 export async function queueReminder(ctx: BookingContext): Promise<void> {
   await queueStudentEmail('reminder_2day', ctx)
 }
@@ -425,7 +431,7 @@ export async function queueAdminBookingChange(
   await queueAdminBroadcast(`admin_booking_${kind}`, {
     dedupeSuffix: String(ctx.booking._id),
     subject: `Booking ${kind}: ${ctx.student.name} — ${vars.sessionTitle}, ${vars.sessionDate}`,
-    html: wrapEmailHtml(`<p>${line.replace(/\n/g, '<br />')}</p>`, config.PUBLIC_SITE_URL),
+    html: await wrapEmailHtml(`<p>${line.replace(/\n/g, '<br />')}</p>`, config.PUBLIC_SITE_URL),
     text: line,
     telegramText: line,
     bookingId: ctx.booking._id,

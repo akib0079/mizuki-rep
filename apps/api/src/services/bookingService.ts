@@ -78,6 +78,11 @@ export interface BookingResult {
   pkg: PackageDoc | null
 }
 
+export function attendeeKey(name: string): string {
+  const normalized = name.trim().replace(/\s+/g, ' ').toLocaleLowerCase('en')
+  return normalized ? `other:${normalized}` : 'self'
+}
+
 async function loadContext(sessionId: Types.ObjectId | string, studentId: Types.ObjectId | string) {
   const [session, student] = await Promise.all([
     SessionModel.findById(sessionId),
@@ -120,11 +125,15 @@ export async function createBooking(input: CreateBookingInput): Promise<BookingR
     if (!verdict.allowed) throw ruleError(verdict.code, verdict.message)
   }
 
-  const existing = await BookingModel.findOne({
+  const activeBookings = await BookingModel.find({
     sessionId: session._id,
     studentId: student._id,
     status: { $in: ACTIVE_BOOKING_STATUSES },
   })
+  const identity = courseType.bookingMode === 'paid' ? attendeeKey(input.attendeeName ?? '') : 'self'
+  const existing = activeBookings.find((booking) =>
+    courseType.bookingMode !== 'paid' || attendeeKey(booking.attendeeName ?? '') === identity,
+  )
   if (existing) {
     throw new ConflictError('already_booked', 'You already have a place in this class.')
   }
@@ -161,6 +170,7 @@ export async function createBooking(input: CreateBookingInput): Promise<BookingR
       wooOrderId: input.wooOrderId ?? null,
       studentNotes: input.studentNotes ?? '',
       attendeeName: input.attendeeName ?? '',
+      attendeeKey: identity,
       partySize,
       capacityOverridden: overrideCapacity,
       confirmedAt: status === 'confirmed' ? now : null,
@@ -435,6 +445,7 @@ export async function rescheduleBooking(input: RescheduleInput): Promise<Booking
       wooOrderId: booking.wooOrderId,
       studentNotes: booking.studentNotes,
       attendeeName: booking.attendeeName,
+      attendeeKey: booking.attendeeKey,
       partySize,
       rescheduledFrom: booking._id,
       capacityOverridden: overrideCapacity,
